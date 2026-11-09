@@ -21,6 +21,9 @@
   informe `LIBRARY_STABILIZATION_REPORT.md` añadido.
 - 2026-11-09: rama publicada y PR #1 abierto:
   <https://github.com/JhonMA82/speakerbox-acoustics/pull/1>.
+- 2026-11-09: el CI estable (clippy 1.99) detectó dos `needless_range_loop`
+  en `src/tapped.rs`; corregido con `#[allow]` justificado y verificado con
+  `cargo +stable clippy`.
 - Pendiente: revisión/CI del PR y decisión de merge (mantenedor).
 
 ## Suposiciones registradas

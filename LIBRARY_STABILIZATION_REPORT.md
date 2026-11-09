@@ -253,6 +253,7 @@ cambio de comportamiento intencional, no un clamp silencioso.
 | `cargo fmt --all --check` | OK |
 | `cargo test --workspace` | 158 tests: 120 librería, 32 integración, 6 doc-tests; 0 fallos |
 | `cargo clippy --workspace --all-targets -- -D warnings` | OK |
+| `cargo +stable clippy --workspace --all-targets -- -D warnings` | OK (clippy 1.99, el del CI) |
 | Revisión adversarial de correctitud (contexto fresco) | 1 `should-fix` + 5 aristas; corregidas en `b90fad3`; sin blockers |
 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` | OK |
 | `cargo check --lib --target wasm32-unknown-unknown` | OK |
@@ -293,6 +294,10 @@ Métricas de producción observadas (sin cambios de tolerancias ni calibración)
 - La revisión adversarial encontró un `should-fix` (OWDR degradaba
   `numVC`/`VCCon` malformados) y aristas de compatibilidad; todas se
   corrigieron y se cubrieron con pruebas en `b90fad3`.
+- El CI estable (clippy 1.99) detectó dos `needless_range_loop` en
+  `src/tapped.rs` que el clippy nightly local no marcaba. Se justificó el
+  índice con `#[allow(clippy::needless_range_loop)]` (el bucle recorre dos
+  filas de `y` a la vez) y se verificó con `cargo +stable clippy`.
 
 ### No ejecutado
 
@@ -415,7 +420,8 @@ No se creó tag ni release.
 - **Rama:** `stabilization/library-audit`.
 - **Base:** `main` en `23a0459`.
 - **Commits:** `612c5dc` (estabilización), `b90fad3` (correcciones de la
-  revisión adversarial), `0a4fd8f` (informe).
+  revisión adversarial), `0a4fd8f` (informe), `f348d86` (registro del PR) y
+  un commit de corrección del CI (`needless_range_loop`).
 - **Commit del informe:** `0a4fd8f`.
 - **Tag:** ninguno.
 - **Push/PR:** rama publicada en `origin`; PR #1:
@@ -449,6 +455,8 @@ ASDD), `LIBRARY_STABILIZATION_REPORT.md`.
    validación del driver derivado, `eg` con signo, `is_valid` con métricas
    finitas, `parse_csv` exacto y nota de rendimiento.
 3. `0a4fd8f` — Informe de estabilización.
-4. Commit final — registra la publicación del PR #1.
+4. `f348d86` — Registra la publicación del PR #1.
+5. Commit de corrección del CI — `needless_range_loop` en `src/tapped.rs`
+   (clippy estable 1.99).
 
 El PR queda abierto para revisión y CI. No se hizo merge ni se creó tag.

@@ -309,6 +309,9 @@ impl TappedHorn {
                 if factor.norm() == 0.0 {
                     continue;
                 }
+                // El índice k recorre dos filas de `y` a la vez; un iterador
+                // no evita el préstamo mutable/immutable.
+                #[allow(clippy::needless_range_loop)]
                 for k in col..m {
                     let v = y[col][k] * factor;
                     y[row][k] -= v;
@@ -399,6 +402,9 @@ impl TappedHorn {
             let d = y[col][col];
             for row in col + 1..m {
                 let factor = y[row][col] / d;
+                // El índice k recorre dos filas de `y` a la vez; un iterador
+                // no evita el préstamo mutable/immutable.
+                #[allow(clippy::needless_range_loop)]
                 for k in col..m {
                     let v = y[col][k] * factor;
                     y[row][k] -= v;
