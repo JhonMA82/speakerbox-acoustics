@@ -255,6 +255,7 @@ cambio de comportamiento intencional, no un clamp silencioso.
 | `cargo clippy --workspace --all-targets -- -D warnings` | OK |
 | `cargo +stable clippy --workspace --all-targets -- -D warnings` | OK (clippy 1.99, el del CI) |
 | Revisión adversarial de correctitud (contexto fresco) | 1 `should-fix` + 5 aristas; corregidas en `b90fad3`; sin blockers |
+| GitHub Actions del PR #1 | `fmt, check, test, clippy, docs`, MSRV 1.75, wasm32 y GitGuardian: **pass** |
 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` | OK |
 | `cargo check --lib --target wasm32-unknown-unknown` | OK |
 | `cargo +1.75.0 check --workspace --all-targets` | OK |
@@ -301,12 +302,10 @@ Métricas de producción observadas (sin cambios de tolerancias ni calibración)
 
 ### No ejecutado
 
-- GitHub Actions remoto: no se hizo push ni PR; el CI del repositorio no se
-  ejecutó en esta sesión. Los mismos comandos del workflow se ejecutaron en
-  local.
 - Windows/macOS nativos: no disponibles en esta máquina.
 - Ejecución en runtime wasm: solo se verificó la compilación del target.
 - Pruebas de rendimiento en otra máquina: solo x86_64 local.
+- Merge del PR: no realizado; queda a revisión del mantenedor.
 
 ### No aplicable
 
@@ -425,7 +424,8 @@ No se creó tag ni release.
 - **Commit del informe:** `0a4fd8f`.
 - **Tag:** ninguno.
 - **Push/PR:** rama publicada en `origin`; PR #1:
-  <https://github.com/JhonMA82/speakerbox-acoustics/pull/1>. `main` intacto.
+  <https://github.com/JhonMA82/speakerbox-acoustics/pull/1>. CI remoto verde
+  (fmt/check/test/clippy/docs, MSRV, wasm, GitGuardian). `main` intacto.
 - **Working tree:** limpio tras los commits, salvo `.rsc/` (estado local del
   harness, añadido a `.gitignore`).
 

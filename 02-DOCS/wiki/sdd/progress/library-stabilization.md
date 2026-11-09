@@ -24,7 +24,9 @@
 - 2026-11-09: el CI estable (clippy 1.99) detectó dos `needless_range_loop`
   en `src/tapped.rs`; corregido con `#[allow]` justificado y verificado con
   `cargo +stable clippy`.
-- Pendiente: revisión/CI del PR y decisión de merge (mantenedor).
+- 2026-11-09: CI remoto del PR #1 verde: fmt/check/test/clippy/docs, MSRV,
+  wasm y GitGuardian.
+- Pendiente: revisión y decisión de merge (mantenedor).
 
 ## Suposiciones registradas
 
