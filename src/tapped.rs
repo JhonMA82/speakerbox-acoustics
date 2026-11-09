@@ -61,7 +61,7 @@ pub struct TappedHorn {
     pub tap_b: usize,
     /// Ángulo sólido de radiación.
     pub solid_angle: f64,
-    /// Tensión de entrada (V RMS).
+    /// Tensión de entrada (V); el signo invierte la polaridad.
     pub eg: f64,
     /// Resistencia de fuente (Ω).
     pub rg: f64,
@@ -172,7 +172,7 @@ impl TappedHorn {
             ));
         }
         require_positive(self.solid_angle, "solid_angle")?;
-        require_non_negative(self.eg, "eg")?;
+        require_finite(self.eg, "eg")?;
         require_non_negative(self.rg, "rg")?;
         require_positive(self.mouth_radiation_scale, "mouth_radiation_scale")?;
         require_positive(

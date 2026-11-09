@@ -168,7 +168,7 @@ pub struct Bandpass {
     pub front_ql: Option<f64>,
     /// Ángulo sólido de radiación (estereorradianes).
     pub solid_angle: f64,
-    /// Tensión de entrada (V RMS).
+    /// Tensión de entrada (V); el signo invierte la polaridad.
     pub eg: f64,
     /// Resistencia de fuente (Ω).
     pub rg: f64,
@@ -290,7 +290,7 @@ impl Bandpass {
             require_positive(ql, "front_ql")?;
         }
         require_positive(self.solid_angle, "solid_angle")?;
-        require_non_negative(self.eg, "eg")?;
+        require_finite(self.eg, "eg")?;
         require_non_negative(self.rg, "rg")?;
         require_finite(self.spl_offset_db, "spl_offset_db")?;
         require_polarity(self.polarity, "polarity")?;

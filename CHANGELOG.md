@@ -50,6 +50,13 @@ pública pueda cambiar.
 - Desplazamiento de columnas del parser TSV por `filter_map`.
 - `NaN`/infinito aceptados en algunas rutas de frecuencia.
 - Fallback del 5 % de `Mms` y conversión sin validar de `numVC`.
+- `numVC`/`VCCon` malformados en OpenISD ya no se degradan al valor por
+  defecto; devuelven `InvalidParameter`.
+- Un `Driver` derivado con `Mmd`/`Rms`/`Bl` no finitos se rechaza.
+- `eg` admite signo (inversión de polaridad); `rg` sigue no negativo.
+- `ValidationReport::is_valid` exige métricas finitas además de `n > 0` y cero
+  puntos inválidos.
+- `parse_csv` exige exactamente cuatro columnas para no desplazar datos.
 
 ## [0.1.0] — 2026-11-09
 

@@ -131,7 +131,7 @@ pub struct OffsetHorn {
     pub rear_radiation_scale: f64,
     /// Ángulo sólido de radiación (estereorradianes).
     pub solid_angle: f64,
-    /// Tensión de entrada (V RMS).
+    /// Tensión de entrada (V); el signo invierte la polaridad.
     pub eg: f64,
     /// Resistencia de fuente (Ω).
     pub rg: f64,
@@ -244,7 +244,7 @@ impl OffsetHorn {
         }
         require_non_negative(self.rear_radiation_scale, "rear_radiation_scale")?;
         require_positive(self.solid_angle, "solid_angle")?;
-        require_non_negative(self.eg, "eg")?;
+        require_finite(self.eg, "eg")?;
         require_non_negative(self.rg, "rg")?;
         require_positive(self.mouth_radiation_scale, "mouth_radiation_scale")?;
         require_positive(

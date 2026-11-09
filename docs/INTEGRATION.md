@@ -54,6 +54,8 @@ Driver ──► topología ──► respuesta
 - `xd_mm`: desplazamiento de **pico** (`√2`·RMS) en todas las topologías.
 - `solid_angle`: estereorradianes. `4π` espacio libre, `2π` media esfera,
   `π` cuarto de espacio, `π/2` octavo de espacio.
+- `eg` puede ser negativo: el signo invierte la polaridad. `rg` debe ser
+  finito y no negativo.
 - `phase_deg`: fase de la velocidad volumétrica radiada; la presión lejana
   añade +90°. `Design::response` desenrolla la fase y calcula el retardo de
   grupo.
@@ -386,11 +388,13 @@ suponga que los factores de calibración son universales.
 
 `parse_tsv`/`parse_csv` devuelven `Result<Vec<OraclePoint>, ValidationError>`:
 conservan la posición de cada columna y rechazan celdas obligatorias vacías o
-no finitas, frecuencias no positivas y valores de referencia no físicos. Un
-oráculo vacío no produce una lista vacía silenciosa. `validate` cuenta los
-puntos rechazados en `report.invalid_points`; `passes`/`passes_pointwise`
-exigen `report.is_valid()` (`n > 0` e `invalid_points == 0`). La fase de
-impedancia (`ze_phase_deg`) se parsea pero **no se compara**.
+no finitas, frecuencias no positivas y valores de referencia no físicos.
+`parse_tsv` admite columnas extra y usa índices fijos; `parse_csv` exige
+exactamente cuatro columnas. Un oráculo vacío no produce una lista vacía
+silenciosa. `validate` cuenta los puntos rechazados en
+`report.invalid_points`; `passes`/`passes_pointwise` exigen
+`report.is_valid()` (`n > 0`, `invalid_points == 0` y métricas finitas). La
+fase de impedancia (`ze_phase_deg`) se parsea pero **no se compara**.
 
 ## 7. Errores y robustez
 
@@ -413,9 +417,11 @@ match bp.try_response_at(50.0) {
 }
 ```
 
-Use `try_response_at` en bucles de UI donde el usuario puede dejar un campo
-inválido. `response_at` es más rápido y devuelve un punto neutro
-(`spl_db = -∞`) en esos casos. `try_response_at` distingue:
+`response_at` no propaga el error: delega en `try_response_at` y devuelve un
+punto neutro (`spl_db = -∞`) si falla. No es más rápido; úselo solo cuando el
+punto neutro sea aceptable.
+
+`try_response_at` distingue:
 
 - `InvalidFrequency`: frecuencia no finita o `<= 0`.
 - `InvalidParameter`: campo de entrada no finito o fuera de rango físico.

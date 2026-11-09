@@ -85,6 +85,8 @@ DesignPoint (SPL, Ze, Xd, fase, retardo, potencia, puerto)
 - `spl_db` es presión de potencia a 1 m, dB re 20 µPa.
 - `xd_mm` es desplazamiento de **pico** (`√2`·RMS) en todas las topologías.
 - `phase_deg` es fase de velocidad volumétrica; la presión lejana añade +90°.
+- `eg` puede ser negativo (invierte la polaridad); `rg` debe ser finito y no
+  negativo.
 - `solid_angle` en estereorradianes (`4π`, `2π`, `π`, `π/2`).
 - `response_at` devuelve un punto neutro si no es resoluble;
   `try_response_at` devuelve `SolveError` y valida entrada, configuración y
@@ -128,7 +130,9 @@ Sin oráculo propio, la topología queda como **experimental** y no entra en v1.
 - `validate` **no** compara `ze_phase_deg`; no declare una validación completa
   de la impedancia.
 - Un oráculo vacío o con puntos inválidos no aprueba: `passes`/`passes_pointwise`
-  exigen `n > 0` e `invalid_points == 0`.
+  exigen `n > 0`, `invalid_points == 0` y métricas finitas.
+- `parse_csv` exige exactamente 4 columnas; `parse_tsv` usa índices fijos y
+  admite columnas extra.
 - `passes_pointwise` aplica las tolerancias puntuales, no solo RMS.
 - Los tests de producción deben usar la misma calibración global para todos
   los diseños de la topología.

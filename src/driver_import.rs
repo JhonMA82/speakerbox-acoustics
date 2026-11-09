@@ -26,6 +26,7 @@ use serde_json::Value;
 
 use crate::air::Air;
 use crate::driver::Driver;
+use crate::error::SolveError;
 
 /// Formato de origen del driver.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -247,7 +248,15 @@ fn driver_from_ts(ts: TsInput, air: &Air) -> Result<(Driver, Vec<String>), Impor
     };
 
     let le = ts.le_h.unwrap_or(0.0);
-    Ok((Driver::new(sd, cms, mmd, re, bl, rms, le), warnings))
+    let driver = Driver::new(sd, cms, mmd, re, bl, rms, le);
+    if let Err(err) = driver.validate() {
+        let field = match err {
+            SolveError::InvalidParameter(field) => field,
+            _ => "driver",
+        };
+        return Err(ImportError::InvalidParameter(field));
+    }
+    Ok((driver, warnings))
 }
 
 fn complete_q(ts: &mut TsInput) {
@@ -306,6 +315,23 @@ fn integer_field(
                 return Err(ImportError::InvalidParameter(key));
             }
             Ok(Some(v.round() as u32))
+        }
+    }
+}
+
+/// Como [`integer_field`], pero distingue «campo ausente» de «campo presente
+/// con valor no interpretable» en el JSON de OpenISD.
+fn owdr_integer_field(
+    woofer: &serde_json::Map<String, Value>,
+    key: &str,
+    field: &'static str,
+    minimum: f64,
+) -> Result<Option<u32>, ImportError> {
+    match woofer.get(key) {
+        None => Ok(None),
+        Some(_) => {
+            let value = owdr_number(woofer, key).ok_or(ImportError::InvalidParameter(field))?;
+            integer_field(Some(value), field, minimum)
         }
     }
 }
@@ -512,7 +538,7 @@ pub fn import_owdr(text: &str) -> Result<ImportedDriver, ImportError> {
 
     let (mut driver, warnings) = driver_from_ts(ts, &air)?;
 
-    let voice_coils = integer_field(owdr_number(woofer, "numVC"), "numVC", 1.0)?.unwrap_or(1);
+    let voice_coils = owdr_integer_field(woofer, "numVC", "numVC", 1.0)?.unwrap_or(1);
     driver.nd = voice_coils;
 
     let brand = owdr_string(&root, "brand")
@@ -528,7 +554,7 @@ pub fn import_owdr(text: &str) -> Result<ImportedDriver, ImportError> {
         model,
         comment,
         voice_coils,
-        integer_field(owdr_number(woofer, "VCCon"), "VCCon", 0.0)?,
+        owdr_integer_field(woofer, "VCCon", "VCCon", 0.0)?,
         owdr_first(woofer, &[("Znom_ohm", 1.0), ("Znom", 1.0)]),
         owdr_first(woofer, &[("Xmax_m", 1.0), ("Xmax_mm", 1.0e-3)]).map(|v| v * 1000.0),
         owdr_number(woofer, "Pe_W"),
@@ -722,12 +748,37 @@ Xmax=0.005\r\nPe=100\r\nZnom=8\r\nnumVC=1\r\nVCCon=1\r\n";
         ));
 
         let text = OWDR.replace(
+            "\"numVC\": {\"value\": 1}",
+            "\"numVC\": {\"value\": \"dos\"}",
+        );
+        assert!(matches!(
+            import_owdr(&text),
+            Err(ImportError::InvalidParameter("numVC"))
+        ));
+
+        let text = OWDR.replace("\"VCCon\": {\"value\": 1}", "\"VCCon\": {\"value\": 1.5}");
+        assert!(matches!(
+            import_owdr(&text),
+            Err(ImportError::InvalidParameter("VCCon"))
+        ));
+
+        let text = OWDR.replace(
             "\"Mms_kg\": {\"value\": 0.03}",
             "\"Mms_kg\": {\"value\": 0.001}",
         );
         assert!(matches!(
             import_owdr(&text),
             Err(ImportError::Inconsistent { key: "Mms", .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_non_finite_derived_driver() {
+        let text = "[Driver]\r\nFs=1e-200\r\nQms=2\r\nQes=0.5\r\nVas=0.05\r\n\
+                    Re=6\r\nSd=0.02\r\n";
+        assert!(matches!(
+            import_wdr(text),
+            Err(ImportError::InvalidParameter("driver.mmd"))
         ));
     }
 }

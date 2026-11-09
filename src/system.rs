@@ -97,7 +97,10 @@ pub struct System {
     pub rear_ql: Option<f64>,
     /// Ángulo sólido de radiación en estereorradianes.
     pub solid_angle: f64,
-    /// Tensión de entrada (V RMS).
+    /// Tensión de entrada (V); el signo invierte la polaridad.
+    ///
+    /// `System` no tiene campo `polarity`: usar `eg` negativo es la forma de
+    /// invertir la fase del diafragma.
     pub eg: f64,
     /// Resistencia de la fuente (Ω).
     pub rg: f64,
@@ -323,7 +326,7 @@ impl System {
             require_non_negative(series, "horn_series")?;
         }
         require_positive(self.solid_angle, "solid_angle")?;
-        require_non_negative(self.eg, "eg")?;
+        require_finite(self.eg, "eg")?;
         require_non_negative(self.rg, "rg")?;
         require_finite(self.spl_offset_db, "spl_offset_db")?;
 
@@ -655,6 +658,23 @@ mod tests {
         let pts = sys.response(&[f64::NAN, f64::INFINITY, 0.0, -1.0, 100.0]);
         assert_eq!(pts.len(), 1);
         assert!((pts[0].freq - 100.0).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn negative_eg_is_valid_and_inverts_phase() {
+        let positive = default_system();
+        let mut negative = default_system();
+        negative.eg = -2.83;
+        let a = positive.response_at(100.0);
+        let b = negative
+            .try_response_at(100.0)
+            .expect("una tensión negativa es una inversión de polaridad válida");
+        assert!((a.spl_db - b.spl_db).abs() < 1.0e-9);
+        let mut diff = (b.phase_deg - a.phase_deg).abs();
+        if diff > 180.0 {
+            diff = 360.0 - diff;
+        }
+        assert!((diff - 180.0).abs() < 1.0e-6, "diferencia de fase={diff}");
     }
 
     #[test]

@@ -46,6 +46,15 @@ pub enum ValidationError {
         /// Columnas encontradas.
         found: usize,
     },
+    /// Una fila tiene un número de columnas distinto del esperado.
+    InvalidColumns {
+        /// Línea del texto (1-based).
+        line: usize,
+        /// Columnas exactas esperadas.
+        expected: usize,
+        /// Columnas encontradas.
+        found: usize,
+    },
     /// Una celda obligatoria no es un número finito.
     InvalidCell {
         /// Línea del texto (1-based).
@@ -84,6 +93,14 @@ impl std::fmt::Display for ValidationError {
             } => write!(
                 f,
                 "línea {line}: se esperaban al menos {expected} columnas, hay {found}"
+            ),
+            Self::InvalidColumns {
+                line,
+                expected,
+                found,
+            } => write!(
+                f,
+                "línea {line}: se esperaban exactamente {expected} columnas, hay {found}"
             ),
             Self::InvalidCell {
                 line,
@@ -226,8 +243,8 @@ impl OraclePoint {
                     continue;
                 }
             }
-            if cols.len() < 4 {
-                return Err(ValidationError::MissingColumns {
+            if cols.len() != 4 {
+                return Err(ValidationError::InvalidColumns {
                     line: line_number,
                     expected: 4,
                     found: cols.len(),
@@ -304,9 +321,17 @@ pub struct ValidationReport {
 }
 
 impl ValidationReport {
-    /// ¿El informe comparó al menos un punto y no rechazó ninguno?
+    /// ¿El informe comparó al menos un punto, no rechazó ninguno y todas las
+    /// métricas son finitas?
     pub fn is_valid(&self) -> bool {
-        self.n > 0 && self.invalid_points == 0
+        self.n > 0
+            && self.invalid_points == 0
+            && self.spl_rmse_db.is_finite()
+            && self.spl_max_abs_db.is_finite()
+            && self.ze_rel_rmse.is_finite()
+            && self.ze_max_rel.is_finite()
+            && self.xd_rel_rmse.is_finite()
+            && self.xd_max_rel.is_finite()
     }
 
     /// ¿Cumple las tolerancias de producción indicadas (RMS)?
@@ -558,7 +583,19 @@ mod tests {
 
         assert!(matches!(
             OraclePoint::parse_csv("20,80,8\n"),
-            Err(ValidationError::MissingColumns { .. })
+            Err(ValidationError::InvalidColumns { .. })
+        ));
+        assert!(matches!(
+            OraclePoint::parse_csv("20,5,80,0,8,0,1,0\n"),
+            Err(ValidationError::InvalidColumns {
+                expected: 4,
+                found: 8,
+                ..
+            })
+        ));
+        assert!(matches!(
+            OraclePoint::parse_csv("20,80,8,1,extra\n"),
+            Err(ValidationError::InvalidColumns { .. })
         ));
         assert!(matches!(
             OraclePoint::parse_csv("0,80,8,1\n"),
@@ -597,6 +634,19 @@ mod tests {
         assert_eq!(report.n, 0);
         assert_eq!(report.invalid_points, 1);
         assert!(!report.is_valid());
+        assert!(!report.passes(2.0, 3.5, 0.15, 0.40));
+    }
+
+    #[test]
+    fn zero_drive_is_not_a_valid_report() {
+        let mut sys = system();
+        sys.eg = 0.0;
+        let oracle = OraclePoint::parse_tsv(ROW).unwrap();
+        let report = validate(&sys, &oracle);
+        assert!(report.n > 0);
+        assert_eq!(report.invalid_points, 0);
+        assert!(!report.is_valid());
+        assert!(report.spl_rmse_db.is_infinite());
         assert!(!report.passes(2.0, 3.5, 0.15, 0.40));
     }
 
