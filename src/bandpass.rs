@@ -37,7 +37,10 @@ use num_complex::Complex64;
 use crate::air::Air;
 use crate::driver::Driver;
 use crate::element::{parallel, EndCorrection, Port};
-use crate::error::SolveError;
+use crate::error::{
+    check_frequency, require_finite, require_non_negative, require_polarity, require_positive,
+    SolveError,
+};
 use crate::omega;
 use crate::radiation::piston_radiation_impedance;
 use crate::segment::{Flare, Segment, TransferMatrix};
@@ -96,6 +99,45 @@ pub struct BandpassPoint {
     pub rear_port_velocity: Option<f64>,
 }
 
+impl BandpassPoint {
+    /// Comprueba que el punto sea físicamente interpretable.
+    pub fn validate(&self) -> Result<(), SolveError> {
+        if !self.freq.is_finite() || self.freq <= 0.0 {
+            return Err(SolveError::InvalidResponse("freq"));
+        }
+        if !(self.spl_db.is_finite() || self.spl_db == f64::NEG_INFINITY) {
+            return Err(SolveError::InvalidResponse("spl_db"));
+        }
+        if !self.phase_deg.is_finite() {
+            return Err(SolveError::InvalidResponse("phase_deg"));
+        }
+        if !(self.ze_mag.is_finite() && self.ze_mag > 0.0) {
+            return Err(SolveError::InvalidResponse("ze_mag"));
+        }
+        if !self.ze_phase_deg.is_finite() {
+            return Err(SolveError::InvalidResponse("ze_phase_deg"));
+        }
+        if !(self.displacement_mm.is_finite() && self.displacement_mm >= 0.0) {
+            return Err(SolveError::InvalidResponse("displacement_mm"));
+        }
+        if !(self.power_w.is_finite() && self.power_w >= 0.0) {
+            return Err(SolveError::InvalidResponse("power_w"));
+        }
+        if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0) {
+            return Err(SolveError::InvalidResponse("efficiency_pct"));
+        }
+        if !(self.front_port_velocity.is_finite() && self.front_port_velocity >= 0.0) {
+            return Err(SolveError::InvalidResponse("front_port_velocity"));
+        }
+        if let Some(velocity) = self.rear_port_velocity {
+            if !(velocity.is_finite() && velocity >= 0.0) {
+                return Err(SolveError::InvalidResponse("rear_port_velocity"));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Recinto bandpass de 4º o 6º orden.
 #[derive(Clone, Debug)]
 pub struct Bandpass {
@@ -111,7 +153,9 @@ pub struct Bandpass {
     pub front_volume_m3: f64,
     /// Puerto delantero.
     pub front_port: Port,
-    /// Puerto trasero; obligatorio para [`BandpassOrder::Sixth`].
+    /// Puerto trasero; obligatorio para [`BandpassOrder::Sixth`] y debe ser
+    /// `None` en [`BandpassOrder::Fourth`]. `validate` rechaza la combinación
+    /// contraria.
     pub rear_port: Option<Port>,
     /// Destino del puerto trasero: exterior (paralelo) o cámara delantera
     /// (serie). Solo se usa en BP6.
@@ -216,6 +260,43 @@ impl Bandpass {
         tuning_hz(&self.air, self.front_port, self.front_volume_m3)
     }
 
+    /// Comprueba la configuración del bandpass antes de calcular.
+    ///
+    /// Valida aire, driver, volúmenes, puerto delantero, puerto trasero
+    /// obligatorio en BP6, `QL` y factores de calibración.
+    pub fn validate(&self) -> Result<(), SolveError> {
+        self.air.validate()?;
+        self.driver.validate()?;
+        require_positive(self.rear_volume_m3, "rear_volume_m3")?;
+        require_positive(self.front_volume_m3, "front_volume_m3")?;
+        self.front_port.validate()?;
+        match self.order {
+            BandpassOrder::Fourth => {
+                if self.rear_port.is_some() {
+                    return Err(SolveError::InvalidTopology("BP4 no usa puerto trasero"));
+                }
+            }
+            BandpassOrder::Sixth => {
+                let rear = self.rear_port.ok_or(SolveError::InvalidTopology(
+                    "BP6 requiere un puerto trasero",
+                ))?;
+                rear.validate()?;
+            }
+        }
+        if let Some(ql) = self.rear_ql {
+            require_positive(ql, "rear_ql")?;
+        }
+        if let Some(ql) = self.front_ql {
+            require_positive(ql, "front_ql")?;
+        }
+        require_positive(self.solid_angle, "solid_angle")?;
+        require_non_negative(self.eg, "eg")?;
+        require_non_negative(self.rg, "rg")?;
+        require_finite(self.spl_offset_db, "spl_offset_db")?;
+        require_polarity(self.polarity, "polarity")?;
+        Ok(())
+    }
+
     /// Frecuencia de sintonía del puerto trasero (Hz), si existe.
     pub fn rear_tuning_hz(&self) -> Option<f64> {
         self.rear_port
@@ -224,7 +305,9 @@ impl Bandpass {
 
     /// Aplica el `QL` de un registro del software de referencia.
     ///
-    /// El software de referencia guarda un solo `QL`, referido a la sintonía más baja. Para la
+    /// Si `ql` no es finito o es `<= 0`, desactiva el `QL` de ambas cámaras
+    /// (`None`); no se inventa un valor sustituto. El software de referencia
+    /// guarda un solo `QL`, referido a la sintonía más baja. Para la
     /// otra cámara, el `QL` se escala con su frecuencia de sintonía para
     /// mantener la misma resistencia de pérdidas. En el BP6 serie se aplica
     /// solo a la cámara delantera, que es la que radia.
@@ -270,7 +353,7 @@ impl Bandpass {
         self.order == BandpassOrder::Sixth
             && self
                 .rear_port
-                .map(|p| p.area > 0.0 && p.length > 0.0)
+                .map(|p| p.validate().is_ok())
                 .unwrap_or(false)
     }
 
@@ -359,36 +442,18 @@ impl Bandpass {
     /// Respuesta a una frecuencia. Devuelve un punto neutro si la topología no
     /// es válida; use [`Bandpass::try_response_at`] para distinguir el error.
     pub fn response_at(&self, f: f64) -> BandpassPoint {
-        if !f.is_finite() || f <= 0.0 {
-            return self.zero_point(f);
-        }
-        let Some(point) = self.solve_point(f) else {
-            return self.zero_point(f);
-        };
-        point
+        self.try_response_at(f)
+            .unwrap_or_else(|_| self.zero_point(f))
     }
 
-    /// Respuesta a una frecuencia, con error explícito si la topología no es
-    /// válida.
+    /// Respuesta a una frecuencia, con error explícito si la entrada, la
+    /// configuración o el resultado no son válidos.
     pub fn try_response_at(&self, f: f64) -> Result<BandpassPoint, SolveError> {
-        if !f.is_finite() || f <= 0.0 {
-            return Err(SolveError::InvalidFrequency(f));
-        }
-        if self.rear_volume_m3 <= 0.0
-            || self.front_volume_m3 <= 0.0
-            || self.front_port.area <= 0.0
-            || self.front_port.length <= 0.0
-        {
-            return Err(SolveError::InvalidTopology(
-                "volúmenes o puerto delantero no válidos",
-            ));
-        }
-        if self.order == BandpassOrder::Sixth && !self.rear_is_ported() {
-            return Err(SolveError::InvalidTopology(
-                "BP6 requiere un puerto trasero",
-            ));
-        }
-        self.solve_point(f).ok_or(SolveError::SingularSystem)
+        check_frequency(f)?;
+        self.validate()?;
+        let point = self.solve_point(f).ok_or(SolveError::SingularSystem)?;
+        point.validate()?;
+        Ok(point)
     }
 
     fn zero_point(&self, f: f64) -> BandpassPoint {
@@ -407,17 +472,6 @@ impl Bandpass {
     }
 
     fn solve_point(&self, f: f64) -> Option<BandpassPoint> {
-        if self.rear_volume_m3 <= 0.0
-            || self.front_volume_m3 <= 0.0
-            || self.front_port.area <= 0.0
-            || self.front_port.length <= 0.0
-        {
-            return None;
-        }
-        if self.order == BandpassOrder::Sixth && !self.rear_is_ported() {
-            return None;
-        }
-
         let w = omega(f);
         let fb_front = self.front_tuning_hz();
         let fb_rear = self.rear_tuning_hz().unwrap_or(fb_front);
@@ -525,12 +579,13 @@ impl Bandpass {
         })
     }
 
-    /// Barrido de respuesta.
+    /// Barrido de respuesta. Se eliminan las frecuencias no finitas o no
+    /// positivas.
     pub fn response(&self, freqs: &[f64]) -> Vec<BandpassPoint> {
         freqs
             .iter()
             .copied()
-            .filter(|f| *f > 0.0)
+            .filter(|f| f.is_finite() && *f > 0.0)
             .map(|f| self.response_at(f))
             .collect()
     }
@@ -832,7 +887,64 @@ mod tests {
         bp.front_volume_m3 = 0.0;
         assert!(matches!(
             bp.try_response_at(100.0),
+            Err(SolveError::InvalidParameter("front_volume_m3"))
+        ));
+    }
+
+    #[test]
+    fn try_response_at_rejects_invalid_frequency() {
+        let bp = bp4();
+        for f in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(matches!(
+                bp.try_response_at(f),
+                Err(SolveError::InvalidFrequency(_))
+            ));
+        }
+        assert!(bp.try_response_at(100.0).is_ok());
+    }
+
+    #[test]
+    fn bp4_rejects_a_rear_port() {
+        let mut bp = bp4();
+        bp.rear_port = Some(port(40.0, 8.0));
+        assert!(matches!(
+            bp.try_response_at(100.0),
             Err(SolveError::InvalidTopology(_))
         ));
+    }
+
+    #[test]
+    fn invalid_ql_is_rejected() {
+        let mut bp = bp4();
+        bp.front_ql = Some(0.0);
+        assert!(matches!(
+            bp.try_response_at(100.0),
+            Err(SolveError::InvalidParameter("front_ql"))
+        ));
+    }
+
+    #[test]
+    fn point_validation_rejects_invalid_fields() {
+        let valid = bp4().response_at(100.0);
+        assert!(valid.validate().is_ok());
+
+        let mut p = valid;
+        p.ze_mag = f64::NAN;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.front_port_velocity = -1.0;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.rear_port_velocity = Some(f64::INFINITY);
+        assert!(p.validate().is_err());
+    }
+
+    #[test]
+    fn response_filters_non_finite_frequencies() {
+        let pts = bp4().response(&[f64::NAN, f64::INFINITY, 0.0, -1.0, 100.0]);
+        assert_eq!(pts.len(), 1);
+        assert!((pts[0].freq - 100.0).abs() < 1.0e-12);
     }
 }

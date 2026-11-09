@@ -37,7 +37,10 @@ use num_complex::Complex64;
 use crate::air::Air;
 use crate::driver::Driver;
 use crate::element::{parallel, Chamber, PassiveRadiator, Port};
-use crate::error::SolveError;
+use crate::error::{
+    check_frequency, require_finite, require_non_negative, require_polarity, require_positive,
+    SolveError,
+};
 use crate::omega;
 use crate::radiation::piston_radiation_impedance;
 use crate::segment::{Segment, TransferMatrix};
@@ -64,6 +67,42 @@ pub struct OffsetPoint {
     pub port_velocity: Option<f64>,
 }
 
+impl OffsetPoint {
+    /// Comprueba que el punto sea físicamente interpretable.
+    pub fn validate(&self) -> Result<(), SolveError> {
+        if !self.freq.is_finite() || self.freq <= 0.0 {
+            return Err(SolveError::InvalidResponse("freq"));
+        }
+        if !(self.spl_db.is_finite() || self.spl_db == f64::NEG_INFINITY) {
+            return Err(SolveError::InvalidResponse("spl_db"));
+        }
+        if !self.phase_deg.is_finite() {
+            return Err(SolveError::InvalidResponse("phase_deg"));
+        }
+        if !(self.ze_mag.is_finite() && self.ze_mag > 0.0) {
+            return Err(SolveError::InvalidResponse("ze_mag"));
+        }
+        if !self.ze_phase_deg.is_finite() {
+            return Err(SolveError::InvalidResponse("ze_phase_deg"));
+        }
+        if !(self.displacement_mm.is_finite() && self.displacement_mm >= 0.0) {
+            return Err(SolveError::InvalidResponse("displacement_mm"));
+        }
+        if !(self.power_w.is_finite() && self.power_w >= 0.0) {
+            return Err(SolveError::InvalidResponse("power_w"));
+        }
+        if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0) {
+            return Err(SolveError::InvalidResponse("efficiency_pct"));
+        }
+        if let Some(velocity) = self.port_velocity {
+            if !(velocity.is_finite() && velocity >= 0.0) {
+                return Err(SolveError::InvalidResponse("port_velocity"));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Bocina de driver desplazado.
 #[derive(Clone, Debug)]
 pub struct OffsetHorn {
@@ -76,10 +115,16 @@ pub struct OffsetHorn {
     /// Nodo de la toma: 1 = S2, 2 = S3, 3 = S4, 0 = garganta.
     pub tap: usize,
     /// Volumen de la cámara trasera (m³). `None` = radiación directa trasera.
+    ///
+    /// Si es `Some`, debe ser finito y positivo.
     pub rear_chamber_m3: Option<f64>,
     /// Puerto de la cámara trasera (opcional).
+    ///
+    /// Requiere `rear_chamber_m3: Some`.
     pub rear_port: Option<Port>,
     /// Radiador pasivo de la cámara trasera (opcional).
+    ///
+    /// Requiere `rear_chamber_m3: Some`.
     pub rear_passive_radiator: Option<PassiveRadiator>,
     /// Factor de calibración de la **potencia** radiada por la parte trasera
     /// directa. No afecta a la carga del diafragma, solo al SPL.
@@ -162,10 +207,59 @@ impl OffsetHorn {
         }
     }
 
+    /// Comprueba la configuración de la bocina de driver desplazado.
+    ///
+    /// Exige tramos válidos, toma dentro de rango, cámara trasera positiva si
+    /// existe, y puerto/radiador pasivo solo con cámara trasera.
+    pub fn validate(&self) -> Result<(), SolveError> {
+        self.air.validate()?;
+        self.driver.validate()?;
+        if self.segments.is_empty() {
+            return Err(SolveError::InvalidTopology("bocina sin segmentos"));
+        }
+        for segment in &self.segments {
+            segment.validate()?;
+        }
+        if self.tap > self.segments.len() {
+            return Err(SolveError::InvalidTopology("toma fuera de los tramos"));
+        }
+        if let Some(volume) = self.rear_chamber_m3 {
+            require_positive(volume, "rear_chamber_m3")?;
+        }
+        if let Some(port) = &self.rear_port {
+            port.validate()?;
+            if self.rear_chamber_m3.is_none() {
+                return Err(SolveError::InvalidTopology(
+                    "rear_port requiere rear_chamber_m3",
+                ));
+            }
+        }
+        if let Some(radiator) = &self.rear_passive_radiator {
+            radiator.validate()?;
+            if self.rear_chamber_m3.is_none() {
+                return Err(SolveError::InvalidTopology(
+                    "rear_passive_radiator requiere rear_chamber_m3",
+                ));
+            }
+        }
+        require_non_negative(self.rear_radiation_scale, "rear_radiation_scale")?;
+        require_positive(self.solid_angle, "solid_angle")?;
+        require_non_negative(self.eg, "eg")?;
+        require_non_negative(self.rg, "rg")?;
+        require_positive(self.mouth_radiation_scale, "mouth_radiation_scale")?;
+        require_positive(
+            self.mouth_radiation_area_factor,
+            "mouth_radiation_area_factor",
+        )?;
+        require_finite(self.spl_offset_db, "spl_offset_db")?;
+        require_polarity(self.polarity, "polarity")?;
+        Ok(())
+    }
+
     /// Impedancia de radiación de la boca.
     fn mouth_impedance(&self, f: f64) -> Complex64 {
-        let area = self.segments.last().map(|s| s.s2()).unwrap_or(1.0e-4)
-            * self.mouth_radiation_area_factor;
+        let area =
+            self.segments.last().map(|s| s.s2()).unwrap_or(0.0) * self.mouth_radiation_area_factor;
         piston_radiation_impedance(&self.air, area, f, self.solid_angle)
             * self.mouth_radiation_scale
     }
@@ -218,8 +312,8 @@ impl OffsetHorn {
     /// Impedancia de carga del lado trasero del diafragma.
     pub fn rear_impedance(&self, f: f64) -> Complex64 {
         let mut z = match self.rear_chamber_m3 {
-            Some(v) if v > 0.0 => Chamber::new(v).impedance(&self.air, f),
-            _ => piston_radiation_impedance(&self.air, self.driver.sd, f, self.solid_angle),
+            Some(volume) => Chamber::new(volume).impedance(&self.air, f),
+            None => piston_radiation_impedance(&self.air, self.driver.sd, f, self.solid_angle),
         };
         if let Some(port) = &self.rear_port {
             z = parallel(z, port.impedance(&self.air, f));
@@ -239,9 +333,27 @@ impl OffsetHorn {
         zm
     }
 
-    /// Respuesta a una frecuencia.
+    /// Respuesta a una frecuencia. Devuelve un punto neutro si la entrada o el
+    /// sistema no son resolubles; use [`OffsetHorn::try_response_at`] para
+    /// distinguir el error.
     pub fn response_at(&self, f: f64) -> OffsetPoint {
-        let zero = OffsetPoint {
+        self.try_response_at(f)
+            .unwrap_or_else(|_| Self::zero_point(f))
+    }
+
+    /// Respuesta a una frecuencia, con error explícito si la entrada, la
+    /// configuración o el resultado no son válidos.
+    pub fn try_response_at(&self, f: f64) -> Result<OffsetPoint, SolveError> {
+        check_frequency(f)?;
+        self.validate()?;
+        let point = self.solve_point(f)?;
+        point.validate()?;
+        Ok(point)
+    }
+
+    /// Punto neutro para una entrada o un sistema no resoluble.
+    fn zero_point(f: f64) -> OffsetPoint {
+        OffsetPoint {
             freq: f,
             spl_db: f64::NEG_INFINITY,
             phase_deg: 0.0,
@@ -251,12 +363,11 @@ impl OffsetHorn {
             power_w: 0.0,
             efficiency_pct: 0.0,
             port_velocity: None,
-        };
-        if !f.is_finite() || f <= 0.0 || self.segments.is_empty() || self.tap > self.segments.len()
-        {
-            return zero;
         }
+    }
 
+    /// Resuelve la red a la frecuencia `f` sin validar la entrada.
+    fn solve_point(&self, f: f64) -> Result<OffsetPoint, SolveError> {
         let z_horn = self.horn_impedance(f);
         let z_rear = self.rear_impedance(f);
         let zm = self.driver_zm(f);
@@ -265,7 +376,7 @@ impl OffsetHorn {
             / (self.driver.sd * self.driver.sd);
         let z_total = zd + z_rear + z_horn;
         if z_total.norm() < 1.0e-30 {
-            return zero;
+            return Err(SolveError::SingularSystem);
         }
         let ps = Complex64::new(self.driver.bl * self.eg / self.driver.sd, 0.0) / ze_coil
             * self.polarity;
@@ -362,7 +473,7 @@ impl OffsetHorn {
             (u_d.norm() / (omega(f) * self.driver.sd)) * 1000.0 * std::f64::consts::SQRT_2;
 
         let port_velocity = match (&self.rear_port, self.rear_chamber_m3) {
-            (Some(port), Some(v)) if v > 0.0 => {
+            (Some(port), Some(_)) => {
                 let p_rear = z_rear * u_d;
                 let u_port = p_rear / port.impedance(&self.air, f);
                 Some((u_port / port.area).norm())
@@ -370,7 +481,7 @@ impl OffsetHorn {
             _ => None,
         };
 
-        OffsetPoint {
+        Ok(OffsetPoint {
             freq: f,
             spl_db: spl,
             phase_deg: u_mouth.arg().to_degrees(),
@@ -380,32 +491,16 @@ impl OffsetHorn {
             power_w: p_ac,
             efficiency_pct: if p_in > 0.0 { 100.0 * p_ac / p_in } else { 0.0 },
             port_velocity,
-        }
+        })
     }
 
-    /// Respuesta a una frecuencia, con error explícito si la entrada o el
-    /// sistema no son resolubles.
-    pub fn try_response_at(&self, f: f64) -> Result<OffsetPoint, SolveError> {
-        if !f.is_finite() || f <= 0.0 {
-            return Err(SolveError::InvalidFrequency(f));
-        }
-        if self.segments.is_empty() || self.tap > self.segments.len() {
-            return Err(SolveError::InvalidTopology("toma fuera de los tramos"));
-        }
-        let p = self.response_at(f);
-        if p.ze_mag.is_finite() && p.ze_mag > 0.0 {
-            Ok(p)
-        } else {
-            Err(SolveError::SingularSystem)
-        }
-    }
-
-    /// Barrido de respuesta.
+    /// Barrido de respuesta. Se eliminan las frecuencias no finitas o no
+    /// positivas.
     pub fn response(&self, freqs: &[f64]) -> Vec<OffsetPoint> {
         freqs
             .iter()
             .copied()
-            .filter(|f| *f > 0.0)
+            .filter(|f| f.is_finite() && *f > 0.0)
             .map(|f| self.response_at(f))
             .collect()
     }
@@ -419,6 +514,7 @@ impl OffsetHorn {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::element::EndCorrection;
     use crate::segment::Flare;
 
     fn driver() -> Driver {
@@ -548,5 +644,67 @@ mod tests {
         let a = OffsetHorn::new_4seg_od(driver(), od().segments.clone());
         let b = OffsetHorn::new_4seg_od1(driver(), od().segments.clone());
         assert!((a.response_at(100.0).spl_db - b.response_at(100.0).spl_db).abs() > 0.1);
+    }
+
+    #[test]
+    fn try_response_at_rejects_invalid_frequency() {
+        let horn = od();
+        for f in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(matches!(
+                horn.try_response_at(f),
+                Err(SolveError::InvalidFrequency(_))
+            ));
+        }
+        assert!(horn.try_response_at(100.0).is_ok());
+    }
+
+    #[test]
+    fn try_response_at_rejects_invalid_tap_and_chamber() {
+        let mut horn = od();
+        horn.tap = 99;
+        assert!(matches!(
+            horn.try_response_at(100.0),
+            Err(SolveError::InvalidTopology(_))
+        ));
+
+        let mut horn = od();
+        horn.rear_chamber_m3 = Some(0.0);
+        assert!(matches!(
+            horn.try_response_at(100.0),
+            Err(SolveError::InvalidParameter("rear_chamber_m3"))
+        ));
+
+        let mut horn = od();
+        horn.rear_chamber_m3 = None;
+        horn.rear_port = Some(Port::new(50.0e-4, 0.10, EndCorrection::UnflangedBoth));
+        assert!(matches!(
+            horn.try_response_at(100.0),
+            Err(SolveError::InvalidTopology(_))
+        ));
+    }
+
+    #[test]
+    fn point_validation_rejects_invalid_fields() {
+        let valid = od().response_at(100.0);
+        assert!(valid.validate().is_ok());
+
+        let mut p = valid;
+        p.ze_mag = f64::NAN;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.power_w = -1.0;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.port_velocity = Some(f64::INFINITY);
+        assert!(p.validate().is_err());
+    }
+
+    #[test]
+    fn response_filters_non_finite_frequencies() {
+        let pts = od().response(&[f64::NAN, f64::INFINITY, 0.0, -1.0, 100.0]);
+        assert_eq!(pts.len(), 1);
+        assert!((pts[0].freq - 100.0).abs() < 1.0e-12);
     }
 }

@@ -25,7 +25,9 @@ use num_complex::Complex64;
 use crate::air::Air;
 use crate::driver::Driver;
 use crate::element::{parallel, Chamber, PassiveRadiator, Port};
-use crate::error::SolveError;
+use crate::error::{
+    check_frequency, require_finite, require_non_negative, require_positive, SolveError,
+};
 use crate::omega;
 use crate::radiation::piston_radiation_impedance;
 use crate::segment::Horn;
@@ -69,16 +71,29 @@ pub struct System {
     /// Altavoz.
     pub driver: Driver,
     /// Bocina (si es `None`, el sistema es un radiador directo).
+    ///
+    /// Si es `Some`, debe tener segmentos válidos ([`Horn::validate`]).
     pub horn: Option<Horn>,
     /// Cámara entre el diafragma y la garganta de la bocina.
+    ///
+    /// Requiere `horn: Some`; `validate` rechaza una cámara de garganta sin
+    /// bocina.
     pub throat_chamber: Option<Chamber>,
     /// Recinto trasero.
+    ///
+    /// Es obligatorio para `port`, `passive_radiator` y `rear_ql`.
     pub rear_chamber: Option<Chamber>,
     /// Puerto del recinto trasero.
+    ///
+    /// Requiere `rear_chamber: Some`; `validate` rechaza un puerto sin recinto.
     pub port: Option<Port>,
     /// Radiador pasivo del recinto trasero.
+    ///
+    /// Requiere `rear_chamber: Some`.
     pub passive_radiator: Option<PassiveRadiator>,
     /// Factor QL del recinto trasero ventilado. `None` = sin pérdidas.
+    ///
+    /// Requiere `rear_chamber: Some` y, si existe, debe ser finito y positivo.
     pub rear_ql: Option<f64>,
     /// Ángulo sólido de radiación en estereorradianes.
     pub solid_angle: f64,
@@ -89,9 +104,69 @@ pub struct System {
     /// Corrección global del nivel de SPL (dB).
     pub spl_offset_db: f64,
     /// Fuga acústica en la garganta de la bocina (Pa·s/m³). `None` = sin fuga.
+    ///
+    /// Requiere `horn: Some`; si existe, debe ser finita y no negativa.
     pub horn_leak: Option<f64>,
     /// Resistencia serie en la garganta de la bocina (Pa·s/m³).
+    ///
+    /// Requiere `horn: Some`; si existe, debe ser finita y no negativa.
     pub horn_series: Option<f64>,
+}
+
+impl ResponsePoint {
+    /// Comprueba que el punto sea físicamente interpretable.
+    ///
+    /// - `freq` finita y positiva.
+    /// - `spl_db` finito o `-∞` (silencio); nunca `NaN` ni `+∞`.
+    /// - `phase_deg`, `group_delay_ms`, `ze_phase_deg`, `za_real` y `za_imag`
+    ///   finitos.
+    /// - `ze_mag` finito y positivo.
+    /// - `displacement_mm`, potencia, rendimiento y velocidades finitos y no
+    ///   negativos.
+    pub fn validate(&self) -> Result<(), SolveError> {
+        if !self.freq.is_finite() || self.freq <= 0.0 {
+            return Err(SolveError::InvalidResponse("freq"));
+        }
+        if !(self.spl_db.is_finite() || self.spl_db == f64::NEG_INFINITY) {
+            return Err(SolveError::InvalidResponse("spl_db"));
+        }
+        if !self.phase_deg.is_finite() {
+            return Err(SolveError::InvalidResponse("phase_deg"));
+        }
+        if !self.group_delay_ms.is_finite() {
+            return Err(SolveError::InvalidResponse("group_delay_ms"));
+        }
+        if !(self.ze_mag.is_finite() && self.ze_mag > 0.0) {
+            return Err(SolveError::InvalidResponse("ze_mag"));
+        }
+        if !self.ze_phase_deg.is_finite() {
+            return Err(SolveError::InvalidResponse("ze_phase_deg"));
+        }
+        if !(self.displacement_mm.is_finite() && self.displacement_mm >= 0.0) {
+            return Err(SolveError::InvalidResponse("displacement_mm"));
+        }
+        if !(self.acoustical_power_w.is_finite() && self.acoustical_power_w >= 0.0) {
+            return Err(SolveError::InvalidResponse("acoustical_power_w"));
+        }
+        if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0) {
+            return Err(SolveError::InvalidResponse("efficiency_pct"));
+        }
+        if !self.za_real.is_finite() {
+            return Err(SolveError::InvalidResponse("za_real"));
+        }
+        if !self.za_imag.is_finite() {
+            return Err(SolveError::InvalidResponse("za_imag"));
+        }
+        if !(self.mouth_volume_velocity.is_finite() && self.mouth_volume_velocity >= 0.0) {
+            return Err(SolveError::InvalidResponse("mouth_volume_velocity"));
+        }
+        if let Some(velocity) = self.port_velocity {
+            if !(velocity.is_finite() && velocity >= 0.0) {
+                return Err(SolveError::InvalidResponse("port_velocity"));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Presión compleja de un radiador de área `area` para una velocidad
@@ -197,8 +272,91 @@ impl System {
     }
 
     /// Calcula un punto de respuesta a la frecuencia `freq_hz`.
+    ///
+    /// Devuelve el punto neutro documentado (`spl_db = -∞`, `ze_mag = 0`) si
+    /// la entrada, la configuración o la respuesta no son válidas. Use
+    /// [`System::try_response_at`] para distinguir el error.
     pub fn response_at(&self, freq_hz: f64) -> ResponsePoint {
-        let zero = ResponsePoint {
+        self.try_response_at(freq_hz)
+            .unwrap_or_else(|_| Self::zero_point(freq_hz))
+    }
+
+    /// Respuesta a una frecuencia, con error explícito si la entrada, la
+    /// configuración o el resultado no son válidos.
+    pub fn try_response_at(&self, freq_hz: f64) -> Result<ResponsePoint, SolveError> {
+        check_frequency(freq_hz)?;
+        self.validate()?;
+        let point = self.solve_point(freq_hz)?;
+        point.validate()?;
+        Ok(point)
+    }
+
+    /// Comprueba la configuración del sistema antes de calcular.
+    ///
+    /// Valida aire, driver, bocina, cámaras, puerto, radiador pasivo, pérdidas
+    /// y coherencia estructural (por ejemplo, un puerto exige recinto trasero).
+    pub fn validate(&self) -> Result<(), SolveError> {
+        self.air.validate()?;
+        self.driver.validate()?;
+        if let Some(horn) = &self.horn {
+            horn.validate()?;
+        }
+        if let Some(chamber) = &self.throat_chamber {
+            chamber.validate()?;
+        }
+        if let Some(chamber) = &self.rear_chamber {
+            chamber.validate()?;
+        }
+        if let Some(port) = &self.port {
+            port.validate()?;
+        }
+        if let Some(radiator) = &self.passive_radiator {
+            radiator.validate()?;
+        }
+        if let Some(ql) = self.rear_ql {
+            require_positive(ql, "rear_ql")?;
+        }
+        if let Some(leak) = self.horn_leak {
+            require_non_negative(leak, "horn_leak")?;
+        }
+        if let Some(series) = self.horn_series {
+            require_non_negative(series, "horn_series")?;
+        }
+        require_positive(self.solid_angle, "solid_angle")?;
+        require_non_negative(self.eg, "eg")?;
+        require_non_negative(self.rg, "rg")?;
+        require_finite(self.spl_offset_db, "spl_offset_db")?;
+
+        if self.horn.is_none() {
+            if self.throat_chamber.is_some() {
+                return Err(SolveError::InvalidTopology("throat_chamber requiere horn"));
+            }
+            if self.horn_leak.is_some() {
+                return Err(SolveError::InvalidTopology("horn_leak requiere horn"));
+            }
+            if self.horn_series.is_some() {
+                return Err(SolveError::InvalidTopology("horn_series requiere horn"));
+            }
+        }
+        if self.rear_chamber.is_none() {
+            if self.port.is_some() {
+                return Err(SolveError::InvalidTopology("port requiere rear_chamber"));
+            }
+            if self.passive_radiator.is_some() {
+                return Err(SolveError::InvalidTopology(
+                    "passive_radiator requiere rear_chamber",
+                ));
+            }
+            if self.rear_ql.is_some() {
+                return Err(SolveError::InvalidTopology("rear_ql requiere rear_chamber"));
+            }
+        }
+        Ok(())
+    }
+
+    /// Punto neutro para una entrada o un sistema no resoluble.
+    fn zero_point(freq_hz: f64) -> ResponsePoint {
+        ResponsePoint {
             freq: freq_hz,
             spl_db: f64::NEG_INFINITY,
             phase_deg: 0.0,
@@ -212,11 +370,11 @@ impl System {
             za_imag: 0.0,
             mouth_volume_velocity: 0.0,
             port_velocity: None,
-        };
-        if freq_hz <= 0.0 {
-            return zero;
         }
+    }
 
+    /// Resuelve la red a la frecuencia `freq_hz` sin validar la entrada.
+    fn solve_point(&self, freq_hz: f64) -> Result<ResponsePoint, SolveError> {
         let (z_front, z_rear) = self.loads(freq_hz);
         let z_load = z_front + z_rear;
         let u_d = self
@@ -237,7 +395,7 @@ impl System {
             // del volumen del diafragma se va a la compliancia de la cámara:
             // no se puede usar u_d como velocidad de entrada de la bocina.
             let p_throat = z_front * u_d;
-            let r_series = self.horn_series.unwrap_or(0.0).max(0.0);
+            let r_series = self.horn_series.unwrap_or(0.0);
             let u_horn = p_throat / (zh_horn + Complex64::new(r_series, 0.0));
             let p_horn = p_throat - Complex64::new(r_series, 0.0) * u_horn;
             let (_, um) = horn.transmit(&self.air, freq_hz, self.solid_angle, p_horn, u_horn);
@@ -310,7 +468,7 @@ impl System {
             _ => None,
         };
 
-        ResponsePoint {
+        Ok(ResponsePoint {
             freq: freq_hz,
             spl_db: spl,
             phase_deg,
@@ -324,30 +482,16 @@ impl System {
             za_imag: z_front.im,
             mouth_volume_velocity: u_mouth.norm(),
             port_velocity,
-        }
+        })
     }
 
-    /// Respuesta a una frecuencia, con error explícito si la entrada o la
-    /// respuesta no son válidas.
-    pub fn try_response_at(&self, freq_hz: f64) -> Result<ResponsePoint, SolveError> {
-        if !freq_hz.is_finite() || freq_hz <= 0.0 {
-            return Err(SolveError::InvalidFrequency(freq_hz));
-        }
-        let p = self.response_at(freq_hz);
-        if p.ze_mag.is_finite() && p.ze_mag > 0.0 {
-            Ok(p)
-        } else {
-            Err(SolveError::NonFiniteResponse)
-        }
-    }
-
-    /// Barrido de respuesta. Se eliminan las frecuencias no positivas y se
-    /// calcula la fase desenrollada y el retardo de grupo.
+    /// Barrido de respuesta. Se eliminan las frecuencias no finitas o no
+    /// positivas y se calcula la fase desenrollada y el retardo de grupo.
     pub fn response(&self, freqs: &[f64]) -> Vec<ResponsePoint> {
         let mut pts: Vec<ResponsePoint> = freqs
             .iter()
             .copied()
-            .filter(|f| *f > 0.0)
+            .filter(|f| f.is_finite() && *f > 0.0)
             .map(|f| self.response_at(f))
             .collect();
         if pts.is_empty() {
@@ -384,6 +528,7 @@ impl System {
 mod tests {
     use super::*;
     use crate::driver::Driver;
+    use crate::element::EndCorrection;
     use crate::segment::{Flare, Horn, Segment};
 
     fn default_system() -> System {
@@ -425,5 +570,98 @@ mod tests {
         let pts = sys.response(&freqs);
         assert_eq!(pts.len(), freqs.len());
         assert!(pts.iter().all(|p| p.group_delay_ms.is_finite()));
+    }
+
+    #[test]
+    fn try_response_at_rejects_invalid_frequency() {
+        let sys = default_system();
+        for f in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                matches!(sys.try_response_at(f), Err(SolveError::InvalidFrequency(_))),
+                "f={f}"
+            );
+        }
+        assert!(sys.try_response_at(100.0).is_ok());
+    }
+
+    #[test]
+    fn try_response_at_rejects_invalid_driver() {
+        let mut sys = default_system();
+        sys.driver.sd = 0.0;
+        assert!(matches!(
+            sys.try_response_at(100.0),
+            Err(SolveError::InvalidParameter("driver.sd"))
+        ));
+
+        let mut sys = default_system();
+        sys.driver.mmd = f64::NAN;
+        assert!(matches!(
+            sys.try_response_at(100.0),
+            Err(SolveError::InvalidParameter("driver.mmd"))
+        ));
+    }
+
+    #[test]
+    fn try_response_at_rejects_incoherent_configuration() {
+        let mut sys = default_system();
+        sys.port = Some(Port::new(100.0e-4, 0.10, EndCorrection::Inner(0.85)));
+        assert!(matches!(
+            sys.try_response_at(100.0),
+            Err(SolveError::InvalidTopology(_))
+        ));
+
+        let mut sys = default_system();
+        sys.throat_chamber = Some(Chamber::new(4.0e-3));
+        assert!(matches!(
+            sys.try_response_at(100.0),
+            Err(SolveError::InvalidTopology(_))
+        ));
+    }
+
+    #[test]
+    fn response_point_validation_rejects_invalid_fields() {
+        let sys = default_system();
+        let valid = sys.response_at(100.0);
+        assert!(valid.validate().is_ok());
+
+        let mut p = valid;
+        p.ze_mag = f64::NAN;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.ze_mag = 0.0;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.spl_db = f64::INFINITY;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.displacement_mm = -1.0;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.port_velocity = Some(f64::NAN);
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.za_real = f64::NAN;
+        assert!(p.validate().is_err());
+    }
+
+    #[test]
+    fn response_filters_non_finite_frequencies() {
+        let sys = default_system();
+        let pts = sys.response(&[f64::NAN, f64::INFINITY, 0.0, -1.0, 100.0]);
+        assert_eq!(pts.len(), 1);
+        assert!((pts[0].freq - 100.0).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn response_at_returns_neutral_point_on_invalid_input() {
+        let sys = default_system();
+        let p = sys.response_at(f64::NAN);
+        assert_eq!(p.spl_db, f64::NEG_INFINITY);
+        assert_eq!(p.ze_mag, 0.0);
     }
 }

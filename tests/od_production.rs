@@ -128,7 +128,7 @@ fn assert_production(name: &str, m: Metrics) {
 fn run(name: &str, od: OffsetHorn, oracle_path: &str) {
     let text = std::fs::read_to_string(oracle_path)
         .unwrap_or_else(|e| panic!("no se pudo leer {oracle_path}: {e}"));
-    let oracle = OraclePoint::parse_tsv(&text);
+    let oracle = OraclePoint::parse_tsv(&text).expect("oráculo TSV válido");
     assert_production(name, metrics(&od, &oracle));
 }
 

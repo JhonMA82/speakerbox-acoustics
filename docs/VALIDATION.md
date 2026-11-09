@@ -10,6 +10,12 @@ Resultados de la validación punto por punto contra exports propios de Hornresp
 La banda de producción se declara en cada test: 10 Hz–1 kHz para OD, BP y
 cajas; TH y bocina normal usan todos los puntos disponibles del export.
 
+`validate` compara SPL, `Ze` y `Xd`. **No compara la fase de impedancia**
+(`ze_phase_deg`): el campo se parsea y se conserva, pero no hay una tolerancia
+validada para esa magnitud; no se debe declarar una validación completa de la
+impedancia. Un oráculo vacío o con puntos inválidos no aprueba
+(`n > 0` e `invalid_points == 0`).
+
 | Topología | SPL RMS / máx | Ze RMS / máx | Xd RMS / máx |
 |---|---:|---:|---:|
 | Bocina normal | 1,91–1,94 / 3,15–3,23 dB | 6,0–6,4 / 23,2–26,8 % | 7,1–9,3 / 23,6–35,3 % |

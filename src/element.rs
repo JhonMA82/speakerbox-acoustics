@@ -26,17 +26,46 @@ pub enum Lining {
 impl Lining {
     pub fn new(absorption: f64, surface_area: f64) -> Self {
         Lining::Absorption {
-            absorption: absorption.clamp(0.0, 1.0),
-            surface_area: surface_area.max(0.0),
+            absorption,
+            surface_area,
         }
     }
 
     pub fn porous(flow_resistivity: f64, thickness_m: f64, surface_area: f64) -> Self {
         Lining::Porous {
-            flow_resistivity: flow_resistivity.max(1.0e-6),
-            thickness: thickness_m.max(1.0e-6),
-            surface_area: surface_area.max(1.0e-6),
+            flow_resistivity,
+            thickness: thickness_m,
+            surface_area,
         }
+    }
+
+    /// Comprueba que el revestimiento tenga parámetros físicos.
+    ///
+    /// `Absorption` exige `0 <= absorption <= 1` y `surface_area > 0`;
+    /// `Porous` exige resistividad, espesor y área finitos y positivos.
+    pub fn validate(&self) -> Result<(), crate::error::SolveError> {
+        use crate::error::{require_positive, SolveError};
+        match *self {
+            Lining::Absorption {
+                absorption,
+                surface_area,
+            } => {
+                if !absorption.is_finite() || !(0.0..=1.0).contains(&absorption) {
+                    return Err(SolveError::InvalidParameter("lining.absorption"));
+                }
+                require_positive(surface_area, "lining.surface_area")?;
+            }
+            Lining::Porous {
+                flow_resistivity,
+                thickness,
+                surface_area,
+            } => {
+                require_positive(flow_resistivity, "lining.flow_resistivity")?;
+                require_positive(thickness, "lining.thickness")?;
+                require_positive(surface_area, "lining.surface_area")?;
+            }
+        }
+        Ok(())
     }
 
     /// Impedancia acústica del revestimiento (Pa·s/m³).
@@ -103,9 +132,12 @@ pub struct Chamber {
 
 impl Chamber {
     /// Recinto sin pérdidas.
+    ///
+    /// El constructor no recorta el volumen: debe ser finito y positivo. Use
+    /// [`Chamber::validate`] antes de calcular con datos externos.
     pub fn new(volume: f64) -> Self {
         Self {
-            volume: volume.max(0.0),
+            volume,
             lining: None,
         }
     }
@@ -113,9 +145,18 @@ impl Chamber {
     /// Recinto con recubrimiento absorbente.
     pub fn lined(volume: f64, lining: Lining) -> Self {
         Self {
-            volume: volume.max(0.0),
+            volume,
             lining: Some(lining),
         }
+    }
+
+    /// Comprueba que el volumen y el revestimiento sean físicos.
+    pub fn validate(&self) -> Result<(), crate::error::SolveError> {
+        crate::error::require_positive(self.volume, "chamber.volume")?;
+        if let Some(lining) = &self.lining {
+            lining.validate()?;
+        }
+        Ok(())
     }
 
     /// Compliancia acústica `C = V/(rho·c²)` (m³/Pa).
@@ -187,12 +228,29 @@ pub struct Port {
 }
 
 impl Port {
+    /// Crea un puerto. El constructor no recorta área ni longitud; use
+    /// [`Port::validate`] antes de calcular con datos externos.
     pub fn new(area: f64, length: f64, end_correction: EndCorrection) -> Self {
         Self {
-            area: area.max(1.0e-12),
-            length: length.max(0.0),
+            area,
+            length,
             end_correction,
         }
+    }
+
+    /// Comprueba que el puerto tenga una geometría física.
+    ///
+    /// `area > 0`, `length >= 0`, longitud efectiva finita y positiva, y
+    /// coeficiente interior no negativo.
+    pub fn validate(&self) -> Result<(), crate::error::SolveError> {
+        use crate::error::{require_non_negative, require_positive};
+        require_positive(self.area, "port.area")?;
+        require_non_negative(self.length, "port.length")?;
+        if let EndCorrection::Inner(k) = self.end_correction {
+            require_non_negative(k, "port.end_correction")?;
+        }
+        require_positive(self.effective_length(), "port.effective_length")?;
+        Ok(())
     }
 
     /// Longitud efectiva `L + ΔL` (m).
@@ -225,13 +283,21 @@ pub struct PassiveRadiator {
 }
 
 impl PassiveRadiator {
+    /// Crea un radiador pasivo. El constructor no recorta valores; use
+    /// [`PassiveRadiator::validate`] antes de calcular con datos externos.
     pub fn new(sd: f64, cms: f64, mmd: f64, rms: f64) -> Self {
-        Self {
-            sd: sd.max(1.0e-12),
-            cms: cms.max(1.0e-12),
-            mmd: mmd.max(0.0),
-            rms: rms.max(0.0),
-        }
+        Self { sd, cms, mmd, rms }
+    }
+
+    /// Comprueba que el radiador pasivo tenga parámetros físicos:
+    /// `Sd > 0`, `Cms > 0`, `Mmd >= 0` y `Rms >= 0`, todos finitos.
+    pub fn validate(&self) -> Result<(), crate::error::SolveError> {
+        use crate::error::{require_non_negative, require_positive};
+        require_positive(self.sd, "passive_radiator.sd")?;
+        require_positive(self.cms, "passive_radiator.cms")?;
+        require_non_negative(self.mmd, "passive_radiator.mmd")?;
+        require_non_negative(self.rms, "passive_radiator.rms")?;
+        Ok(())
     }
 
     /// Masa acústica `M = Mmd/Sd²`.
@@ -295,5 +361,40 @@ mod tests {
         assert!(
             EndCorrection::FlangedBoth.delta(100.0e-4) > EndCorrection::Inner(0.85).delta(100.0e-4)
         );
+    }
+
+    #[test]
+    fn element_validation_rejects_non_physical_values() {
+        assert!(Chamber::new(10.0e-3).validate().is_ok());
+        assert!(Chamber::new(0.0).validate().is_err());
+        assert!(Chamber::new(-1.0).validate().is_err());
+        assert!(Chamber::new(f64::NAN).validate().is_err());
+
+        assert!(Lining::new(0.5, 1.0).validate().is_ok());
+        assert!(Lining::new(1.5, 1.0).validate().is_err());
+        assert!(Lining::new(0.5, 0.0).validate().is_err());
+        assert!(Lining::porous(10_000.0, 0.05, 1.0).validate().is_ok());
+        assert!(Lining::porous(0.0, 0.05, 1.0).validate().is_err());
+
+        assert!(Port::new(100.0e-4, 0.1, EndCorrection::Inner(0.85))
+            .validate()
+            .is_ok());
+        assert!(Port::new(0.0, 0.1, EndCorrection::None).validate().is_err());
+        assert!(Port::new(100.0e-4, -0.1, EndCorrection::None)
+            .validate()
+            .is_err());
+        assert!(Port::new(100.0e-4, 0.0, EndCorrection::None)
+            .validate()
+            .is_err());
+        assert!(Port::new(100.0e-4, 0.0, EndCorrection::UnflangedBoth)
+            .validate()
+            .is_ok());
+
+        assert!(PassiveRadiator::new(350.0e-4, 0.4, 40.0e-3, 4.0)
+            .validate()
+            .is_ok());
+        assert!(PassiveRadiator::new(0.0, 0.4, 40.0e-3, 4.0)
+            .validate()
+            .is_err());
     }
 }

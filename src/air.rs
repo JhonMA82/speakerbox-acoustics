@@ -28,12 +28,25 @@ impl Default for Air {
 
 impl Air {
     /// Crea un medio con velocidad del sonido y densidad dadas.
+    ///
+    /// El constructor no valida: use [`Air::validate`] antes de calcular si los
+    /// valores vienen de una fuente externa.
     pub fn new(c: f64, rho: f64) -> Self {
         Self {
             c,
             rho,
             p_ref: 20.0e-6,
         }
+    }
+
+    /// Comprueba que las propiedades del medio sean físicamente válidas:
+    /// `c`, `rho` y `p_ref` finitos y estrictamente positivos.
+    pub fn validate(&self) -> Result<(), crate::error::SolveError> {
+        use crate::error::require_positive;
+        require_positive(self.c, "air.c")?;
+        require_positive(self.rho, "air.rho")?;
+        require_positive(self.p_ref, "air.p_ref")?;
+        Ok(())
     }
 
     /// Impedancia característica del aire `rho * c` (rayls).
@@ -65,5 +78,22 @@ mod tests {
         assert_eq!(air.c, 344.0);
         assert_eq!(air.rho, 1.205);
         assert!((air.z0() - 414.52).abs() < 0.01);
+    }
+
+    #[test]
+    fn validation_rejects_invalid_properties() {
+        assert!(Air::default().validate().is_ok());
+        for (c, rho) in [
+            (0.0, 1.205),
+            (-344.0, 1.205),
+            (f64::NAN, 1.205),
+            (f64::INFINITY, 1.205),
+            (344.0, 0.0),
+            (344.0, -1.205),
+            (344.0, f64::NAN),
+        ] {
+            let air = Air::new(c, rho);
+            assert!(air.validate().is_err(), "c={c}, rho={rho}");
+        }
     }
 }

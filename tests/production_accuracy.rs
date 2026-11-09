@@ -20,7 +20,7 @@ fn read_data(name: &str) -> Vec<u8> {
 fn default_record_meets_production_tolerances() {
     let record = LegacyRecord::parse(&read_data("default_record.bin")).unwrap();
     let csv = String::from_utf8(read_data("default_oracle.csv")).unwrap();
-    let oracle = OraclePoint::parse_csv(&csv);
+    let oracle = OraclePoint::parse_csv(&csv).expect("oráculo CSV válido");
     assert!(oracle.len() >= 40, "datos dorados insuficientes");
 
     let system = record.to_system_with(&Calibration::validated_60_70());
@@ -47,7 +47,7 @@ fn default_record_meets_production_tolerances() {
 fn calibration_reduces_error_versus_uncalibrated() {
     let record = LegacyRecord::parse(&read_data("default_record.bin")).unwrap();
     let csv = String::from_utf8(read_data("default_oracle.csv")).unwrap();
-    let oracle = OraclePoint::parse_csv(&csv);
+    let oracle = OraclePoint::parse_csv(&csv).expect("oráculo CSV válido");
 
     let raw = validate(&record.to_system(), &oracle);
     let cal = validate(
@@ -75,7 +75,7 @@ fn second_design_meets_production_tolerances() {
     // La misma calibración global del diseño 1 se aplica sin reajustar.
     let record = LegacyRecord::parse(&read_data("design2_record.bin")).unwrap();
     let tsv = String::from_utf8(read_data("design2_oracle.txt")).unwrap();
-    let oracle = OraclePoint::parse_tsv(&tsv);
+    let oracle = OraclePoint::parse_tsv(&tsv).expect("oráculo TSV válido");
     assert!(oracle.len() >= 500, "export completo incompleto");
 
     let system = record.to_system_with(&Calibration::validated_60_70());
@@ -105,7 +105,7 @@ fn third_design_meets_production_tolerances() {
     // Sd=400 cm², Mmd=25 g; Vrc=18 L, Vtc=1200 cc, Atc=400 cm².
     let record = LegacyRecord::parse(&read_data("design3_record.bin")).unwrap();
     let tsv = String::from_utf8(read_data("design3_oracle.txt")).unwrap();
-    let oracle = OraclePoint::parse_tsv(&tsv);
+    let oracle = OraclePoint::parse_tsv(&tsv).expect("oráculo TSV válido");
     assert!(oracle.len() >= 500, "export completo incompleto");
 
     let system = record.to_system_with(&Calibration::validated_60_70());

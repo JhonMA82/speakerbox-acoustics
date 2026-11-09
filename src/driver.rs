@@ -59,6 +59,10 @@ impl Driver {
 
     /// Construye un altavoz a partir de los valores que muestra el software de referencia:
     /// `sd` en cm², `mmd` en gramos, `le` en mH.
+    ///
+    /// `nd` es informativo y no participa en el cálculo. El constructor no
+    /// valida; use [`Driver::validate`] antes de calcular si los valores vienen
+    /// de una fuente externa.
     #[allow(clippy::too_many_arguments)]
     pub fn from_ui_units(
         sd_cm2: f64,
@@ -78,8 +82,24 @@ impl Driver {
             bl,
             rms,
             le: le_mh * 1.0e-3,
-            nd: nd.max(1),
+            nd,
         }
+    }
+
+    /// Comprueba que los parámetros del altavoz sean físicamente válidos.
+    ///
+    /// Requiere `Sd`, `Cms`, `Mmd`, `Re` y `Bl` finitos y positivos; `Rms` y
+    /// `Le` finitos y no negativos. `nd` es informativo y no se valida.
+    pub fn validate(&self) -> Result<(), crate::error::SolveError> {
+        use crate::error::{require_non_negative, require_positive};
+        require_positive(self.sd, "driver.sd")?;
+        require_positive(self.cms, "driver.cms")?;
+        require_positive(self.mmd, "driver.mmd")?;
+        require_positive(self.re, "driver.re")?;
+        require_positive(self.bl, "driver.bl")?;
+        require_non_negative(self.rms, "driver.rms")?;
+        require_non_negative(self.le, "driver.le")?;
+        Ok(())
     }
 
     /// Radio equivalente del pistón (m).
@@ -235,5 +255,45 @@ mod tests {
         // La masa añadida debe ser positiva y pequeña frente a Mmd.
         assert!(d.air_load_mass(&air) > 0.0);
         assert!(d.air_load_mass(&air) < d.mmd);
+    }
+
+    #[test]
+    fn validation_rejects_non_physical_parameters() {
+        assert!(default_driver().validate().is_ok());
+
+        let mut d = default_driver();
+        d.sd = 0.0;
+        assert!(d.validate().is_err(), "Sd = 0");
+
+        let mut d = default_driver();
+        d.cms = -1.0;
+        assert!(d.validate().is_err(), "Cms < 0");
+
+        let mut d = default_driver();
+        d.mmd = f64::NAN;
+        assert!(d.validate().is_err(), "Mmd NaN");
+
+        let mut d = default_driver();
+        d.re = 0.0;
+        assert!(d.validate().is_err(), "Re = 0");
+
+        let mut d = default_driver();
+        d.bl = f64::INFINITY;
+        assert!(d.validate().is_err(), "Bl infinito");
+
+        let mut d = default_driver();
+        d.rms = -1.0;
+        assert!(d.validate().is_err(), "Rms < 0");
+
+        let mut d = default_driver();
+        d.le = -1.0;
+        assert!(d.validate().is_err(), "Le < 0");
+    }
+
+    #[test]
+    fn nd_is_informational_and_not_clamped() {
+        let d = Driver::from_ui_units(350.0, 4.0e-4, 20.0, 6.0, 18.0, 4.0, 1.0, 0);
+        assert_eq!(d.nd, 0);
+        assert!(d.validate().is_ok());
     }
 }
