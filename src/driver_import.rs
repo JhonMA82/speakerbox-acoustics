@@ -26,6 +26,7 @@ use serde_json::Value;
 
 use crate::air::Air;
 use crate::driver::Driver;
+use crate::error::SolveError;
 
 /// Formato de origen del driver.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -74,6 +75,15 @@ pub enum ImportError {
     MissingField(&'static str),
     /// Una clave numérica no se pudo interpretar.
     InvalidNumber { key: String, value: String },
+    /// Un parámetro del fichero no es finito o no cumple su rango físico.
+    InvalidParameter(&'static str),
+    /// Dos parámetros del fichero son físicamente inconsistentes.
+    Inconsistent {
+        /// Parámetro implicado.
+        key: &'static str,
+        /// Motivo de la inconsistencia.
+        reason: &'static str,
+    },
     /// JSON inválido.
     InvalidJson(String),
     /// Error de lectura de fichero.
@@ -88,6 +98,12 @@ impl std::fmt::Display for ImportError {
             Self::MissingField(name) => write!(f, "falta el parámetro {name}"),
             Self::InvalidNumber { key, value } => {
                 write!(f, "valor numérico inválido para {key}: {value:?}")
+            }
+            Self::InvalidParameter(key) => {
+                write!(f, "parámetro inválido en el fichero: {key}")
+            }
+            Self::Inconsistent { key, reason } => {
+                write!(f, "parámetro inconsistente {key}: {reason}")
             }
             Self::InvalidJson(err) => write!(f, "JSON inválido: {err}"),
             Self::Io(err) => write!(f, "no se pudo leer el fichero: {err}"),
@@ -148,9 +164,41 @@ fn positive(value: Option<f64>) -> Option<f64> {
     value.filter(|v| v.is_finite() && *v > 0.0)
 }
 
+impl TsInput {
+    /// Rechaza cualquier parámetro presente que no sea finito y positivo.
+    fn validate(&self) -> Result<(), ImportError> {
+        for (key, value) in [
+            ("Fs", self.fs),
+            ("Qms", self.qms),
+            ("Qes", self.qes),
+            ("Qts", self.qts),
+            ("Vas", self.vas_m3),
+            ("Re", self.re),
+            ("Sd", self.sd_m2),
+            ("Mms", self.mms_kg),
+            ("Cms", self.cms_m_per_n),
+            ("BL", self.bl),
+            ("Rms", self.rms),
+        ] {
+            if let Some(v) = value {
+                if !v.is_finite() || v <= 0.0 {
+                    return Err(ImportError::InvalidParameter(key));
+                }
+            }
+        }
+        if let Some(le) = self.le_h {
+            if !le.is_finite() || le < 0.0 {
+                return Err(ImportError::InvalidParameter("Le"));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Convierte T/S a [`Driver`], derivando lo que falte.
 fn driver_from_ts(ts: TsInput, air: &Air) -> Result<(Driver, Vec<String>), ImportError> {
-    let mut warnings = Vec::new();
+    ts.validate()?;
+    let warnings = Vec::new();
 
     let sd = positive(ts.sd_m2).ok_or(ImportError::MissingField("Sd"))?;
     let re = positive(ts.re).ok_or(ImportError::MissingField("Re"))?;
@@ -173,14 +221,13 @@ fn driver_from_ts(ts: TsInput, air: &Air) -> Result<(Driver, Vec<String>), Impor
     };
 
     let air_mass = (8.0 / 3.0) * air.rho * (sd / std::f64::consts::PI).sqrt().powi(3);
-    let mmd = if mms > air_mass {
-        mms - air_mass
-    } else {
-        warnings.push(
-            "Mms no supera la masa añadida del aire; se usa un 5 % de Mms como Mmd".to_string(),
-        );
-        (mms * 0.05).max(1.0e-9)
-    };
+    if mms <= air_mass {
+        return Err(ImportError::Inconsistent {
+            key: "Mms",
+            reason: "no supera la masa añadida del aire",
+        });
+    }
+    let mmd = mms - air_mass;
 
     let rms = match positive(ts.rms) {
         Some(rms) => rms,
@@ -200,8 +247,16 @@ fn driver_from_ts(ts: TsInput, air: &Air) -> Result<(Driver, Vec<String>), Impor
         }
     };
 
-    let le = positive(ts.le_h).unwrap_or(0.0);
-    Ok((Driver::new(sd, cms, mmd, re, bl, rms, le), warnings))
+    let le = ts.le_h.unwrap_or(0.0);
+    let driver = Driver::new(sd, cms, mmd, re, bl, rms, le);
+    if let Err(err) = driver.validate() {
+        let field = match err {
+            SolveError::InvalidParameter(field) => field,
+            _ => "driver",
+        };
+        return Err(ImportError::InvalidParameter(field));
+    }
+    Ok((driver, warnings))
 }
 
 fn complete_q(ts: &mut TsInput) {
@@ -216,6 +271,71 @@ fn complete_q(ts: &mut TsInput) {
     }
 }
 
+/// Aplica un valor de aire opcional: ausente usa el valor por defecto;
+/// presente debe ser finito y positivo.
+fn air_parameter(value: Option<f64>, default: f64, key: &'static str) -> Result<f64, ImportError> {
+    match value {
+        None => Ok(default),
+        Some(v) if v.is_finite() && v > 0.0 => Ok(v),
+        Some(_) => Err(ImportError::InvalidParameter(key)),
+    }
+}
+
+/// Como [`air_parameter`], pero distingue «campo ausente» de «campo presente
+/// con valor no interpretable» en el JSON de OpenISD.
+fn owdr_air_parameter(
+    woofer: &serde_json::Map<String, Value>,
+    key: &str,
+    default: f64,
+    field: &'static str,
+) -> Result<f64, ImportError> {
+    match woofer.get(key) {
+        None => Ok(default),
+        Some(_) => match owdr_number(woofer, key) {
+            Some(v) if v.is_finite() && v > 0.0 => Ok(v),
+            _ => Err(ImportError::InvalidParameter(field)),
+        },
+    }
+}
+
+/// Convierte un campo entero validando rango y truncamiento.
+fn integer_field(
+    value: Option<f64>,
+    key: &'static str,
+    minimum: f64,
+) -> Result<Option<u32>, ImportError> {
+    match value {
+        None => Ok(None),
+        Some(v) => {
+            if !v.is_finite()
+                || v < minimum
+                || v > u32::MAX as f64
+                || (v - v.round()).abs() > 1.0e-9
+            {
+                return Err(ImportError::InvalidParameter(key));
+            }
+            Ok(Some(v.round() as u32))
+        }
+    }
+}
+
+/// Como [`integer_field`], pero distingue «campo ausente» de «campo presente
+/// con valor no interpretable» en el JSON de OpenISD.
+fn owdr_integer_field(
+    woofer: &serde_json::Map<String, Value>,
+    key: &str,
+    field: &'static str,
+    minimum: f64,
+) -> Result<Option<u32>, ImportError> {
+    match woofer.get(key) {
+        None => Ok(None),
+        Some(_) => {
+            let value = owdr_number(woofer, key).ok_or(ImportError::InvalidParameter(field))?;
+            integer_field(Some(value), field, minimum)
+        }
+    }
+}
+
 /// Detecta el formato y lo importa.
 pub fn import_driver(text: &str) -> Result<ImportedDriver, ImportError> {
     let trimmed = text.trim_start_matches('\u{feff}').trim_start();
@@ -227,6 +347,11 @@ pub fn import_driver(text: &str) -> Result<ImportedDriver, ImportError> {
 }
 
 /// Importa un fichero desde disco.
+///
+/// Solo se compila en nativo. En `wasm32-unknown-unknown` use
+/// [`import_driver`] con el texto que haya leído la aplicación; el núcleo
+/// acústico no exige acceso al filesystem.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn import_driver_file(
     path: impl AsRef<std::path::Path>,
 ) -> Result<ImportedDriver, ImportError> {
@@ -308,15 +433,13 @@ pub fn import_wdr(text: &str) -> Result<ImportedDriver, ImportError> {
     };
     complete_q(&mut ts);
 
-    let c = positive(wdr_number(&map, "c")?).unwrap_or(344.0);
-    let rho = positive(wdr_number(&map, "roo")?).unwrap_or(1.205);
+    let c = air_parameter(wdr_number(&map, "c")?, 344.0, "c")?;
+    let rho = air_parameter(wdr_number(&map, "roo")?, 1.205, "rho")?;
     let air = Air::new(c, rho);
 
     let (mut driver, warnings) = driver_from_ts(ts, &air)?;
 
-    let voice_coils = wdr_number(&map, "numvc")?
-        .map(|v| v.round().max(1.0) as u32)
-        .unwrap_or(1);
+    let voice_coils = integer_field(wdr_number(&map, "numvc")?, "numVC", 1.0)?.unwrap_or(1);
     driver.nd = voice_coils;
 
     Ok(ImportedDriver::new(
@@ -326,7 +449,7 @@ pub fn import_wdr(text: &str) -> Result<ImportedDriver, ImportError> {
         wdr_string(&map, &["model"]),
         wdr_string(&map, &["comment"]),
         voice_coils,
-        wdr_number(&map, "vccon")?.map(|v| v.round() as u32),
+        integer_field(wdr_number(&map, "vccon")?, "VCCon", 0.0)?,
         positive(wdr_number(&map, "znom")?),
         positive(wdr_number(&map, "xmax")?).map(|v| v * 1000.0),
         positive(wdr_number(&map, "pe")?),
@@ -409,15 +532,13 @@ pub fn import_owdr(text: &str) -> Result<ImportedDriver, ImportError> {
     };
     complete_q(&mut ts);
 
-    let c = owdr_number(woofer, "c_m_per_s").unwrap_or(344.0);
-    let rho = owdr_number(woofer, "roo_kg_per_m3").unwrap_or(1.205);
+    let c = owdr_air_parameter(woofer, "c_m_per_s", 344.0, "c")?;
+    let rho = owdr_air_parameter(woofer, "roo_kg_per_m3", 1.205, "rho")?;
     let air = Air::new(c, rho);
 
     let (mut driver, warnings) = driver_from_ts(ts, &air)?;
 
-    let voice_coils = owdr_number(woofer, "numVC")
-        .map(|v| v.round().max(1.0) as u32)
-        .unwrap_or(1);
+    let voice_coils = owdr_integer_field(woofer, "numVC", "numVC", 1.0)?.unwrap_or(1);
     driver.nd = voice_coils;
 
     let brand = owdr_string(&root, "brand")
@@ -433,7 +554,7 @@ pub fn import_owdr(text: &str) -> Result<ImportedDriver, ImportError> {
         model,
         comment,
         voice_coils,
-        owdr_number(woofer, "VCCon").map(|v| v.round() as u32),
+        owdr_integer_field(woofer, "VCCon", "VCCon", 0.0)?,
         owdr_first(woofer, &[("Znom_ohm", 1.0), ("Znom", 1.0)]),
         owdr_first(woofer, &[("Xmax_m", 1.0), ("Xmax_mm", 1.0e-3)]).map(|v| v * 1000.0),
         owdr_number(woofer, "Pe_W"),
@@ -554,5 +675,110 @@ Xmax=0.005\r\nPe=100\r\nZnom=8\r\nnumVC=1\r\nVCCon=1\r\n";
     fn rejects_unrelated_text() {
         assert_eq!(import_driver("hello").unwrap_err(), ImportError::NotWinIsd);
         assert!(matches!(import_driver("{}"), Err(ImportError::NotOpenIsd)));
+    }
+
+    #[test]
+    fn rejects_mms_not_above_air_mass() {
+        let text = WDR.replace("Mms=0.03", "Mms=0.001");
+        assert!(matches!(
+            import_wdr(&text),
+            Err(ImportError::Inconsistent { key: "Mms", .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_invalid_air_properties() {
+        let text = WDR.replace("Fs=50", "Fs=50\r\nc=0");
+        assert!(matches!(
+            import_wdr(&text),
+            Err(ImportError::InvalidParameter("c"))
+        ));
+
+        let text = WDR.replace("Fs=50", "Fs=50\r\nroo=-1");
+        assert!(matches!(
+            import_wdr(&text),
+            Err(ImportError::InvalidParameter("rho"))
+        ));
+    }
+
+    #[test]
+    fn rejects_invalid_numvc_and_vccon() {
+        for bad in ["1.5", "0", "1e30", "NaN"] {
+            let text = WDR.replace("numVC=1", &format!("numVC={bad}"));
+            assert!(
+                matches!(
+                    import_wdr(&text),
+                    Err(ImportError::InvalidParameter("numVC"))
+                ),
+                "numVC={bad}"
+            );
+        }
+
+        let text = WDR.replace("VCCon=1", "VCCon=1.5");
+        assert!(matches!(
+            import_wdr(&text),
+            Err(ImportError::InvalidParameter("VCCon"))
+        ));
+    }
+
+    #[test]
+    fn rejects_negative_le() {
+        let text = WDR.replace("Le=0.001", "Le=-0.001");
+        assert!(matches!(
+            import_wdr(&text),
+            Err(ImportError::InvalidParameter("Le"))
+        ));
+    }
+
+    #[test]
+    fn owdr_rejects_invalid_air_numvc_and_mms() {
+        let text = OWDR.replace(
+            "\"Fs_hz\": {\"value\": 50.0},",
+            "\"Fs_hz\": {\"value\": 50.0},\n          \"c_m_per_s\": {\"value\": 0.0},",
+        );
+        assert!(matches!(
+            import_owdr(&text),
+            Err(ImportError::InvalidParameter("c"))
+        ));
+
+        let text = OWDR.replace("\"numVC\": {\"value\": 1}", "\"numVC\": {\"value\": 1.5}");
+        assert!(matches!(
+            import_owdr(&text),
+            Err(ImportError::InvalidParameter("numVC"))
+        ));
+
+        let text = OWDR.replace(
+            "\"numVC\": {\"value\": 1}",
+            "\"numVC\": {\"value\": \"dos\"}",
+        );
+        assert!(matches!(
+            import_owdr(&text),
+            Err(ImportError::InvalidParameter("numVC"))
+        ));
+
+        let text = OWDR.replace("\"VCCon\": {\"value\": 1}", "\"VCCon\": {\"value\": 1.5}");
+        assert!(matches!(
+            import_owdr(&text),
+            Err(ImportError::InvalidParameter("VCCon"))
+        ));
+
+        let text = OWDR.replace(
+            "\"Mms_kg\": {\"value\": 0.03}",
+            "\"Mms_kg\": {\"value\": 0.001}",
+        );
+        assert!(matches!(
+            import_owdr(&text),
+            Err(ImportError::Inconsistent { key: "Mms", .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_non_finite_derived_driver() {
+        let text = "[Driver]\r\nFs=1e-200\r\nQms=2\r\nQes=0.5\r\nVas=0.05\r\n\
+                    Re=6\r\nSd=0.02\r\n";
+        assert!(matches!(
+            import_wdr(text),
+            Err(ImportError::InvalidParameter("driver.mmd"))
+        ));
     }
 }

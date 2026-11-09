@@ -73,11 +73,21 @@ pub enum Flare {
     /// Área exponencial: `S(x) = S1·exp(m·x)`.
     Exponential,
     /// Área lineal (dos lados rectos paralelos): `S(x) = S1 + (S2-S1)·x/L`.
+    ///
+    /// No es una parábola matemática en el radio ni en el área: es el perfil
+    /// de **área lineal** entre los extremos que el software de referencia
+    /// etiqueta como `Par`. El radio resultante es `sqrt(S(x))`, que no es
+    /// lineal.
     Parabolic,
     /// Familia de Salmon: `S(x) = S1·(cosh(x/xT) + T·sinh(x/xT))²`.
     /// `T = 0` es catenoidal; `T = 1/√2` reproduce el perfil de Le Cléac'h.
     HyperbolicExponential { t: f64 },
     /// Perfil arbitrario `S(x)` en m². Útil para tractrix, Bessel, OS, etc.
+    ///
+    /// La función debe devolver un área finita y no negativa para todo
+    /// `x` en `[0, L]`. El motor no puede validar una closure arbitraria; una
+    /// función no física produce resultados inválidos que `try_response_at`
+    /// rechaza.
     Custom(Arc<dyn Fn(f64) -> f64 + Send + Sync>),
 }
 
@@ -125,17 +135,43 @@ pub struct Segment {
 
 impl Segment {
     /// Crea un segmento. `length` en m, `s1`/`s2` en m².
+    ///
+    /// El constructor no recorta valores: `length` debe ser finita y no
+    /// negativa, y `s1`/`s2` finitas y positivas. Use [`Segment::validate`]
+    /// antes de calcular con datos externos.
     pub fn new(flare: Flare, length: f64, s1: f64, s2: f64) -> Self {
         let mut seg = Self {
             flare,
-            length: length.max(0.0),
-            s1: s1.max(1.0e-12),
-            s2: s2.max(1.0e-12),
+            length,
+            s1,
+            s2,
             xt: 0.0,
             loss: 0.0,
         };
         seg.xt = seg.solve_xt();
         seg
+    }
+
+    /// Comprueba la geometría del segmento.
+    ///
+    /// - `length` finita y no negativa (un tramo de longitud cero es la
+    ///   identidad).
+    /// - `s1` y `s2` finitas y estrictamente positivas.
+    /// - En `HyperbolicExponential`, `t` finito y `|t| < 1`.
+    /// - `loss` finito y no negativo.
+    pub fn validate(&self) -> Result<(), crate::error::SolveError> {
+        use crate::error::{require_finite, require_non_negative, require_positive};
+        require_non_negative(self.length, "segment.length")?;
+        require_positive(self.s1, "segment.s1")?;
+        require_positive(self.s2, "segment.s2")?;
+        if let Flare::HyperbolicExponential { t } = self.flare {
+            require_finite(t, "segment.t")?;
+            if t.abs() >= 1.0 {
+                return Err(crate::error::SolveError::InvalidParameter("segment.t"));
+            }
+        }
+        require_non_negative(self.loss, "segment.loss")?;
+        Ok(())
     }
 
     /// Atajo para un segmento cónico.
@@ -165,6 +201,9 @@ impl Segment {
     }
 
     /// Área en la posición `x` (m), recortada al intervalo `[0, L]`.
+    ///
+    /// No impone un área mínima: un segmento inválido debe rechazarse con
+    /// [`Segment::validate`] antes de calcular.
     pub fn area(&self, x: f64) -> f64 {
         let l = self.length;
         if l <= 0.0 {
@@ -172,7 +211,7 @@ impl Segment {
         }
         let x = x.clamp(0.0, l);
         let xr = x / l;
-        let s = match &self.flare {
+        match &self.flare {
             Flare::Cylindrical => self.s1,
             Flare::Conical => {
                 let r1 = self.s1.sqrt();
@@ -194,9 +233,10 @@ impl Segment {
                     self.s1 * q * q
                 }
             }
+            // El perfil `Custom` es responsabilidad del consumidor: se
+            // documenta que debe devolver un área finita y no negativa.
             Flare::Custom(f) => f(x).max(0.0),
-        };
-        s.max(1.0e-12)
+        }
     }
 
     /// Frecuencia de corte del perfil (Hz). Es 0 para perfiles que no tienen
@@ -400,6 +440,23 @@ impl Horn {
         }
     }
 
+    /// Comprueba que la bocina tenga segmentos válidos y factores físicos.
+    pub fn validate(&self) -> Result<(), crate::error::SolveError> {
+        use crate::error::{require_positive, SolveError};
+        if self.segments.is_empty() {
+            return Err(SolveError::InvalidTopology("bocina sin segmentos"));
+        }
+        for segment in &self.segments {
+            segment.validate()?;
+        }
+        require_positive(self.radiation_scale, "horn.radiation_scale")?;
+        require_positive(
+            self.mouth_radiation_area_factor,
+            "horn.mouth_radiation_area_factor",
+        )?;
+        Ok(())
+    }
+
     /// Área de la garganta (entrada) en m².
     pub fn throat_area(&self) -> f64 {
         self.segments.first().map(|s| s.s1()).unwrap_or(1.0e-4)
@@ -411,9 +468,12 @@ impl Horn {
     }
 
     /// Aplica un factor de pérdidas de pared a todos los segmentos.
+    ///
+    /// No recorta el valor: un factor negativo o no finito se rechaza en
+    /// [`Horn::validate`].
     pub fn set_loss(&mut self, loss: f64) {
         for s in &mut self.segments {
-            s.loss = loss.max(0.0);
+            s.loss = loss;
         }
     }
 
@@ -438,7 +498,7 @@ impl Horn {
     /// Impedancia acústica de entrada de la bocina, cargada por la impedancia
     /// de radiación de la boca.
     pub fn input_impedance(&self, air: &Air, freq_hz: f64, solid_angle: f64) -> Complex64 {
-        let area = self.mouth_area() * self.mouth_radiation_area_factor.max(1e-6);
+        let area = self.mouth_area() * self.mouth_radiation_area_factor;
         let z_rad = if self.matched_mouth {
             Complex64::new(air.rho * air.c / area, 0.0)
         } else {
@@ -464,7 +524,7 @@ impl Horn {
         u_throat: Complex64,
     ) -> (Complex64, Complex64) {
         let matrices = self.matrices(air, freq_hz);
-        let area = self.mouth_area() * self.mouth_radiation_area_factor.max(1e-6);
+        let area = self.mouth_area() * self.mouth_radiation_area_factor;
         let z_rad = if self.matched_mouth {
             Complex64::new(air.rho * air.c / area, 0.0)
         } else {
@@ -637,5 +697,45 @@ mod tests {
         let seg = Segment::new(Flare::HyperbolicExponential { t: 0.707 }, 1.0, 0.01, 0.5);
         assert!((seg.area(0.0) - 0.01).abs() < 1.0e-9);
         assert!((seg.area(1.0) - 0.5).abs() < 1.0e-9);
+    }
+
+    #[test]
+    fn segment_validation_rejects_invalid_geometry() {
+        assert!(Segment::new(Flare::Conical, 0.5, 100.0e-4, 200.0e-4)
+            .validate()
+            .is_ok());
+        assert!(Segment::new(Flare::Conical, -0.5, 100.0e-4, 200.0e-4)
+            .validate()
+            .is_err());
+        assert!(Segment::new(Flare::Conical, 0.5, 0.0, 200.0e-4)
+            .validate()
+            .is_err());
+        assert!(Segment::new(Flare::Conical, 0.5, f64::NAN, 200.0e-4)
+            .validate()
+            .is_err());
+
+        let mut seg = Segment::new(Flare::Conical, 0.5, 100.0e-4, 200.0e-4);
+        seg.loss = -1.0;
+        assert!(seg.validate().is_err());
+
+        let seg = Segment::new(
+            Flare::HyperbolicExponential { t: 1.0 },
+            0.5,
+            100.0e-4,
+            200.0e-4,
+        );
+        assert!(seg.validate().is_err());
+    }
+
+    #[test]
+    fn horn_validation_rejects_empty_and_invalid_factors() {
+        let mut horn = Horn::new(vec![Segment::new(Flare::Conical, 0.5, 100.0e-4, 200.0e-4)]);
+        assert!(horn.validate().is_ok());
+        horn.radiation_scale = 0.0;
+        assert!(horn.validate().is_err());
+        horn.radiation_scale = 1.0;
+        horn.mouth_radiation_area_factor = f64::NAN;
+        assert!(horn.validate().is_err());
+        assert!(Horn::new(vec![]).validate().is_err());
     }
 }

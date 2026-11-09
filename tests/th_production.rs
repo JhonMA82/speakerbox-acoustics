@@ -122,7 +122,8 @@ fn assert_production(name: &str, m: Metrics) {
 fn th1_meets_production_tolerances() {
     let oracle = OraclePoint::parse_tsv(
         &std::fs::read_to_string("tests/data/th1_oracle.txt").expect("th1_oracle.txt"),
-    );
+    )
+    .expect("oráculo TSV válido");
     assert_production("TH1", metrics(&th1(), &oracle));
 }
 
@@ -130,7 +131,8 @@ fn th1_meets_production_tolerances() {
 fn th2_meets_production_tolerances() {
     let oracle = OraclePoint::parse_tsv(
         &std::fs::read_to_string("tests/data/th2_oracle.txt").expect("th2_oracle.txt"),
-    );
+    )
+    .expect("oráculo TSV válido");
     assert_production("TH2", metrics(&th2(), &oracle));
 }
 
@@ -138,6 +140,7 @@ fn th2_meets_production_tolerances() {
 fn th1_s2s3_meets_production_tolerances() {
     let oracle = OraclePoint::parse_tsv(
         &std::fs::read_to_string("tests/data/th1_s2s3_oracle.txt").expect("th1_s2s3_oracle.txt"),
-    );
+    )
+    .expect("oráculo TSV válido");
     assert_production("TH1-S2S3", metrics(&th1_s2s3(), &oracle));
 }

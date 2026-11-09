@@ -90,6 +90,10 @@ y las pruebas comparan RK4 contra ella.
 `T = 1/√2` reproduce el perfil de Le Cléac'h. Tractrix, Bessel y guía OS se
 pueden pasar como `Flare::Custom`.
 
+«Parabólico» (`Par`) es el nombre del software de referencia para un **área
+lineal** entre extremos; no es una parábola matemática en el radio ni en el
+área. El radio resultante es `sqrt(S(x))`, que no es lineal.
+
 ### 2.4 Radiación
 
 Pistón de radio `a = sqrt(S/π)` en pantalla infinita:

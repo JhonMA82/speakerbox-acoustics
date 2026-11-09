@@ -35,7 +35,9 @@ Tolerancias comunes: SPL RMS ≤ 2 dB / máximo ≤ 3,5 dB; `Ze` ≤ 15 % RMS /
 declara en cada test: 10 Hz–1 kHz para OD, BP y cajas; TH y bocina normal usan
 todos los puntos disponibles del export.
 
-**v1 cerrado:** no quedan topologías validadas pendientes de oráculo.
+**Alcance v1 cerrado:** no quedan topologías validadas pendientes de oráculo.
+Esto no implica SemVer 1.0: la crate sigue en 0.x y su API pública puede
+cambiar entre versiones menores.
 
 ### Fuera de alcance v1
 

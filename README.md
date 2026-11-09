@@ -15,8 +15,9 @@ nativo y `wasm32-unknown-unknown`.
 
 ## Estado
 
-**v1 cerrado.** Topologías validadas a producción contra exports propios de
-Hornresp 60.70:
+**Alcance v1 de topologías cerrado**, validado a producción contra exports
+propios de Hornresp 60.70. La crate está en **0.2.0, pre-1.0**: «v1» describe
+el alcance de validación, no una promesa de estabilidad SemVer 1.0.
 
 - Bocina normal.
 - Offset driver OD / OD1 / OD2.
@@ -27,6 +28,24 @@ Hornresp 60.70:
 La fase 3 añade `DriverBank` (N drivers, cableado, isobaric, push-pull, DVC),
 la importación de drivers WinISD `.wdr` / OpenISD `.owdr` y deja pendiente el
 array espacial `RadiatorArray` para line arrays.
+
+## Versión y estabilidad
+
+- **Versión actual:** `0.2.0`, pre-1.0.
+- **Madurez:** los modelos acústicos y sus oráculos de producción están
+  validados; la API pública todavía puede cambiar en versiones menores.
+- **Estable en la práctica:** constructores de topologías, unidades SI,
+  `response_at`/`try_response_at`, `Design`, calibración validada y datos de
+  `tests/data`.
+- **Puede cambiar:** firmas de `OraclePoint::parse_tsv`/`parse_csv`, variantes
+  de `SolveError`/`ImportError`/`ValidationError` y campos de `DesignPoint`.
+- **Rust:** MSRV 1.75. **WASM:** `wasm32-unknown-unknown` verificado en CI.
+- **Limitaciones conocidas:** `validate` no compara la fase de impedancia
+  (`ze_phase_deg`); la calibración es empírica y ligada a la geometría
+  validada; `DriverBank` aún no tiene export multi-driver permanente;
+  `RadiatorArray` no está implementado.
+
+El historial de cambios está en [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Qué incluye
 
@@ -157,6 +176,10 @@ let driver = imported.driver;
 ```
 
 Autodetecta `.wdr` y `.owdr`; `import_wdr`/`import_owdr` fuerzan el formato.
+La importación desde texto funciona en nativo y wasm; `import_driver_file` lee
+desde disco y solo se compila en nativo. Un `Mms` que no supera la masa de
+aire, propiedades del aire no positivas o un `numVC`/`VCCon` no entero
+devuelven error en lugar de fabricar parámetros.
 
 ### Barrido con `Design`
 
@@ -186,6 +209,13 @@ for p in design.sweep_log(20.0, 200.0, 12) {
 Tolerancias puntuales: SPL RMS ≤ 2 dB / máximo ≤ 3,5 dB; `Ze` ≤ 15 % RMS /
 35 % puntual; `Xd` ≤ 15 % RMS / 40 % puntual.
 
+`validate` compara SPL, `Ze` y `Xd`. **No compara la fase de impedancia**
+(`ze_phase_deg`): el campo se parsea y se conserva, pero no hay tolerancia
+validada. Un oráculo vacío, incompleto o con valores no físicos no puede
+aprobar: `passes`/`passes_pointwise` exigen `n > 0` e `invalid_points == 0`.
+`OraclePoint::parse_tsv`/`parse_csv` devuelven `Result` y conservan la
+correspondencia de columnas.
+
 | Topología | SPL RMS / máx | Ze RMS / máx | Xd RMS / máx |
 |---|---:|---:|---:|
 | Bocina normal | 1,91–1,94 / 3,15–3,23 dB | 6,0–6,4 / 23,2–26,8 % | 7,1–9,3 / 23,6–35,3 % |
@@ -202,6 +232,22 @@ Detalle por diseño, bandas y calibración:
 Hornresp (SPL ≈ 0,3 dB RMS, `Ze`/`Xd` ≈ 3–4 % RMS); falta un export propio
 multi-driver para el test de producción permanente.
 
+## Rendimiento
+
+Medición reproducible con `examples/perf_sweep.rs` (20 Hz–200 Hz, barrido
+logarítmico, validación incluida):
+
+```bash
+cargo run --release --example perf_sweep
+```
+
+En un x86_64 de escritorio, release: bocina de 4 tramos ≈ 89 µs/punto
+(179 ms para 2.000 puntos), tapped horn ≈ 59 µs/punto (119 ms), BP6 serie
+≈ 21 µs/punto (41 ms). Cien cambios de parámetro con barridos de 50 puntos
+tardan ≈ 443 ms (≈ 4,4 ms por barrido). Para uso interactivo es razonable;
+el cuello de botella es la integración RK4 por segmento y frecuencia, no la
+validación. No hay caché ni paralelismo.
+
 ## Documentación
 
 | Documento | Contenido |
@@ -214,6 +260,7 @@ multi-driver para el test de producción permanente.
 | [`docs/RECORD_FORMAT.md`](docs/RECORD_FORMAT.md) | Formato del registro de 734 bytes |
 | [`AGENTS.md`](AGENTS.md) / [`docs/AGENTS.md`](docs/AGENTS.md) | Guía para agentes y extensión |
 | [`ROADMAP.md`](ROADMAP.md) | Alcance v1 y topologías diferidas |
+| [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
 
 ## Estructura
 
@@ -236,6 +283,8 @@ tests/data/ registros y oráculos propios
 
 - **MSRV 1.75**: `cargo +1.75.0 check --workspace --all-targets`.
 - **wasm32**: `cargo check --lib --target wasm32-unknown-unknown`.
+- **Importación wasm:** `import_driver(&str)` no toca el filesystem;
+  `import_driver_file` solo existe en nativo.
 - **CI**: fmt, check, tests, clippy, docs, MSRV y wasm.
 - **Licencia dual**: MIT OR Apache-2.0.
 

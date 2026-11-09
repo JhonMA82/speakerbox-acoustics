@@ -17,7 +17,10 @@ use num_complex::Complex64;
 
 use crate::air::Air;
 use crate::driver::Driver;
-use crate::error::SolveError;
+use crate::error::{
+    check_frequency, require_finite, require_non_negative, require_polarity, require_positive,
+    SolveError,
+};
 use crate::omega;
 use crate::radiation::piston_radiation_impedance;
 use crate::segment::Segment;
@@ -58,7 +61,7 @@ pub struct TappedHorn {
     pub tap_b: usize,
     /// Ángulo sólido de radiación.
     pub solid_angle: f64,
-    /// Tensión de entrada (V RMS).
+    /// Tensión de entrada (V); el signo invierte la polaridad.
     pub eg: f64,
     /// Resistencia de fuente (Ω).
     pub rg: f64,
@@ -70,6 +73,37 @@ pub struct TappedHorn {
     pub spl_offset_db: f64,
     /// Polaridad del driver (+1 o -1).
     pub polarity: f64,
+}
+
+impl TappedPoint {
+    /// Comprueba que el punto sea físicamente interpretable.
+    pub fn validate(&self) -> Result<(), SolveError> {
+        if !self.freq.is_finite() || self.freq <= 0.0 {
+            return Err(SolveError::InvalidResponse("freq"));
+        }
+        if !(self.spl_db.is_finite() || self.spl_db == f64::NEG_INFINITY) {
+            return Err(SolveError::InvalidResponse("spl_db"));
+        }
+        if !self.phase_deg.is_finite() {
+            return Err(SolveError::InvalidResponse("phase_deg"));
+        }
+        if !(self.ze_mag.is_finite() && self.ze_mag > 0.0) {
+            return Err(SolveError::InvalidResponse("ze_mag"));
+        }
+        if !self.ze_phase_deg.is_finite() {
+            return Err(SolveError::InvalidResponse("ze_phase_deg"));
+        }
+        if !(self.displacement_mm.is_finite() && self.displacement_mm >= 0.0) {
+            return Err(SolveError::InvalidResponse("displacement_mm"));
+        }
+        if !(self.power_w.is_finite() && self.power_w >= 0.0) {
+            return Err(SolveError::InvalidResponse("power_w"));
+        }
+        if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0) {
+            return Err(SolveError::InvalidResponse("efficiency_pct"));
+        }
+        Ok(())
+    }
 }
 
 impl TappedHorn {
@@ -111,10 +145,49 @@ impl TappedHorn {
         self.segments.len() + 1
     }
 
+    /// Comprueba la configuración del tapped horn antes de calcular.
+    ///
+    /// Exige al menos dos tramos válidos, tomas distintas dentro de rango,
+    /// aire y driver físicos, y factores de calibración finitos y positivos.
+    pub fn validate(&self) -> Result<(), SolveError> {
+        self.air.validate()?;
+        self.driver.validate()?;
+        if self.segments.len() < 2 {
+            return Err(SolveError::InvalidTopology(
+                "un tapped horn necesita al menos dos tramos",
+            ));
+        }
+        for segment in &self.segments {
+            segment.validate()?;
+        }
+        let n = self.node_count();
+        if self.tap_a == 0
+            || self.tap_b == 0
+            || self.tap_a >= n
+            || self.tap_b >= n
+            || self.tap_a == self.tap_b
+        {
+            return Err(SolveError::InvalidTopology(
+                "tomas fuera de rango o iguales",
+            ));
+        }
+        require_positive(self.solid_angle, "solid_angle")?;
+        require_finite(self.eg, "eg")?;
+        require_non_negative(self.rg, "rg")?;
+        require_positive(self.mouth_radiation_scale, "mouth_radiation_scale")?;
+        require_positive(
+            self.mouth_radiation_area_factor,
+            "mouth_radiation_area_factor",
+        )?;
+        require_finite(self.spl_offset_db, "spl_offset_db")?;
+        require_polarity(self.polarity, "polarity")?;
+        Ok(())
+    }
+
     /// Impedancia de radiación de la boca.
     fn mouth_impedance(&self, f: f64) -> Complex64 {
-        let area = self.segments.last().map(|s| s.s2()).unwrap_or(1.0e-4)
-            * self.mouth_radiation_area_factor;
+        let area =
+            self.segments.last().map(|s| s.s2()).unwrap_or(0.0) * self.mouth_radiation_area_factor;
         piston_radiation_impedance(&self.air, area, f, self.solid_angle)
             * self.mouth_radiation_scale
     }
@@ -236,6 +309,9 @@ impl TappedHorn {
                 if factor.norm() == 0.0 {
                     continue;
                 }
+                // El índice k recorre dos filas de `y` a la vez; un iterador
+                // no evita el préstamo mutable/immutable.
+                #[allow(clippy::needless_range_loop)]
                 for k in col..m {
                     let v = y[col][k] * factor;
                     y[row][k] -= v;
@@ -261,10 +337,10 @@ impl TappedHorn {
     /// radiación. Es la carga acústica del lado del cuello que muestra la
     /// gráfica de impedancia acústica de un tapped horn.
     pub fn neck_impedance(&self, f: f64) -> Complex64 {
-        if self.segments.is_empty() {
+        if self.segments.is_empty() || self.tap_a == 0 || self.tap_a > self.segments.len() {
             return Complex64::new(0.0, 0.0);
         }
-        let tap = self.tap_a.max(1).min(self.segments.len());
+        let tap = self.tap_a;
         let mut z_path = self.mouth_impedance(f);
         for seg in self.segments[tap..].iter().rev() {
             z_path = seg.matrix(&self.air, f).transform_impedance(z_path);
@@ -326,6 +402,9 @@ impl TappedHorn {
             let d = y[col][col];
             for row in col + 1..m {
                 let factor = y[row][col] / d;
+                // El índice k recorre dos filas de `y` a la vez; un iterador
+                // no evita el préstamo mutable/immutable.
+                #[allow(clippy::needless_range_loop)]
                 for k in col..m {
                     let v = y[col][k] * factor;
                     y[row][k] -= v;
@@ -431,28 +510,117 @@ impl TappedHorn {
         }
     }
 
-    /// Respuesta a una frecuencia. Devuelve un punto neutro si la entrada no
-    /// es resoluble; use [`TappedHorn::try_response_at`] para distinguir el
-    /// error.
+    /// Respuesta a una frecuencia. Devuelve un punto neutro si la entrada o el
+    /// sistema no son resolubles; use [`TappedHorn::try_response_at`] para
+    /// distinguir el error.
     pub fn response_at(&self, f: f64) -> TappedPoint {
-        if !f.is_finite() || f <= 0.0 {
-            return Self::zero_point(f);
-        }
-        let Some((p, zm, z_branch, ps, ud)) = self.solve(f) else {
-            return Self::zero_point(f);
-        };
-        self.point_from_solve(f, &p, zm, z_branch, ps, ud)
+        self.try_response_at(f)
+            .unwrap_or_else(|_| Self::zero_point(f))
     }
 
-    /// Respuesta a una frecuencia, con error explícito si el sistema no es
-    /// resoluble.
+    /// Respuesta a una frecuencia, con error explícito si la entrada, la
+    /// configuración o el resultado no son válidos.
     pub fn try_response_at(&self, f: f64) -> Result<TappedPoint, SolveError> {
-        if !f.is_finite() || f <= 0.0 {
-            return Err(SolveError::InvalidFrequency(f));
-        }
+        check_frequency(f)?;
+        self.validate()?;
         let Some((p, zm, z_branch, ps, ud)) = self.solve(f) else {
             return Err(SolveError::SingularSystem);
         };
-        Ok(self.point_from_solve(f, &p, zm, z_branch, ps, ud))
+        let point = self.point_from_solve(f, &p, zm, z_branch, ps, ud);
+        point.validate()?;
+        Ok(point)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::segment::Flare;
+
+    fn driver() -> Driver {
+        Driver::from_ui_units(350.0, 4.0e-4, 20.0, 6.0, 18.0, 4.0, 1.0, 1)
+    }
+
+    fn th() -> TappedHorn {
+        TappedHorn::new_4seg_th(
+            driver(),
+            vec![
+                Segment::new(Flare::Conical, 0.40, 400e-4, 400e-4),
+                Segment::new(Flare::Exponential, 0.20, 400e-4, 400e-4),
+                Segment::new(Flare::Conical, 1.20, 400e-4, 1200e-4),
+                Segment::new(Flare::Conical, 0.30, 1200e-4, 1500e-4),
+            ],
+        )
+    }
+
+    #[test]
+    fn try_response_at_rejects_invalid_frequency() {
+        let horn = th();
+        for f in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(matches!(
+                horn.try_response_at(f),
+                Err(SolveError::InvalidFrequency(_))
+            ));
+        }
+        assert!(horn.try_response_at(50.0).is_ok());
+    }
+
+    #[test]
+    fn try_response_at_rejects_invalid_taps() {
+        let mut horn = th();
+        horn.tap_a = 0;
+        assert!(matches!(
+            horn.try_response_at(50.0),
+            Err(SolveError::InvalidTopology(_))
+        ));
+
+        let mut horn = th();
+        horn.tap_b = horn.tap_a;
+        assert!(matches!(
+            horn.try_response_at(50.0),
+            Err(SolveError::InvalidTopology(_))
+        ));
+
+        let mut horn = th();
+        horn.tap_b = 99;
+        assert!(matches!(
+            horn.try_response_at(50.0),
+            Err(SolveError::InvalidTopology(_))
+        ));
+    }
+
+    #[test]
+    fn try_response_at_rejects_invalid_segment() {
+        let mut horn = th();
+        horn.segments[0] = Segment::new(Flare::Conical, 0.40, 0.0, 400e-4);
+        assert!(matches!(
+            horn.try_response_at(50.0),
+            Err(SolveError::InvalidParameter("segment.s1"))
+        ));
+    }
+
+    #[test]
+    fn point_validation_rejects_invalid_fields() {
+        let valid = th().response_at(50.0);
+        assert!(valid.validate().is_ok());
+
+        let mut p = valid;
+        p.ze_mag = f64::NAN;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.displacement_mm = -1.0;
+        assert!(p.validate().is_err());
+
+        let mut p = valid;
+        p.power_w = f64::INFINITY;
+        assert!(p.validate().is_err());
+    }
+
+    #[test]
+    fn response_at_returns_neutral_point_on_invalid_input() {
+        let p = th().response_at(f64::NAN);
+        assert_eq!(p.spl_db, f64::NEG_INFINITY);
+        assert_eq!(p.ze_mag, 0.0);
     }
 }

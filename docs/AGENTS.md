@@ -85,11 +85,18 @@ DesignPoint (SPL, Ze, Xd, fase, retardo, potencia, puerto)
 - `spl_db` es presión de potencia a 1 m, dB re 20 µPa.
 - `xd_mm` es desplazamiento de **pico** (`√2`·RMS) en todas las topologías.
 - `phase_deg` es fase de velocidad volumétrica; la presión lejana añade +90°.
+- `eg` puede ser negativo (invierte la polaridad); `rg` debe ser finito y no
+  negativo.
 - `solid_angle` en estereorradianes (`4π`, `2π`, `π`, `π/2`).
 - `response_at` devuelve un punto neutro si no es resoluble;
-  `try_response_at` devuelve `SolveError`.
+  `try_response_at` devuelve `SolveError` y valida entrada, configuración y
+  todos los campos del resultado.
+- Los constructores no recortan valores; `validate()` rechaza parámetros no
+  finitos o no físicos.
 - `Design::response` desenrolla la fase y calcula el retardo de grupo; no
   duplique esa lógica en la UI.
+- `Design::sweep_log` devuelve vacío ante límites o número de puntos inválidos;
+  `try_sweep_log` devuelve el `SolveError`.
 - La calibración es empírica y está ligada a la geometría validada. No cambie
   `spl_offset_db`, `mouth_radiation_scale`, `mouth_radiation_area_factor` ni
   `rear_radiation_scale` sin revalidar los tests de producción.
@@ -117,8 +124,15 @@ Sin oráculo propio, la topología queda como **experimental** y no entra en v1.
 - Los oráculos son exports propios, nunca datos de proyectos con licencia
   incompatible.
 - `OraclePoint::parse_tsv` acepta el `All Chart Data` de Hornresp con coma o
-  punto decimal.
+  punto decimal y devuelve `Result`; conserva la posición de las columnas y
+  rechaza celdas inválidas o columnas faltantes.
 - `validate` compara SPL, `Ze` y `Xd`; `Xd` ya es pico en todos los puntos.
+- `validate` **no** compara `ze_phase_deg`; no declare una validación completa
+  de la impedancia.
+- Un oráculo vacío o con puntos inválidos no aprueba: `passes`/`passes_pointwise`
+  exigen `n > 0`, `invalid_points == 0` y métricas finitas.
+- `parse_csv` exige exactamente 4 columnas; `parse_tsv` usa índices fijos y
+  admite columnas extra.
 - `passes_pointwise` aplica las tolerancias puntuales, no solo RMS.
 - Los tests de producción deben usar la misma calibración global para todos
   los diseños de la topología.

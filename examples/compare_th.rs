@@ -29,7 +29,8 @@ fn th2(b: usize) -> TappedHorn {
     t
 }
 fn run(name: &str, th: &TappedHorn, path: &str) {
-    let oracle = OraclePoint::parse_tsv(&std::fs::read_to_string(path).unwrap());
+    let oracle = OraclePoint::parse_tsv(&std::fs::read_to_string(path).unwrap())
+        .expect("oráculo TSV válido");
     let mut es = 0.0;
     let mut ez = 0.0;
     let mut ex = 0.0;

@@ -81,11 +81,20 @@
 //! Soporta paralelo, serie, serie-paralelo, isobaric por pares, push-pull y
 //! DVC paralelo/serie. Bessel y DVC Separate requieren capas adicionales.
 //!
+//! ## Versión y estabilidad
+//!
+//! Versión `0.2.0`, **pre-1.0**: la API pública puede cambiar entre versiones
+//! menores. La etiqueta «v1» de `README.md` y `ROADMAP.md` se refiere al
+//! alcance de topologías validado contra exports propios, no a estabilidad
+//! SemVer 1.0.
+//!
 //! ## Importar drivers
 //!
-//! [`import_driver`] autodetecta ficheros WinISD `.wdr` y OpenISD `.owdr`.
-//! [`import_wdr`] e [`import_owdr`] fuerzan el formato; [`import_driver_file`]
-//! lee desde disco en nativo. El resultado es un [`ImportedDriver`] con el
+//! [`import_driver`] autodetecta ficheros WinISD `.wdr` y OpenISD `.owdr` a
+//! partir de texto, por lo que funciona en nativo y en wasm. [`import_wdr`] e
+//! [`import_owdr`] fuerzan el formato. [`import_driver_file`] lee desde disco
+//! y solo se compila en nativo; en wasm use el lector de la aplicación y pase
+//! el texto a [`import_driver`]. El resultado es un [`ImportedDriver`] con el
 //! [`Driver`] y metadatos (marca, modelo, Xmax, Pe, número de bobinas).
 //!
 //! ## Convenciones
@@ -100,7 +109,10 @@
 //! - `solid_angle` va en estereorradianes: `4π` espacio libre, `2π` media
 //!   esfera, `π` cuarto de espacio, `π/2` octavo de espacio.
 //! - `response_at` devuelve un punto neutro si el diseño no es resoluble;
-//!   `try_response_at` devuelve [`SolveError`].
+//!   `try_response_at` devuelve [`SolveError`] y valida entrada, configuración
+//!   y todos los campos del resultado.
+//! - [`validate`] compara SPL, `Ze` y `Xd`; **no** compara la fase de
+//!   impedancia (`ze_phase_deg`), que solo se conserva para trazabilidad.
 //!
 //! ## Documentación
 //!
@@ -137,9 +149,10 @@ pub use calibration::Calibration;
 pub use design::{Design, DesignPoint};
 pub use driver::Driver;
 pub use driver_bank::{BankError, DriverBank, DvcWiring, Mechanical, Wiring};
+#[cfg(not(target_arch = "wasm32"))]
+pub use driver_import::import_driver_file;
 pub use driver_import::{
-    import_driver, import_driver_file, import_owdr, import_wdr, DriverFormat, ImportError,
-    ImportedDriver,
+    import_driver, import_owdr, import_wdr, DriverFormat, ImportError, ImportedDriver,
 };
 pub use element::{Chamber, EndCorrection, Lining, PassiveRadiator, Port};
 pub use error::SolveError;
@@ -149,7 +162,7 @@ pub use record::LegacyRecord;
 pub use segment::{Flare, Horn, Segment, TransferMatrix};
 pub use system::{ResponsePoint, System};
 pub use tapped::{TappedHorn, TappedPoint};
-pub use validation::{validate, OraclePoint, ValidationReport};
+pub use validation::{validate, OraclePoint, ValidationError, ValidationReport};
 
 /// Frecuencia angular a partir de una frecuencia en hercios.
 #[inline]

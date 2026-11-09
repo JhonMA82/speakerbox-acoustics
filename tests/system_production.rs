@@ -53,6 +53,7 @@ fn run(name: &str, sys: &System, oracle_path: &str) {
     let text = std::fs::read_to_string(oracle_path)
         .unwrap_or_else(|e| panic!("no se pudo leer {oracle_path}: {e}"));
     let oracle: Vec<OraclePoint> = OraclePoint::parse_tsv(&text)
+        .expect("oráculo TSV válido")
         .into_iter()
         .filter(|o| o.freq_hz <= 1000.0)
         .collect();

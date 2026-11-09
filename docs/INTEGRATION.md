@@ -54,11 +54,19 @@ Driver ──► topología ──► respuesta
 - `xd_mm`: desplazamiento de **pico** (`√2`·RMS) en todas las topologías.
 - `solid_angle`: estereorradianes. `4π` espacio libre, `2π` media esfera,
   `π` cuarto de espacio, `π/2` octavo de espacio.
+- `eg` puede ser negativo: el signo invierte la polaridad. `rg` debe ser
+  finito y no negativo.
 - `phase_deg`: fase de la velocidad volumétrica radiada; la presión lejana
   añade +90°. `Design::response` desenrolla la fase y calcula el retardo de
   grupo.
 - `response_at` devuelve un punto neutro si el diseño no es resoluble;
   `try_response_at` devuelve `SolveError`.
+- `try_response_at` valida aire, driver, geometría, cámaras, puertos y todos
+  los campos del resultado. `response_at` devuelve el punto neutro documentado
+  si algo no es válido.
+- Los constructores no recortan valores: use `validate()` o `try_response_at`
+  para detectar entradas no físicas.
+- `validate` compara SPL, `Ze` y `Xd`; **no** compara `ze_phase_deg`.
 
 ## 4. Recetas por topología
 
@@ -246,9 +254,14 @@ let text = std::fs::read_to_string("driver.wdr").expect("leer driver");
 let imported = import_driver(&text).expect("driver válido");
 let driver = imported.driver;
 
-// O directamente desde disco (nativo; en wasm use el lector de la app).
+// O directamente desde disco (solo nativo; en wasm use el lector de la app).
 let imported = import_driver_file("driver.owdr").expect("driver válido");
 ```
+
+El importador rechaza `Mms <= masa añadida del aire`, `c`/`rho` no positivas y
+`numVC`/`VCCon` no enteros; no rellena parámetros físicos para ocultar datos
+incorrectos. `import_driver_file` no se compila en wasm; `import_driver(&str)`
+sí.
 
 El importador autodetecta el formato:
 
@@ -320,8 +333,14 @@ for p in design.sweep_log(20.0, 200.0, 12) {
 | `xd_mm` | desplazamiento de pico del diafragma (mm) |
 | `power_w` | potencia acústica radiada (W) |
 | `efficiency_pct` | rendimiento acústico (%) |
-| `za_real`, `za_imag` | impedancia acústica de referencia (Pa·s/m³) |
-| `port_velocity` | velocidad máxima de puerto (m/s), si aplica |
+| `za_real`, `za_imag` | impedancia acústica de referencia (Pa·s/m³); `0.0` en `Bandpass` significa «no aplicable» |
+| `port_velocity` | velocidad máxima de puerto (m/s); `None` significa «no aplicable» |
+
+`Design::response_at` devuelve un punto neutro si el diseño no es resoluble;
+`Design::try_response_at` propaga `SolveError`. `Design::validate()` valida la
+topología. `sweep_log` devuelve un vector vacío si `fmin`/`fmax` no son
+finitos y positivos, `fmax <= fmin` o `points < 2`; `try_sweep_log` devuelve
+el error correspondiente.
 
 ## 6. Calibración y validación
 
@@ -350,7 +369,7 @@ fn validate_export(
     let bytes = std::fs::read(record_path)?;
     let record = LegacyRecord::parse(&bytes)?;
     let system = record.to_system_with(&Calibration::validated_60_70());
-    let oracle = OraclePoint::parse_tsv(&std::fs::read_to_string(export_path)?);
+    let oracle = OraclePoint::parse_tsv(&std::fs::read_to_string(export_path)?)?;
     let report = validate(&system, &oracle);
     println!("SPL RMS = {:.2} dB", report.spl_rmse_db);
     Ok(())
@@ -366,6 +385,16 @@ Las tolerancias de producción usadas en este repositorio son:
 La calibración es **empírica y ligada a la geometría validada**. Para otro
 diseño, genere su propio export de Hornresp y valide con `validate`; no
 suponga que los factores de calibración son universales.
+
+`parse_tsv`/`parse_csv` devuelven `Result<Vec<OraclePoint>, ValidationError>`:
+conservan la posición de cada columna y rechazan celdas obligatorias vacías o
+no finitas, frecuencias no positivas y valores de referencia no físicos.
+`parse_tsv` admite columnas extra y usa índices fijos; `parse_csv` exige
+exactamente cuatro columnas. Un oráculo vacío no produce una lista vacía
+silenciosa. `validate` cuenta los puntos rechazados en
+`report.invalid_points`; `passes`/`passes_pointwise` exigen
+`report.is_valid()` (`n > 0`, `invalid_points == 0` y métricas finitas). La
+fase de impedancia (`ze_phase_deg`) se parsea pero **no se compara**.
 
 ## 7. Errores y robustez
 
@@ -388,19 +417,33 @@ match bp.try_response_at(50.0) {
 }
 ```
 
-Use `try_response_at` en bucles de UI donde el usuario puede dejar un campo
-inválido. `response_at` es más rápido y devuelve un punto neutro
-(`spl_db = -∞`) en esos casos.
+`response_at` no propaga el error: delega en `try_response_at` y devuelve un
+punto neutro (`spl_db = -∞`) si falla. No es más rápido; úselo solo cuando el
+punto neutro sea aceptable.
+
+`try_response_at` distingue:
+
+- `InvalidFrequency`: frecuencia no finita o `<= 0`.
+- `InvalidParameter`: campo de entrada no finito o fuera de rango físico.
+- `InvalidTopology`: configuración incoherente (toma fuera de rango, BP6 sin
+  puerto trasero, puerto sin cámara, etc.).
+- `InvalidResponse`: campo del resultado no finito o no físico.
+- `SingularSystem`: sistema lineal singular o mal condicionado.
+
+Llame a `validate()` en el tipo de topología si quiere comprobar la
+configuración una sola vez antes de un barrido.
 
 ## 8. WASM y nativo
 
-El núcleo no usa hilos, ficheros ni tiempo del sistema. Puede compilarse para
-wasm sin cambios:
+El núcleo de cálculo no usa hilos ni tiempo del sistema. Compila para wasm sin
+cambios; la única función de filesystem (`import_driver_file`) solo se compila
+en nativo:
 
 ```bash
 cargo check --lib --target wasm32-unknown-unknown
 ```
 
+Para wasm, lea el texto con la API del navegador y use `import_driver(&str)`.
 Los tipos principales implementan `Send + Sync`; puede mover un `Design` a un
 worker o hilo de cálculo y devolver los `DesignPoint` a la UI.
 
@@ -410,11 +453,12 @@ worker o hilo de cálculo y devolver los `DesignPoint` a la UI.
 2. Use SI en el API; para la UI puede convertir desde cm²/cm/L/g/mH/mm.
 3. Fije `solid_angle` (`2π` para media esfera, `π/2` para octavo de espacio).
 4. Fije `eg`, `rg` y, si aplica, `spl_offset_db`/calibración.
-5. Barra con `Design::sweep_log` o `response_at`; use `try_response_at` para
-   errores de usuario.
+5. Valide la configuración con `validate()` y barra con `Design::sweep_log` o
+   `try_sweep_log`; use `try_response_at` para errores de usuario.
 6. Recuerde que `xd_mm` es pico y que `phase_deg` es fase de velocidad.
 7. Valide contra un export propio de Hornresp antes de llamar “producción” a
-   una geometría nueva.
+   una geometría nueva; recuerde que `validate` no compara la fase de
+   impedancia.
 
 ## 10. Dónde mirar
 

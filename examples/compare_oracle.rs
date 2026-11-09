@@ -25,7 +25,8 @@ fn main() {
     let record = LegacyRecord::parse(&std::fs::read(dat).expect("no se pudo leer el .dat"))
         .expect("registro inválido");
     let oracle =
-        OraclePoint::parse_tsv(&std::fs::read_to_string(tsv).expect("no se pudo leer el export"));
+        OraclePoint::parse_tsv(&std::fs::read_to_string(tsv).expect("no se pudo leer el export"))
+            .expect("oráculo TSV válido");
     let system = if calibrated {
         record.to_system_with(&Calibration::validated_60_70())
     } else {
