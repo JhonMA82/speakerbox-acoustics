@@ -1,0 +1,838 @@
+//! Recintos bandpass de 4º y 6º orden.
+//!
+//! - **BP4**: cámara trasera sellada + cámara delantera ventilada. La salida
+//!   es el puerto delantero.
+//! - **BP6**: cámara trasera ventilada + cámara delantera ventilada. Las dos
+//!   salidas se suman en fase compleja.
+//!
+//! El diafragma ve `Z_carga = Z_trasera + Z_delantera`, donde cada cámara es
+//! una compliancia en paralelo con su puerto. Por defecto el puerto se modela
+//! como **tubo cilíndrico** (`PortModel::Pipe`), con su resonancia de cuarto de
+//! onda y la radiación en la boca; `PortModel::Lumped` deja la masa acústica
+//! simple `jωM`. La salida se calcula como presión lejana de un
+//! volumen-velocidad en un ángulo sólido `Ω`:
+//!
+//! ```text
+//! p(1 m) = ρ·jω·U_total / Ω
+//! ```
+//!
+//! El desplazamiento se reporta de **pico** (`√2` veces el valor RMS).
+//!
+//! El BP6 puede ser **paralelo** (ambos puertos radian al exterior) o
+//! **serie** (el puerto trasero desemboca en la cámara delantera y solo el
+//! puerto delantero radia). La topología se selecciona con
+//! [`RearPortRouting`]. En serie, el puerto trasero se resuelve con su matriz
+//! de transmisión y la admitancia de ambas cámaras; su salida interior añade
+//! la corrección de extremo embridada `0.8216·a`. El `QL` de la aplicación
+//! de referencia se aplica solo a la cámara delantera.
+//!
+//! Validación: BP4, BP6 paralelo y BP6 serie contra exports propios del
+//! software de referencia 60.70 (`tests/bp_production.rs`, 10 Hz–1 kHz).
+//!
+//! Referencias: Fincham, *A Bandpass Filter Loudspeaker System* (AES 1983);
+//! Geddes, *An Introduction to Band-Pass Loudspeaker Systems* (JAES 1989).
+
+use num_complex::Complex64;
+
+use crate::air::Air;
+use crate::driver::Driver;
+use crate::element::{parallel, EndCorrection, Port};
+use crate::error::SolveError;
+use crate::omega;
+use crate::radiation::piston_radiation_impedance;
+use crate::segment::{Flare, Segment, TransferMatrix};
+
+/// Orden del recinto bandpass.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BandpassOrder {
+    /// 4º orden: trasera sellada, delantera ventilada.
+    Fourth,
+    /// 6º orden: trasera y delantera ventiladas.
+    Sixth,
+}
+
+/// Destino de salida del puerto trasero en un BP6.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum RearPortRouting {
+    /// El puerto trasero radia al exterior (BP6 paralelo).
+    #[default]
+    Outside,
+    /// El puerto trasero descarga en la cámara delantera (BP6 serie).
+    FrontChamber,
+}
+
+/// Modelo acústico del puerto.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum PortModel {
+    /// Masa acústica lumped: `Z = jωM`, con corrección de extremo.
+    Lumped,
+    /// Tubo cilíndrico con su resonancia y radiación en la boca.
+    #[default]
+    Pipe,
+}
+
+/// Punto de respuesta de un bandpass.
+#[derive(Clone, Copy, Debug)]
+pub struct BandpassPoint {
+    /// Frecuencia (Hz).
+    pub freq: f64,
+    /// SPL de potencia a 1 m (dB re 20 µPa).
+    pub spl_db: f64,
+    /// Fase de la velocidad volumétrica radiada (grados).
+    pub phase_deg: f64,
+    /// Módulo de la impedancia eléctrica (Ω).
+    pub ze_mag: f64,
+    /// Fase de la impedancia eléctrica (grados).
+    pub ze_phase_deg: f64,
+    /// Desplazamiento de pico del diafragma (mm).
+    pub displacement_mm: f64,
+    /// Potencia acústica radiada (W).
+    pub power_w: f64,
+    /// Rendimiento acústico (%).
+    pub efficiency_pct: f64,
+    /// Velocidad del aire en el puerto delantero (m/s).
+    pub front_port_velocity: f64,
+    /// Velocidad del aire en el puerto trasero (m/s), solo BP6.
+    pub rear_port_velocity: Option<f64>,
+}
+
+/// Recinto bandpass de 4º o 6º orden.
+#[derive(Clone, Debug)]
+pub struct Bandpass {
+    /// Propiedades del aire.
+    pub air: Air,
+    /// Altavoz.
+    pub driver: Driver,
+    /// Orden del bandpass (cuarto o sexto).
+    pub order: BandpassOrder,
+    /// Volumen interno de la cámara trasera (m³).
+    pub rear_volume_m3: f64,
+    /// Volumen interno de la cámara delantera (m³).
+    pub front_volume_m3: f64,
+    /// Puerto delantero.
+    pub front_port: Port,
+    /// Puerto trasero; obligatorio para [`BandpassOrder::Sixth`].
+    pub rear_port: Option<Port>,
+    /// Destino del puerto trasero: exterior (paralelo) o cámara delantera
+    /// (serie). Solo se usa en BP6.
+    pub rear_port_routing: RearPortRouting,
+    /// Modelo de puerto usado para ambas cámaras.
+    pub port_model: PortModel,
+    /// Factor Ql de la cámara trasera (`None` = sin pérdidas).
+    pub rear_ql: Option<f64>,
+    /// Factor Ql de la cámara delantera (`None` = sin pérdidas).
+    pub front_ql: Option<f64>,
+    /// Ángulo sólido de radiación (estereorradianes).
+    pub solid_angle: f64,
+    /// Tensión de entrada (V RMS).
+    pub eg: f64,
+    /// Resistencia de fuente (Ω).
+    pub rg: f64,
+    /// Corrección global de SPL (dB).
+    pub spl_offset_db: f64,
+    /// Polaridad del driver (+1 o -1).
+    pub polarity: f64,
+}
+
+impl Bandpass {
+    /// BP4: cámara trasera sellada, cámara delantera ventilada.
+    pub fn new_bp4(
+        driver: Driver,
+        rear_volume_m3: f64,
+        front_volume_m3: f64,
+        front_port: Port,
+    ) -> Self {
+        Self {
+            air: Air::default(),
+            driver,
+            order: BandpassOrder::Fourth,
+            rear_volume_m3,
+            front_volume_m3,
+            front_port,
+            rear_port: None,
+            rear_port_routing: RearPortRouting::Outside,
+            port_model: PortModel::Pipe,
+            rear_ql: None,
+            front_ql: None,
+            solid_angle: std::f64::consts::TAU,
+            eg: 2.83,
+            rg: 0.0,
+            spl_offset_db: 0.0,
+            polarity: 1.0,
+        }
+    }
+
+    /// BP6 paralelo: cámara trasera ventilada al exterior y cámara delantera
+    /// ventilada al exterior.
+    pub fn new_bp6(
+        driver: Driver,
+        rear_volume_m3: f64,
+        front_volume_m3: f64,
+        front_port: Port,
+        rear_port: Port,
+    ) -> Self {
+        Self {
+            air: Air::default(),
+            driver,
+            order: BandpassOrder::Sixth,
+            rear_volume_m3,
+            front_volume_m3,
+            front_port,
+            rear_port: Some(rear_port),
+            rear_port_routing: RearPortRouting::Outside,
+            port_model: PortModel::Pipe,
+            rear_ql: None,
+            front_ql: None,
+            solid_angle: std::f64::consts::TAU,
+            eg: 2.83,
+            rg: 0.0,
+            spl_offset_db: 0.0,
+            polarity: 1.0,
+        }
+    }
+
+    /// BP6 serie: el puerto trasero descarga en la cámara delantera y solo el
+    /// puerto delantero radia al exterior.
+    pub fn new_bp6_series(
+        driver: Driver,
+        rear_volume_m3: f64,
+        front_volume_m3: f64,
+        front_port: Port,
+        rear_port: Port,
+    ) -> Self {
+        let mut bp = Self::new_bp6(
+            driver,
+            rear_volume_m3,
+            front_volume_m3,
+            front_port,
+            rear_port,
+        );
+        bp.rear_port_routing = RearPortRouting::FrontChamber;
+        bp
+    }
+
+    /// Frecuencia de sintonía del puerto delantero (Hz).
+    pub fn front_tuning_hz(&self) -> f64 {
+        tuning_hz(&self.air, self.front_port, self.front_volume_m3)
+    }
+
+    /// Frecuencia de sintonía del puerto trasero (Hz), si existe.
+    pub fn rear_tuning_hz(&self) -> Option<f64> {
+        self.rear_port
+            .map(|port| tuning_hz(&self.air, port, self.rear_volume_m3))
+    }
+
+    /// Aplica el `QL` de un registro del software de referencia.
+    ///
+    /// El software de referencia guarda un solo `QL`, referido a la sintonía más baja. Para la
+    /// otra cámara, el `QL` se escala con su frecuencia de sintonía para
+    /// mantener la misma resistencia de pérdidas. En el BP6 serie se aplica
+    /// solo a la cámara delantera, que es la que radia.
+    pub fn set_ql(&mut self, ql: f64) {
+        if !ql.is_finite() || ql <= 0.0 {
+            self.front_ql = None;
+            self.rear_ql = None;
+            return;
+        }
+        match self.order {
+            BandpassOrder::Fourth => {
+                self.front_ql = Some(ql);
+                self.rear_ql = None;
+            }
+            BandpassOrder::Sixth => {
+                let fb_front = self.front_tuning_hz();
+                let fb_rear = self.rear_tuning_hz().unwrap_or(fb_front);
+                if self.rear_port_routing == RearPortRouting::FrontChamber {
+                    // En BP6S el QL del software de referencia se refiere a la cámara que
+                    // radia (la delantera); la trasera va acoplada por el
+                    // puerto serie y no lleva una resistencia QL independiente.
+                    self.rear_ql = None;
+                    self.front_ql = if fb_front > 0.0 && fb_rear > 0.0 && fb_rear <= fb_front {
+                        Some(ql * fb_front / fb_rear)
+                    } else {
+                        Some(ql)
+                    };
+                } else if fb_front <= 0.0 || fb_rear <= 0.0 {
+                    self.front_ql = Some(ql);
+                    self.rear_ql = Some(ql);
+                } else if fb_rear <= fb_front {
+                    self.rear_ql = Some(ql);
+                    self.front_ql = Some(ql * fb_front / fb_rear);
+                } else {
+                    self.front_ql = Some(ql);
+                    self.rear_ql = Some(ql * fb_rear / fb_front);
+                }
+            }
+        }
+    }
+
+    fn rear_is_ported(&self) -> bool {
+        self.order == BandpassOrder::Sixth
+            && self
+                .rear_port
+                .map(|p| p.area > 0.0 && p.length > 0.0)
+                .unwrap_or(false)
+    }
+
+    fn chamber_impedance(&self, volume_m3: f64, f: f64, ql: Option<f64>, fb: f64) -> Complex64 {
+        let c = volume_m3 / (self.air.rho * self.air.c * self.air.c);
+        let z = Complex64::new(0.0, -1.0) / (omega(f) * c);
+        match ql {
+            Some(q) if q > 0.0 && fb > 0.0 => {
+                // Resistencia en paralelo que da Ql a la frecuencia de sintonía.
+                let r = q / (std::f64::consts::TAU * fb * c);
+                parallel(z, Complex64::new(r, 0.0))
+            }
+            _ => z,
+        }
+    }
+
+    /// Longitud efectiva del tubo del puerto: longitud física más la
+    /// corrección del extremo interior. La radiación de la boca aporta la
+    /// corrección exterior.
+    fn pipe_length(port: Port) -> f64 {
+        let a = (port.area / std::f64::consts::PI).sqrt();
+        match port.end_correction {
+            EndCorrection::None => port.length,
+            EndCorrection::Inner(k) => port.length + k * a,
+            EndCorrection::FlangedBoth | EndCorrection::UnflangedBoth => {
+                port.length + port.end_correction.delta(port.area) * 0.5
+            }
+        }
+    }
+
+    fn port_input_impedance(&self, port: Port, f: f64) -> Complex64 {
+        match self.port_model {
+            PortModel::Lumped => port.impedance(&self.air, f),
+            PortModel::Pipe => {
+                let length = Self::pipe_length(port);
+                let seg = Segment::new(Flare::Cylindrical, length, port.area, port.area);
+                let z_rad = piston_radiation_impedance(&self.air, port.area, f, self.solid_angle);
+                seg.matrix(&self.air, f).transform_impedance(z_rad)
+            }
+        }
+    }
+
+    /// Matriz de transmisión del puerto, de la cámara de entrada a la salida.
+    ///
+    /// `extra_length` añade corrección de extremo en la salida; se usa en el
+    /// puerto trasero del BP6 serie, cuyo extremo desemboca en la cámara
+    /// delantera y no radica al exterior. Para `PortModel::Lumped` la
+    /// corrección ya está incluida en la masa del puerto.
+    fn port_matrix(&self, port: Port, f: f64, extra_length: f64) -> TransferMatrix {
+        match self.port_model {
+            PortModel::Lumped => TransferMatrix {
+                a: Complex64::new(1.0, 0.0),
+                b: port.impedance(&self.air, f),
+                c: Complex64::new(0.0, 0.0),
+                d: Complex64::new(1.0, 0.0),
+            },
+            PortModel::Pipe => {
+                let length = Self::pipe_length(port) + extra_length;
+                let seg = Segment::new(Flare::Cylindrical, length, port.area, port.area);
+                seg.matrix(&self.air, f)
+            }
+        }
+    }
+
+    /// Corrección de extremo embridado para una salida interior.
+    fn flanged_end_correction(area: f64) -> f64 {
+        0.8216 * (area / std::f64::consts::PI).sqrt()
+    }
+
+    fn port_out_velocity(&self, port: Port, p_chamber: Complex64, f: f64) -> Complex64 {
+        match self.port_model {
+            PortModel::Lumped => p_chamber / port.impedance(&self.air, f),
+            PortModel::Pipe => {
+                let length = Self::pipe_length(port);
+                let seg = Segment::new(Flare::Cylindrical, length, port.area, port.area);
+                let matrix = seg.matrix(&self.air, f);
+                let z_rad = piston_radiation_impedance(&self.air, port.area, f, self.solid_angle);
+                let z_in = matrix.transform_impedance(z_rad);
+                let u_in = p_chamber / z_in;
+                let (_, u_out) = matrix.apply(p_chamber, u_in);
+                u_out
+            }
+        }
+    }
+
+    /// Respuesta a una frecuencia. Devuelve un punto neutro si la topología no
+    /// es válida; use [`Bandpass::try_response_at`] para distinguir el error.
+    pub fn response_at(&self, f: f64) -> BandpassPoint {
+        if !f.is_finite() || f <= 0.0 {
+            return self.zero_point(f);
+        }
+        let Some(point) = self.solve_point(f) else {
+            return self.zero_point(f);
+        };
+        point
+    }
+
+    /// Respuesta a una frecuencia, con error explícito si la topología no es
+    /// válida.
+    pub fn try_response_at(&self, f: f64) -> Result<BandpassPoint, SolveError> {
+        if !f.is_finite() || f <= 0.0 {
+            return Err(SolveError::InvalidFrequency(f));
+        }
+        if self.rear_volume_m3 <= 0.0
+            || self.front_volume_m3 <= 0.0
+            || self.front_port.area <= 0.0
+            || self.front_port.length <= 0.0
+        {
+            return Err(SolveError::InvalidTopology(
+                "volúmenes o puerto delantero no válidos",
+            ));
+        }
+        if self.order == BandpassOrder::Sixth && !self.rear_is_ported() {
+            return Err(SolveError::InvalidTopology(
+                "BP6 requiere un puerto trasero",
+            ));
+        }
+        self.solve_point(f).ok_or(SolveError::SingularSystem)
+    }
+
+    fn zero_point(&self, f: f64) -> BandpassPoint {
+        BandpassPoint {
+            freq: f,
+            spl_db: f64::NEG_INFINITY,
+            phase_deg: 0.0,
+            ze_mag: 0.0,
+            ze_phase_deg: 0.0,
+            displacement_mm: 0.0,
+            power_w: 0.0,
+            efficiency_pct: 0.0,
+            front_port_velocity: 0.0,
+            rear_port_velocity: None,
+        }
+    }
+
+    fn solve_point(&self, f: f64) -> Option<BandpassPoint> {
+        if self.rear_volume_m3 <= 0.0
+            || self.front_volume_m3 <= 0.0
+            || self.front_port.area <= 0.0
+            || self.front_port.length <= 0.0
+        {
+            return None;
+        }
+        if self.order == BandpassOrder::Sixth && !self.rear_is_ported() {
+            return None;
+        }
+
+        let w = omega(f);
+        let fb_front = self.front_tuning_hz();
+        let fb_rear = self.rear_tuning_hz().unwrap_or(fb_front);
+
+        let z_cr = self.chamber_impedance(self.rear_volume_m3, f, self.rear_ql, fb_rear);
+        let z_cf = self.chamber_impedance(self.front_volume_m3, f, self.front_ql, fb_front);
+
+        let z_pf = self.port_input_impedance(self.front_port, f);
+        let z_front = parallel(z_cf, z_pf);
+
+        let rear_port = if self.rear_is_ported() {
+            self.rear_port
+        } else {
+            None
+        };
+        let z_pr = rear_port.map(|p| self.port_input_impedance(p, f));
+        let z_rear = match z_pr {
+            Some(z_pr) => parallel(z_cr, z_pr),
+            None => z_cr,
+        };
+
+        // En el BP6 serie el puerto trasero conecta las dos cámaras. Se resuelve
+        // la red de dos puertas con la matriz del puerto y las admitancias de
+        // ambas cámaras; el puerto delantero sigue radiando al exterior.
+        let one = Complex64::new(1.0, 0.0);
+        let series = match (self.rear_port_routing, rear_port) {
+            (RearPortRouting::FrontChamber, Some(port)) => {
+                let m = self.port_matrix(port, f, Self::flanged_end_correction(port.area));
+                let y_cr = one / z_cr;
+                let y_f = one / z_front;
+                let denom = (m.d * y_cr - m.c) + (m.a - m.b * y_cr) * y_f;
+                if denom.norm() < 1.0e-30 {
+                    return None;
+                }
+                let pf_u = (m.a - m.b * y_cr - one) / denom;
+                let uout_u = y_f * pf_u - one;
+                let pr_u = m.d * pf_u - m.b * uout_u;
+                Some((pf_u - pr_u, pf_u, uout_u))
+            }
+            _ => None,
+        };
+        let z_load = series.map_or(z_rear + z_front, |s| s.0);
+        let u_d = self.driver.volume_velocity(f, self.eg, self.rg, z_load);
+        if !u_d.re.is_finite() || !u_d.im.is_finite() {
+            return None;
+        }
+
+        // Presión de la cámara delantera y caudal del puerto trasero.
+        let (p_front, u_pr) = match series {
+            Some((_, pf_u, uout_u)) => (pf_u * u_d, Some(uout_u * u_d)),
+            None => {
+                let p_front = z_front * u_d;
+                let p_rear = -u_d * z_rear;
+                let u_pr = rear_port.map(|port| self.port_out_velocity(port, p_rear, f));
+                (p_front, u_pr)
+            }
+        };
+
+        let u_pf = self.port_out_velocity(self.front_port, p_front, f);
+        let v_pf = (u_pf / self.front_port.area).norm();
+
+        // Solo el puerto delantero radia en serie; en paralelo se suman ambos.
+        let u_total = match (self.rear_port_routing, rear_port) {
+            (RearPortRouting::Outside, Some(_)) => u_pf + u_pr.unwrap_or_default(),
+            _ => u_pf,
+        };
+        let v_pr = match (rear_port, u_pr) {
+            (Some(port), Some(u_pr)) => Some((u_pr / port.area).norm()),
+            _ => None,
+        };
+
+        let p_rms = self.air.rho * w * u_total.norm() / self.solid_angle;
+        let spl = if p_rms > 0.0 {
+            20.0 * (p_rms / self.air.p_ref).log10() + self.spl_offset_db
+        } else {
+            f64::NEG_INFINITY
+        };
+        let p_ac = p_rms * p_rms * self.solid_angle / (self.air.rho * self.air.c);
+
+        let ze_coil = self.driver.coil_impedance(f) + Complex64::new(self.rg, 0.0);
+        let zm = self.driver.mechanical_impedance(f);
+        let ze = ze_coil
+            + Complex64::new(self.driver.bl * self.driver.bl, 0.0)
+                / (zm + self.driver.sd * self.driver.sd * z_load);
+        if !ze.re.is_finite() || !ze.im.is_finite() || ze.norm() <= 0.0 {
+            return None;
+        }
+        let v = u_d / self.driver.sd;
+        let current =
+            (Complex64::new(self.eg, 0.0) - Complex64::new(self.driver.bl, 0.0) * v) / ze_coil;
+        let p_in = self.eg * current.re;
+        let disp_mm = (v.norm() / w) * 1000.0 * std::f64::consts::SQRT_2;
+
+        Some(BandpassPoint {
+            freq: f,
+            spl_db: spl,
+            phase_deg: u_total.arg().to_degrees(),
+            ze_mag: ze.norm(),
+            ze_phase_deg: ze.arg().to_degrees(),
+            displacement_mm: disp_mm,
+            power_w: p_ac,
+            efficiency_pct: if p_in > 0.0 { 100.0 * p_ac / p_in } else { 0.0 },
+            front_port_velocity: v_pf,
+            rear_port_velocity: v_pr,
+        })
+    }
+
+    /// Barrido de respuesta.
+    pub fn response(&self, freqs: &[f64]) -> Vec<BandpassPoint> {
+        freqs
+            .iter()
+            .copied()
+            .filter(|f| *f > 0.0)
+            .map(|f| self.response_at(f))
+            .collect()
+    }
+}
+
+fn tuning_hz(air: &Air, port: Port, volume_m3: f64) -> f64 {
+    if port.area <= 0.0 || volume_m3 <= 0.0 {
+        return 0.0;
+    }
+    let l_eff = port.effective_length();
+    if l_eff <= 0.0 {
+        return 0.0;
+    }
+    air.c / std::f64::consts::TAU * (port.area / (l_eff * volume_m3)).sqrt()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::element::EndCorrection;
+
+    fn driver() -> Driver {
+        Driver::from_ui_units(350.0, 4.0e-4, 20.0, 6.0, 18.0, 4.0, 1.0, 1)
+    }
+
+    fn port(area_cm2: f64, length_cm: f64) -> Port {
+        Port::new(
+            area_cm2 * 1.0e-4,
+            length_cm * 1.0e-2,
+            EndCorrection::UnflangedBoth,
+        )
+    }
+
+    fn bp4() -> Bandpass {
+        Bandpass::new_bp4(driver(), 20.0e-3, 10.0e-3, port(50.0, 10.0))
+    }
+
+    fn bp6() -> Bandpass {
+        Bandpass::new_bp6(
+            driver(),
+            20.0e-3,
+            10.0e-3,
+            port(50.0, 10.0),
+            port(40.0, 8.0),
+        )
+    }
+
+    #[test]
+    fn bp4_is_finite_and_has_a_passband() {
+        let bp = bp4();
+        for f in [10.0, 20.0, 50.0, 100.0, 500.0, 2000.0] {
+            let p = bp.response_at(f);
+            assert!(p.spl_db.is_finite(), "SPL no finito a {f} Hz");
+            assert!(p.ze_mag.is_finite() && p.ze_mag > 0.0);
+            assert!(p.displacement_mm.is_finite() && p.displacement_mm >= 0.0);
+            assert!(p.front_port_velocity.is_finite());
+        }
+        assert!(bp.response_at(100.0).spl_db > bp.response_at(20.0).spl_db);
+    }
+
+    #[test]
+    fn front_tuning_decreases_with_larger_volume() {
+        let small = Bandpass::new_bp4(driver(), 20.0e-3, 5.0e-3, port(50.0, 10.0));
+        let large = Bandpass::new_bp4(driver(), 20.0e-3, 20.0e-3, port(50.0, 10.0));
+        assert!(large.front_tuning_hz() < small.front_tuning_hz());
+    }
+
+    #[test]
+    fn bp6_requires_a_rear_port() {
+        let mut bp = bp6();
+        bp.rear_port = None;
+        assert!(matches!(
+            bp.try_response_at(100.0),
+            Err(SolveError::InvalidTopology(_))
+        ));
+        assert!(bp.response_at(100.0).spl_db == f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn bp6_differs_from_bp4() {
+        let f = bp6().rear_tuning_hz().unwrap_or(70.0);
+        let a = bp4().response_at(f).spl_db;
+        let b = bp6().response_at(f).spl_db;
+        assert!((a - b).abs() > 0.1, "f={f} Hz: BP4={a} dB, BP6={b} dB");
+    }
+
+    #[test]
+    fn bp6_reports_both_port_velocities() {
+        let p = bp6().response_at(100.0);
+        assert!(p.front_port_velocity > 0.0);
+        assert!(p.rear_port_velocity.unwrap_or(0.0) > 0.0);
+    }
+
+    fn bp6_series() -> Bandpass {
+        Bandpass::new_bp6_series(
+            driver(),
+            20.0e-3,
+            10.0e-3,
+            port(50.0, 10.0),
+            port(40.0, 8.0),
+        )
+    }
+
+    #[test]
+    fn bp6_series_is_finite_and_has_a_passband() {
+        let bp = bp6_series();
+        for f in [10.0, 20.0, 50.0, 100.0, 500.0, 2000.0] {
+            let p = bp.response_at(f);
+            assert!(p.spl_db.is_finite(), "SPL no finito a {f} Hz");
+            assert!(p.ze_mag.is_finite() && p.ze_mag > 0.0);
+            assert!(p.displacement_mm.is_finite() && p.displacement_mm >= 0.0);
+            assert!(p.front_port_velocity.is_finite());
+            assert!(p.rear_port_velocity.unwrap_or(0.0).is_finite());
+        }
+        assert!(bp.response_at(100.0).spl_db > bp.response_at(20.0).spl_db);
+    }
+
+    #[test]
+    fn bp6_series_differs_from_parallel() {
+        let f = 50.0;
+        let a = bp6_series().response_at(f).spl_db;
+        let b = bp6().response_at(f).spl_db;
+        assert!((a - b).abs() > 1.0, "serie={a} dB, paralelo={b} dB");
+    }
+
+    #[test]
+    fn bp6_series_ql_is_applied_to_the_front_chamber_only() {
+        let mut bp = bp6_series();
+        bp.set_ql(7.0);
+        assert!(bp.rear_ql.is_none());
+        let front = bp.front_ql.expect("QL delantero");
+        assert!((front - 7.0 * bp.front_tuning_hz() / bp.rear_tuning_hz().unwrap()).abs() < 1.0e-9);
+    }
+
+    #[test]
+    fn bp6_series_with_closed_rear_port_matches_bp4() {
+        // Un puerto trasero casi cerrado elimina la realimentación al frontal;
+        // el BP6 serie debe converger al BP4 equivalente.
+        let mut series = Bandpass::new_bp6_series(
+            driver(),
+            20.0e-3,
+            10.0e-3,
+            port(50.0, 10.0),
+            port(1.0e-4, 1.0),
+        );
+        series.port_model = PortModel::Pipe;
+        let bp4 = Bandpass::new_bp4(driver(), 20.0e-3, 10.0e-3, port(50.0, 10.0));
+        for f in [20.0, 50.0, 100.0, 200.0] {
+            let a = series.response_at(f).spl_db;
+            let b = bp4.response_at(f).spl_db;
+            assert!((a - b).abs() < 0.05, "f={f}: serie={a} dB, BP4={b} dB");
+        }
+    }
+
+    #[test]
+    fn pipe_and_lumped_differ_near_port_resonance() {
+        let p = port(50.0, 30.0);
+        let mut pipe = Bandpass::new_bp4(driver(), 20.0e-3, 10.0e-3, p);
+        pipe.port_model = PortModel::Pipe;
+        let mut lumped = Bandpass::new_bp4(driver(), 20.0e-3, 10.0e-3, p);
+        lumped.port_model = PortModel::Lumped;
+        let a = pipe.response_at(450.0).spl_db;
+        let b = lumped.response_at(450.0).spl_db;
+        assert!((a - b).abs() > 1.0, "pipe={a} dB, lumped={b} dB");
+    }
+
+    #[test]
+    fn pipe_low_frequency_matches_lumped() {
+        let p = port(50.0, 10.0);
+        let mut pipe = Bandpass::new_bp4(driver(), 20.0e-3, 10.0e-3, p);
+        pipe.port_model = PortModel::Pipe;
+        let mut lumped = Bandpass::new_bp4(driver(), 20.0e-3, 10.0e-3, p);
+        lumped.port_model = PortModel::Lumped;
+        let a = pipe.response_at(10.0);
+        let b = lumped.response_at(10.0);
+        assert!((a.spl_db - b.spl_db).abs() < 1.0);
+        assert!((a.ze_mag - b.ze_mag).abs() / b.ze_mag < 0.05);
+    }
+
+    #[test]
+    fn pipe_response_is_finite() {
+        let mut bp = bp4();
+        bp.port_model = PortModel::Pipe;
+        for f in [10.0, 20.0, 50.0, 100.0, 500.0, 1000.0, 2000.0] {
+            let p = bp.response_at(f);
+            assert!(p.spl_db.is_finite(), "SPL no finito a {f} Hz");
+            assert!(p.ze_mag.is_finite() && p.ze_mag > 0.0);
+            assert!(p.front_port_velocity.is_finite());
+        }
+    }
+
+    #[test]
+    fn bp4_reference_excursion_is_peak() {
+        let mut bp = Bandpass::new_bp4(
+            Driver::from_ui_units(211.20, 5.91e-4, 31.43, 5.90, 10.65, 4.11, 1.0, 1),
+            12.0e-3,
+            15.0e-3,
+            port(std::f64::consts::PI * 3.5 * 3.5, 15.0),
+        );
+        bp.front_ql = Some(7.0);
+        // Referencia 60.70, mismo diseño: Xd = 1.043 mm a 10 Hz (pico).
+        let xd = bp.response_at(10.0).displacement_mm;
+        assert!((xd - 1.043).abs() < 0.02, "Xd={xd} mm");
+    }
+
+    fn reference_driver() -> Driver {
+        Driver::from_ui_units(211.20, 5.91e-4, 31.43, 5.90, 10.65, 4.11, 1.0, 1)
+    }
+
+    fn round_port(d_cm: f64, l_cm: f64) -> Port {
+        let d = d_cm * 1.0e-2;
+        Port::new(
+            std::f64::consts::PI * d * d / 4.0,
+            l_cm * 1.0e-2,
+            EndCorrection::UnflangedBoth,
+        )
+    }
+
+    #[test]
+    fn bp4_matches_reference_points() {
+        let mut bp = Bandpass::new_bp4(reference_driver(), 12.0e-3, 15.0e-3, round_port(7.0, 15.0));
+        bp.front_ql = Some(7.0);
+        // Puntos de referencia 60.70 (Ang = 2π, Eg = 2.83 V).
+        let refs = [
+            (10.0, 55.65, 6.04, 1.043),
+            (50.33, 88.93, 11.36, 0.672),
+            (100.0, 83.98, 25.21, 0.459),
+            (198.67, 72.44, 6.88, 0.164),
+            (503.34, 59.20, 6.27, 0.022),
+            (1000.0, 57.38, 8.22, 0.004),
+        ];
+        for (f, spl, ze, xd) in refs {
+            let p = bp.response_at(f);
+            assert!(
+                (p.spl_db - spl).abs() <= 1.0,
+                "SPL {f} Hz: {:.2} vs {spl}",
+                p.spl_db
+            );
+            assert!(
+                (p.ze_mag - ze).abs() / ze <= 0.02,
+                "Ze {f} Hz: {:.2} vs {ze}",
+                p.ze_mag
+            );
+            if xd > 0.02 {
+                assert!(
+                    (p.displacement_mm - xd).abs() / xd <= 0.05,
+                    "Xd {f} Hz: {:.4} vs {xd}",
+                    p.displacement_mm
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bp6_parallel_matches_reference_points() {
+        let mut bp = Bandpass::new_bp6(
+            reference_driver(),
+            20.0e-3,
+            15.0e-3,
+            round_port(7.0, 15.0),
+            round_port(6.0, 20.0),
+        );
+        bp.rear_ql = Some(7.0);
+        bp.front_ql = Some(10.38);
+        let refs = [
+            (10.0, 38.48, 8.93, 3.709),
+            (19.87, 60.06, 27.34, 2.395),
+            (50.33, 91.93, 11.35, 0.576),
+            (100.0, 80.39, 26.20, 0.465),
+            (198.67, 66.91, 6.77, 0.158),
+            (503.34, 49.29, 6.27, 0.022),
+            (1000.0, 54.82, 8.22, 0.004),
+        ];
+        for (f, spl, ze, xd) in refs {
+            let p = bp.response_at(f);
+            assert!(
+                (p.spl_db - spl).abs() <= 1.0,
+                "SPL {f} Hz: {:.2} vs {spl}",
+                p.spl_db
+            );
+            assert!(
+                (p.ze_mag - ze).abs() / ze <= 0.02,
+                "Ze {f} Hz: {:.2} vs {ze}",
+                p.ze_mag
+            );
+            if xd > 0.02 {
+                assert!(
+                    (p.displacement_mm - xd).abs() / xd <= 0.05,
+                    "Xd {f} Hz: {:.4} vs {xd}",
+                    p.displacement_mm
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn invalid_volumes_are_rejected() {
+        let mut bp = bp4();
+        bp.front_volume_m3 = 0.0;
+        assert!(matches!(
+            bp.try_response_at(100.0),
+            Err(SolveError::InvalidTopology(_))
+        ));
+    }
+}

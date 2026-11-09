@@ -1,0 +1,106 @@
+|DATA EXPORTED FROM HORNRESP - RESONANCES NOT MASKED
+
+|COMMENT: OD
+
+|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+|REQUIRED AKABAK SETTINGS:
+
+|File > Preferences > Physical system constants:
+
+|Sound velocity c = 344m/s
+|Medium density rho = 1.205kg/m3
+
+|Sum > Acoustic power:
+
+|Frequency range = 10Hz to 20kHz
+|Points = 533
+|Input voltage = 2.83V rms
+|Integration = 2Pi-sr
+|Integration steps = 1 degree ... 1 degree
+|Integration method = Cross
+
+|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Def_Const |Hornresp Input Parameter Values
+{
+|Length, area and volume values converted to metres, square metres and cubic metres:
+
+S1  =   400.00e-4;  |Horn segment 1 throat area (sq m)
+S2  =   400.00e-4;  |Horn segment 1 mouth area and horn segment 2 throat area (sq m)
+S3  =   400.00e-4;  |Horn segment 2 mouth area and horn segment 3 throat area (sq m)
+S4  =  1200.00e-4;  |Horn segment 3 mouth area and horn segment 4 throat area (sq m)
+S5  =  1500.00e-4;  |Horn segment 4 mouth area (sq m)
+
+L12 =    40.00e-2;  |Horn segment 1 axial length (m)
+L23 =    20.00e-2;  |Horn segment 2 axial length (m)
+L34 =   120.00e-2;  |Horn segment 3 axial length (m)
+L45 =    30.00e-2;  |Horn segment 4 axial length (m)
+
+|Parameter Conversions:
+
+Sd  = 350.00e-4;  |Diaphragm area (sq m)
+}
+|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+|Network node numbers for this offset driver horn system:
+
+|       0-Voltage-1
+|                 |
+|Radiator(1)-5-Driver-
+|                     |
+|           8-Segment-9-Segment-10-Segment-11-Segment-12-Radiator(2)
+
+|~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Def_Driver 'Driver'
+
+  Sd=350.00cm2
+  Bl=18.00Tm
+  Cms=4.00E-04m/N
+  Rms=4.00Ns/m
+  fs=51.62Hz  |Mmd = 20.00g not recognised by AkAbak, fs calculated and used instead
+  Le=1.00mH
+  Re=6.00ohm
+  ExpoLe=1
+
+System 'System'
+
+  Driver Def='Driver''Driver'
+    Node=1=0=5=9
+
+  Radiator 'Diaphragm'
+    Node=5
+    SD={Sd}
+    Label=1
+
+  Duct 'Horn segment 1'
+    Node=8=9
+    SD={S1}
+    Len={L12}
+    Visc=0
+
+  Duct 'Horn segment 2'
+    Node=9=10
+    SD={S2}
+    Len={L23}
+    Visc=0
+
+  Waveguide 'Horn segment 3'
+    Node=10=11
+    STh={S3}
+    SMo={S4}
+    Len={L34}
+    Conical
+
+  Waveguide 'Horn segment 4'
+    Node=11=12
+    STh={S4}
+    SMo={S5}
+    Len={L45}
+    Conical
+
+  Radiator 'Horn mouth'
+    Node=12
+    SD={S5}
+    Label=2

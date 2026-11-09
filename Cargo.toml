@@ -1,0 +1,28 @@
+[package]
+name = "speakerbox-acoustics"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Motor de cálculo acústico para guías de onda, recintos, puertos y radiador pasivo"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+documentation = "https://docs.rs/speakerbox-acoustics"
+keywords = ["acoustics", "loudspeaker", "horn", "audio", "simulation"]
+categories = ["multimedia::audio", "simulation", "science"]
+
+[dependencies]
+num-complex = "0.4"
+libm = "0.2"
+serde_json = "1"
+
+[lib]
+name = "speakerbox_acoustics"
+path = "src/lib.rs"
+
+[[example]]
+name = "horn_demo"
+path = "examples/horn_demo.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: fmt, check, test, clippy, docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all --check
+      - run: cargo check --workspace --all-targets
+      - run: cargo test --workspace
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+
+  msrv:
+    name: MSRV 1.75
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.75.0
+      # El lockfile del repositorio puede estar generado por un Cargo más
+      # reciente; para el MSRV se regenera con el toolchain antiguo.
+      - run: rm -f Cargo.lock
+      - run: cargo check --workspace --all-targets
+
+  wasm:
+    name: wasm32 library
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - run: cargo check --lib --target wasm32-unknown-unknown
