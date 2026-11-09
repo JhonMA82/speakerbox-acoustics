@@ -415,10 +415,11 @@ No se creó tag ni release.
 - **Rama:** `stabilization/library-audit`.
 - **Base:** `main` en `23a0459`.
 - **Commits:** `612c5dc` (estabilización), `b90fad3` (correcciones de la
-  revisión adversarial).
-- **Commit del informe:** posterior (ver `git log --oneline -1`).
+  revisión adversarial), `0a4fd8f` (informe).
+- **Commit del informe:** `0a4fd8f`.
 - **Tag:** ninguno.
-- **Push/PR:** no realizados en esta sesión. `main` permanece intacto.
+- **Push/PR:** rama publicada en `origin`; PR #1:
+  <https://github.com/JhonMA82/speakerbox-acoustics/pull/1>. `main` intacto.
 - **Working tree:** limpio tras los commits, salvo `.rsc/` (estado local del
   harness, añadido a `.gitignore`).
 
@@ -447,14 +448,7 @@ ASDD), `LIBRARY_STABILIZATION_REPORT.md`.
 2. `b90fad3` — Correcciones de la revisión adversarial: OWDR `numVC`/`VCCon`,
    validación del driver derivado, `eg` con signo, `is_valid` con métricas
    finitas, `parse_csv` exacto y nota de rendimiento.
-3. Informe de estabilización.
+3. `0a4fd8f` — Informe de estabilización.
+4. Commit final — registra la publicación del PR #1.
 
-Para publicar la rama y abrir un PR:
-
-```bash
-git push -u origin stabilization/library-audit
-gh pr create --base main --head stabilization/library-audit \
-  --title "Estabilización y cierre de la auditoría (0.2.0)"
-```
-
-No se ejecutó ese push; queda a decisión del mantenedor.
+El PR queda abierto para revisión y CI. No se hizo merge ni se creó tag.

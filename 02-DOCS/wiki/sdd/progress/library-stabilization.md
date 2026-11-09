@@ -19,7 +19,9 @@
   con pruebas: 158 tests verdes.
 - 2026-11-09: commits `612c5dc` (estabilización) y `b90fad3` (revisión);
   informe `LIBRARY_STABILIZATION_REPORT.md` añadido.
-- Pendiente: decisión de push/PR; no realizado en esta sesión.
+- 2026-11-09: rama publicada y PR #1 abierto:
+  <https://github.com/JhonMA82/speakerbox-acoustics/pull/1>.
+- Pendiente: revisión/CI del PR y decisión de merge (mantenedor).
 
 ## Suposiciones registradas
 
