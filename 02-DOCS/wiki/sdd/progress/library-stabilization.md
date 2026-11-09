@@ -14,7 +14,12 @@
   bocina 88,5 µs/punto; TH 59,2; BP6S 20,6; 100×50 puntos 443 ms).
 - 2026-11-09: T12 verificación completa: fmt, test, clippy, doc, wasm,
   MSRV 1.75, tests de producción con métricas sin degradación.
-- Pendiente: commit local y revisión final del informe.
+- 2026-11-09: revisión adversarial de correctitud: sin blockers; 1
+  `should-fix` (OWDR `numVC`/`VCCon`) y 5 aristas. Corregidas en `b90fad3`
+  con pruebas: 158 tests verdes.
+- 2026-11-09: commits `612c5dc` (estabilización) y `b90fad3` (revisión);
+  informe `LIBRARY_STABILIZATION_REPORT.md` añadido.
+- Pendiente: decisión de push/PR; no realizado en esta sesión.
 
 ## Suposiciones registradas
 

@@ -241,8 +241,8 @@ logarítmico, validación incluida):
 cargo run --release --example perf_sweep
 ```
 
-En un x86_64 de escritorio, release: bocina de 4 tramos ≈ 88 µs/punto
-(177 ms para 2.000 puntos), tapped horn ≈ 59 µs/punto (119 ms), BP6 serie
+En un x86_64 de escritorio, release: bocina de 4 tramos ≈ 89 µs/punto
+(179 ms para 2.000 puntos), tapped horn ≈ 59 µs/punto (119 ms), BP6 serie
 ≈ 21 µs/punto (41 ms). Cien cambios de parámetro con barridos de 50 puntos
 tardan ≈ 443 ms (≈ 4,4 ms por barrido). Para uso interactivo es razonable;
 el cuello de botella es la integración RK4 por segmento y frecuencia, no la

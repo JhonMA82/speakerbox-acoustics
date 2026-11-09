@@ -9,3 +9,11 @@
   tolerancia validada; se documenta la limitación.
 - 2026-11-09 — Se elimina el fallback del 5 % de Mms: un `Mms` menor o igual
   que la masa de aire es físicamente inconsistente y se rechaza.
+- 2026-11-09 — `eg` admite signo: un valor negativo invierte la polaridad.
+  `rg` sigue siendo no negativo.
+- 2026-11-09 — `rear_ql = Some(0.0)` se rechaza; el valor documentado para
+  desactivar el QL es `None`.
+- 2026-11-09 — `parse_csv` exige exactamente 4 columnas para no confundir una
+  coma decimal con un separador.
+- 2026-11-09 — `ValidationReport::is_valid` exige métricas finitas, no solo
+  `n > 0` y cero puntos inválidos.
