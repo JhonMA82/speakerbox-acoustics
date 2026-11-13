@@ -15,6 +15,15 @@ use crate::air::Air;
 use crate::omega;
 use num_complex::Complex64;
 
+/// Alternativas excluyentes: no se suma Le al modelo fraccional.
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum CoilModel {
+    #[default]
+    Inductance,
+    /// Ke en Ω·sqrt(s): Z=Re+Ke sqrt(jω), rama principal pasiva.
+    SemiInductance { ke: f64 },
+}
+
 /// Parámetros de un altavoz.
 ///
 /// Todos los valores están en SI. `mmd` es la masa móvil **sin** la masa
@@ -36,6 +45,8 @@ pub struct Driver {
     pub rms: f64,
     /// Inductancia de la bobina (H).
     pub le: f64,
+    /// Modelo eléctrico; por defecto conserva Re+jωLe.
+    pub coil_model: CoilModel,
     /// Número de unidades (informativo; el sistema usa los valores como un
     /// altavoz compuesto, igual que el software de referencia).
     pub nd: u32,
@@ -53,6 +64,7 @@ impl Driver {
             bl,
             rms,
             le,
+            coil_model: CoilModel::Inductance,
             nd: 1,
         }
     }
@@ -82,6 +94,7 @@ impl Driver {
             bl,
             rms,
             le: le_mh * 1.0e-3,
+            coil_model: CoilModel::Inductance,
             nd,
         }
     }
@@ -99,6 +112,7 @@ impl Driver {
         require_positive(self.bl, "driver.bl")?;
         require_non_negative(self.rms, "driver.rms")?;
         require_non_negative(self.le, "driver.le")?;
+        if let CoilModel::SemiInductance { ke } = self.coil_model { require_non_negative(ke, "driver.ke")?; }
         Ok(())
     }
 
@@ -185,7 +199,20 @@ impl Driver {
 
     /// Impedancia eléctrica de la bobina `Ze = Re + jωLe`.
     pub fn coil_impedance(&self, freq_hz: f64) -> Complex64 {
-        Complex64::new(self.re, omega(freq_hz) * self.le)
+        match self.coil_model {
+            CoilModel::Inductance => Complex64::new(self.re, omega(freq_hz) * self.le),
+            CoilModel::SemiInductance { ke } => {
+                let q = ke * (omega(freq_hz) / 2.0).sqrt();
+                Complex64::new(self.re + q, q)
+            }
+        }
+    }
+
+    /// Selecciona modelo sin cambiar los parámetros almacenados.
+    pub fn with_coil_model(mut self, model: CoilModel) -> Self { self.coil_model = model; self }
+
+    pub(crate) fn scale_coil_model(&mut self, factor: f64) {
+        if let CoilModel::SemiInductance { ke } = &mut self.coil_model { *ke *= factor; }
     }
 
     /// Impedancia de entrada (eléctrica) para una carga acústica dada.

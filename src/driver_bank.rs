@@ -192,10 +192,12 @@ impl DriverBank {
             Wiring::Parallel => {
                 eq.re /= units_f;
                 eq.le /= units_f;
+                eq.scale_coil_model(1.0 / (units_f));
             }
             Wiring::Series => {
                 eq.re *= units_f;
                 eq.le *= units_f;
+                eq.scale_coil_model(units_f);
                 eq.bl *= units_f;
             }
             Wiring::SeriesParallel => {
@@ -206,6 +208,7 @@ impl DriverBank {
                 let p = units_f / 2.0;
                 eq.re *= s / p;
                 eq.le *= s / p;
+                eq.scale_coil_model(s / p);
                 eq.bl *= s;
             }
         }
@@ -248,10 +251,12 @@ impl DriverBank {
             Some(DvcWiring::Parallel) => {
                 d.re *= 0.5;
                 d.le *= 0.5;
+                d.scale_coil_model(0.5);
             }
             Some(DvcWiring::Series) => {
                 d.re *= 2.0;
                 d.le *= 2.0;
+                d.scale_coil_model(2.0);
                 d.bl *= 2.0;
             }
             Some(DvcWiring::Separate) => return Err(BankError::UnsupportedDvcSeparate),
@@ -298,10 +303,12 @@ pub fn isobaric_pair(base: Driver, coils: Wiring) -> Result<Driver, BankError> {
         Wiring::Parallel => {
             d.re *= 0.5;
             d.le *= 0.5;
+            d.scale_coil_model(0.5);
         }
         Wiring::Series => {
             d.re *= 2.0;
             d.le *= 2.0;
+            d.scale_coil_model(2.0);
             d.bl *= 2.0;
         }
         Wiring::SeriesParallel => unreachable!(),

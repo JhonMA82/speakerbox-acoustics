@@ -549,6 +549,7 @@ impl TappedHorn {
         let current = Complex64::new(self.eg, 0.0) / ze;
         let mut report = EnergyReport::new(
             &self.driver,
+            f,
             self.eg,
             self.rg,
             current,

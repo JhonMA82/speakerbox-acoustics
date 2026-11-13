@@ -77,7 +77,10 @@ pub struct EnergyReport {
     pub source_active_w: f64,
     pub source_resistor_loss_w: f64,
     pub driver_terminal_active_w: f64,
+    /// Total DC and frequency-dependent coil heat.
     pub coil_loss_w: f64,
+    pub coil_dc_loss_w: f64,
+    pub coil_excess_loss_w: f64,
     pub suspension_loss_w: f64,
     pub acoustic_input_w: f64,
     pub acoustic_losses: AcousticLosses,
@@ -87,6 +90,7 @@ pub struct EnergyReport {
 impl EnergyReport {
     pub(crate) fn new(
         driver: &Driver,
+        frequency_hz: f64,
         eg: f64,
         rg: f64,
         current: Complex64,
@@ -100,7 +104,9 @@ impl EnergyReport {
             source_active_w: eg * current.re,
             source_resistor_loss_w: rg * current.norm_sqr(),
             driver_terminal_active_w: active_power(voltage, current),
-            coil_loss_w: driver.re * current.norm_sqr(),
+            coil_loss_w: driver.coil_impedance(frequency_hz).re * current.norm_sqr(),
+            coil_dc_loss_w: driver.re * current.norm_sqr(),
+            coil_excess_loss_w: (driver.coil_impedance(frequency_hz).re - driver.re) * current.norm_sqr(),
             suspension_loss_w: driver.rms * (ud / driver.sd).norm_sqr(),
             acoustic_input_w,
             acoustic_losses: AcousticLosses::default(),

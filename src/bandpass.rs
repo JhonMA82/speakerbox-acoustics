@@ -526,6 +526,7 @@ impl Bandpass {
         let s = self.try_solution_at(f)?;
         let mut report = EnergyReport::new(
             &self.driver,
+            f,
             self.eg,
             self.rg,
             s.input_current_a,

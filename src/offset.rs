@@ -420,6 +420,7 @@ impl OffsetHorn {
         let ud = s.driver_volume_velocity;
         let mut report = EnergyReport::new(
             &self.driver,
+            f,
             self.eg,
             self.rg,
             s.input_current_a,
