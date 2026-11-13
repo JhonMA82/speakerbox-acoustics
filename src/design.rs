@@ -27,8 +27,8 @@ pub struct DesignPoint {
     pub freq_hz: f64,
     /// SPL de potencia a 1 m (dB).
     pub spl_db: f64,
-    /// Fase de la velocidad volumétrica radiada (grados, desenrollada en
-    /// `response`). La presión lejana añade +90°.
+    /// Fase reducida de presión de campo (grados, desenrollada en response).
+    /// La presión estimada añade +90°; NaN en silencio.
     pub phase_deg: f64,
     /// Retardo de grupo (ms). Vale `0.0` en `response_at`; `Design::response`
     /// lo calcula a partir de la fase desenrollada.

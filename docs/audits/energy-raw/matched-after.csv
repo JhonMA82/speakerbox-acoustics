@@ -1,0 +1,6 @@
+frequency_hz,reported_acoustic_w,actual_terminal_flux_w,u_squared_re_z_w,flux_equivalence_abs_w
+10,not_available_without_observation_model,2.157501724360e-1,2.157501724360e-1,2.775557561563e-17
+20,not_available_without_observation_model,2.508414165380e-1,2.508414165380e-1,0.000000000000e0
+50,not_available_without_observation_model,2.626224436912e-1,2.626224436912e-1,0.000000000000e0
+100,not_available_without_observation_model,2.636722935022e-1,2.636722935022e-1,0.000000000000e0
+500,not_available_without_observation_model,2.131434713568e-1,2.131434713568e-1,0.000000000000e0

@@ -40,6 +40,7 @@ pub struct ResponsePoint {
     /// Nivel de presión sonora de la respuesta de potencia a 1 m (dB SPL).
     pub spl_db: f64,
     /// Fase reducida de la presión total (grados): presión física añade +90°.
+    /// NaN en silencio: la fase no está definida.
     pub phase_deg: f64,
     /// Retardo de grupo (ms).
     pub group_delay_ms: f64,
@@ -125,11 +126,11 @@ impl ResponsePoint {
     ///
     /// - `freq` finita y positiva.
     /// - `spl_db` finito o `-∞` (silencio); nunca `NaN` ni `+∞`.
-    /// - `phase_deg`, `group_delay_ms`, `ze_phase_deg`, `za_real` y `za_imag`
-    ///   finitos.
+    /// - Fases finitas, salvo `phase_deg=NaN` con SPL=-∞ (fase indefinida).
+    /// - `group_delay_ms`, `za_real` y `za_imag` finitos en puntos individuales.
     /// - `ze_mag` finito y positivo.
-    /// - `displacement_mm`, potencia, rendimiento y velocidades finitos y no
-    ///   negativos.
+    /// - Desplazamiento, potencia y velocidades finitos y no negativos.
+    /// - Rendimiento no negativo; NaN solo con potencia cero (cociente 0/0).
     pub fn validate(&self) -> Result<(), SolveError> {
         if !self.freq.is_finite() || self.freq <= 0.0 {
             return Err(SolveError::InvalidResponse("freq"));

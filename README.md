@@ -13,6 +13,12 @@ nativo y `wasm32-unknown-unknown`.
 >
 > **Validación detallada:** [`docs/VALIDATION.md`](docs/VALIDATION.md).
 
+**Segunda auditoría energética:** los valores de potencia usan ahora las cargas
+realmente resueltas. Para absorción, pérdidas, radiación disponible/aproximada
+y eficiencia use `Design::try_energy_at`. Una boca adaptada no define SPL.
+[Contrato científico](docs/audits/RADIATION_MODEL_CONTRACT.md) y
+[resultados de energía](docs/audits/ENERGY_VALIDATION_REPORT.md).
+
 ## Estado
 
 **Alcance v1 de topologías cerrado**, validado a producción contra exports
@@ -309,5 +315,8 @@ Ze y excursión en sus geometrías y bandas. La fase eléctrica tiene ahora
 un diagnóstico separado (`validation::validate_impedance_phase`), sin una
 tolerancia inventada. Potencia, rendimiento, fase acústica y retardo muestran
 limitaciones cuantificadas: no se declara validación general de esas salidas.
-Los campos de potencia legados son estimaciones de campo, no balances físicos
-universales. Consulte [`REMAINING_LIMITATIONS.md`](docs/audits/REMAINING_LIMITATIONS.md).
+La segunda pasada sustituye esas potencias de campo por absorción de las
+terminaciones de red; puede ser un subtotal si falta alguna carga radiativa.
+El contrato actualizado está en [`RADIATION_MODEL_CONTRACT.md`](docs/audits/RADIATION_MODEL_CONTRACT.md).
+Los informes de la primera auditoría permanecen como historia, no como estado
+energético actual.

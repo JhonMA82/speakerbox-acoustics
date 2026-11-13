@@ -53,6 +53,7 @@ pub struct OffsetPoint {
     /// SPL de potencia a 1 m (dB re 20 µPa).
     pub spl_db: f64,
     /// Fase reducida de la presión TOTAL (grados); presión física añade +90°.
+    /// NaN en silencio: la fase no está definida.
     pub phase_deg: f64,
     /// Módulo de la impedancia eléctrica (Ω).
     pub ze_mag: f64,

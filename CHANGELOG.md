@@ -76,3 +76,19 @@ pública pueda cambiar.
   dependencias, calibración y oráculos conservados.
 - Potencia/rendimiento legados siguen siendo estimaciones de campo; límites
   y desviaciones medidos en docs/audits.
+
+## Segunda pasada energética (sin publicación de versión)
+
+- Potencia de las mismas terminaciones usadas por el solver, sin convertir
+  SPL en potencia ni aplicar 2π/Ω al balance; calibración y oráculos intactos.
+- Carga de boca centralizada. Matched exige factores que se cancelen, usa
+  ρc/Sgeom sin overflow intermedio y no fabrica SPL de un absorbente ideal.
+- APIs aditivas `try_energy_at` y EnergyReport: fuente, bornes, pérdidas,
+  cargas, residuales y calidad radiativa; eficiencia científica opcional.
+- Observación tipada con fase/retardo opcionales y fase compleja con cota de
+  redondeo. Fase legada NaN en silencio y eficiencia legada NaN para 0/0.
+- OD con toma en garganta conserva su contribución trasera directa.
+- Migración: los campos de potencia legados son absorción de cargas explícitas,
+  no potencia integral deducida del campo; consultar la calidad para interpretar
+  radiación. `try_response_at` de matched devuelve error de SPL no definido;
+  usar `try_energy_at` o la observación opcional. Ver contrato de radiación.

@@ -1,0 +1,22 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.41s
+     Running tests/energy_regressions.rs (target/debug/deps/energy_regressions-f37a165fc49defb3)
+
+running 1 test
+test ec002_zero_input_has_no_defined_efficiency ... FAILED
+
+failures:
+
+---- ec002_zero_input_has_no_defined_efficiency stdout ----
+
+thread 'ec002_zero_input_has_no_defined_efficiency' panicked at tests/energy_regressions.rs:116:104:
+assertion failed: s.try_response_at(50.).unwrap().efficiency_pct.is_nan()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    ec002_zero_input_has_no_defined_efficiency
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test energy_regressions`

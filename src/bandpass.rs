@@ -81,7 +81,8 @@ pub struct BandpassPoint {
     pub freq: f64,
     /// SPL de potencia a 1 m (dB re 20 µPa).
     pub spl_db: f64,
-    /// Fase de la velocidad volumétrica radiada (grados).
+    /// Fase reducida de presión observada estimada (grados); +90° da presión.
+    /// NaN en silencio: la fase no está definida.
     pub phase_deg: f64,
     /// Módulo de la impedancia eléctrica (Ω).
     pub ze_mag: f64,

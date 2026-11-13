@@ -502,8 +502,9 @@ Durante la validación se corrigieron errores que invalidaban el modelo:
 3. **Corriente de entrada a la bocina**: con cámara en paralelo, la velocidad
    que entra en la bocina es `p_garganta / Z_bocina`, no la velocidad total
    del diafragma.
-4. **Potencia radiada**: la impedancia de radiación es la de pantalla infinita
-   (2π); la potencia se escala por `2π/Ω` al radiar en un ángulo sólido `Ω`.
+4. **Campo legado**: la impedancia es la de pantalla infinita (2π). El
+   escalado 2π/Ω se conserva solo para presentar SPL. La segunda auditoría
+   elimina ese factor del flujo de potencia de las terminaciones.
 5. **Potencia eléctrica de entrada**: `Pin = Re(Eg·I*)`, no `|I|²·(Re+Rg)`;
    esta última subestimaba la potencia y producía eficiencias > 100 %.
 6. **Orden y unidades del registro**: el orden real de los campos de cámara es
@@ -610,3 +611,29 @@ Las métricas ampliadas revelan limitaciones de potencia/rendimiento que las
 pruebas históricas de SPL/Ze/Xd no detectan. Ver
 [`audits/VALIDATION_REPORT.md`](audits/VALIDATION_REPORT.md) y
 [`audits/REMAINING_LIMITATIONS.md`](audits/REMAINING_LIMITATIONS.md).
+
+
+## Segunda pasada: balance energético y observación
+
+El contrato vigente es [`audits/RADIATION_MODEL_CONTRACT.md`](audits/RADIATION_MODEL_CONTRACT.md).
+Las cargas, estados y potencias se vinculan por `P=Re(p·conj(U))=|U|²Re(Z)`
+con fasores RMS. `power_w`/`acoustical_power_w` reportan absorción de las
+terminaciones explícitas, sin aplicar el escalado de observación. Pueden ser
+un subtotal en modelos sin alguna carga exterior. SPL calibrado se conserva
+independientemente y no se usa para cerrar un balance.
+
+`EnergyReport` separa fuente, Rg, bornes, bobina, suspensión, pérdidas acústicas
+y cargas. Las pérdidas de pared se integran como ∫g|p|²dx; el residual de
+balance no se añade a ninguna pérdida. Solo se devuelve potencia radiada con
+una calidad explícita; para una boca adaptada o un modelo incompleto es None.
+Hay dos eficiencias opcionales, con denominador de fuente o de bornes.
+
+Matched_mouth es un absorbente ρc/Sgeom y no determina presión a 1 m. Se
+rechazan factores que cambien esa adaptación. La absorción sí es calculable
+mediante try_energy_at; la observación tipada queda no disponible.
+
+AcousticObservation conserva presión estimada, SPL y fase del mismo resultado.
+Una cancelación tiene fase/retardo None; los puntos legados usan NaN en fase
+de silencio. La función complex_phase_trace permite cortar una derivada
+cuando el módulo de presión no supera su cota de error numérico. La
+excursión sigue siendo pico, mientras estados y potencias usan RMS.

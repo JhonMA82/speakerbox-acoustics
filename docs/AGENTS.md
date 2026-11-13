@@ -178,3 +178,12 @@ Consultar `docs/audits/ACOUSTIC_AUDIT.md` y sus cuatro informes asociados.
 SPL/Ze/Xd siguen pasando sus oráculos; potencia/rendimiento legados son
 estimaciones con limitaciones medidas, no un balance energético general.
 No cambiar calibración ni ampliar las garantías sin resolver ese modelo.
+
+## Segunda pasada energética
+
+Estado vigente: docs/audits/RADIATION_MODEL_CONTRACT.md. Los campos legados
+power_w/acoustical_power_w son absorción de cargas explícitas (pueden ser
+subtotales), no potencia de campo. try_energy_at conserva calidad radiativa,
+fuente/bornes/pérdidas y eficiencias opcionales. Matched no define SPL; fase
+legada NaN en silencio y eficiencia NaN para 0/0 son ausencias deliberadas.
+Conservar calibración, oráculos y optimizaciones de la primera pasada.

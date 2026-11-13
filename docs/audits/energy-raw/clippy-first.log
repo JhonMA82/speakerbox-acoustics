@@ -1,0 +1,106 @@
+    Checking speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+error: this boolean expression can be simplified
+   --> src/bandpass.rs:132:12
+    |
+132 |           if !self.phase_deg.is_finite()
+    |  ____________^
+133 | |             && !(self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)
+    | |_____________________________________________________________________________^ help: try: `!(self.phase_deg.is_finite() || self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+    = note: `-D clippy::nonminimal-bool` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::nonminimal_bool)]`
+
+error: this boolean expression can be simplified
+   --> src/bandpass.rs:149:12
+    |
+149 |           if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+    |  ____________^
+150 | |             && !(self.efficiency_pct.is_nan() && self.power_w == 0.0)
+    | |_____________________________________________________________________^ help: try: `!(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0 || self.efficiency_pct.is_nan() && self.power_w == 0.0)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+
+error: this boolean expression can be simplified
+   --> src/design.rs:127:12
+    |
+127 |           if !self.phase_deg.is_finite()
+    |  ____________^
+128 | |             && !(self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)
+    | |_____________________________________________________________________________^ help: try: `!(self.phase_deg.is_finite() || self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+
+error: this boolean expression can be simplified
+   --> src/design.rs:147:12
+    |
+147 |           if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+    |  ____________^
+148 | |             && !(self.efficiency_pct.is_nan() && self.power_w == 0.0)
+    | |_____________________________________________________________________^ help: try: `!(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0 || self.efficiency_pct.is_nan() && self.power_w == 0.0)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+
+error: this boolean expression can be simplified
+   --> src/offset.rs:103:12
+    |
+103 |           if !self.phase_deg.is_finite()
+    |  ____________^
+104 | |             && !(self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)
+    | |_____________________________________________________________________________^ help: try: `!(self.phase_deg.is_finite() || self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+
+error: this boolean expression can be simplified
+   --> src/offset.rs:120:12
+    |
+120 |           if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+    |  ____________^
+121 | |             && !(self.efficiency_pct.is_nan() && self.power_w == 0.0)
+    | |_____________________________________________________________________^ help: try: `!(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0 || self.efficiency_pct.is_nan() && self.power_w == 0.0)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+
+error: this boolean expression can be simplified
+   --> src/system.rs:140:12
+    |
+140 |           if !self.phase_deg.is_finite()
+    |  ____________^
+141 | |             && !(self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)
+    | |_____________________________________________________________________________^ help: try: `!(self.phase_deg.is_finite() || self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+
+error: this boolean expression can be simplified
+   --> src/system.rs:160:12
+    |
+160 |           if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+    |  ____________^
+161 | |             && !(self.efficiency_pct.is_nan() && self.acoustical_power_w == 0.0)
+    | |________________________________________________________________________________^ help: try: `!(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0 || self.efficiency_pct.is_nan() && self.acoustical_power_w == 0.0)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+
+error: this boolean expression can be simplified
+  --> src/tapped.rs:91:12
+   |
+91 |           if !self.phase_deg.is_finite()
+   |  ____________^
+92 | |             && !(self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)
+   | |_____________________________________________________________________________^ help: try: `!(self.phase_deg.is_finite() || self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+
+error: this boolean expression can be simplified
+   --> src/tapped.rs:108:12
+    |
+108 |           if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+    |  ____________^
+109 | |             && !(self.efficiency_pct.is_nan() && self.power_w == 0.0)
+    | |_____________________________________________________________________^ help: try: `!(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0 || self.efficiency_pct.is_nan() && self.power_w == 0.0)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#nonminimal_bool
+
+error: could not compile `speakerbox-acoustics` (lib) due to 10 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `speakerbox-acoustics` (lib test) due to 10 previous errors

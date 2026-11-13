@@ -513,3 +513,19 @@ OD corresponde ahora a la salida total. Los helpers diagnósticos TH devuelven
 NaN ante singularidad/entrada estructural inválida en lugar de impedancia
 cero. `BankError` añade `InvalidDriver` y `CountOutOfRange`: actualizar matches
 exhaustivos. No cambian las estructuras públicas de punto existentes.
+
+
+## Contrato energético de segunda pasada
+
+La sección previa de primera auditoría es histórica en cuanto a potencia:
+los puntos ahora reportan absorción de las terminaciones modeladas. Use
+`design.try_energy_at(f)?` para distinguir esa suma de la potencia realmente
+radiada disponible o aproximada (`radiated_power.watts` y `quality`).
+`efficiency_vs_source_pct` y `efficiency_vs_driver_terminals_pct` devuelven
+Option y conservan la calidad del numerador. None no significa cero físico.
+Una boca adaptada conserva balance energético, pero no define observación:
+`try_response_at` devuelve error y `try_observation_at` devuelve campos None.
+Silencio produce fase legada NaN y excitación nula eficiencia legada NaN.
+Para fase y retardo opcionales, usar `try_observation_response`.
+El contrato y ejemplos por topología están en
+[`RADIATION_MODEL_CONTRACT.md`](audits/RADIATION_MODEL_CONTRACT.md).

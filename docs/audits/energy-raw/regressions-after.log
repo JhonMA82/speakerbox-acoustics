@@ -1,0 +1,19 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.83s
+     Running tests/energy_regressions.rs (target/debug/deps/energy_regressions-f37a165fc49defb3)
+
+running 12 tests
+test ec001_calibration_cannot_make_a_matched_load_reflect ... ok
+test ec001_equal_factors_cancel_without_overflow_in_a_matched_load ... ok
+test ec001_matched_load_alone_does_not_define_spl ... ok
+test ec002_direct_power_does_not_depend_on_observation_angle ... ok
+test ec002_source_and_driver_terminal_efficiency_are_not_equivalent ... ok
+test ec002_bandpass_pipe_power_uses_piston_termination ... ok
+test ec002_zero_input_has_no_defined_efficiency ... ok
+test ec004_silent_pressure_has_no_finite_phase ... ok
+test ec001_piston_power_uses_scaled_effective_terminal_load ... ok
+test ec003_offset_at_throat_still_has_a_radiating_rear_face ... ok
+test ec002_offset_power_is_sum_of_actual_load_absorption ... ok
+test ec002_tapped_power_is_terminal_flux_not_solid_angle_gain ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

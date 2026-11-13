@@ -1,0 +1,40 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.96s
+     Running tests/energy_physics.rs (target/debug/deps/energy_physics-c1c50245a8a682e5)
+
+running 15 tests
+test design_preserves_the_energy_quality ... ok
+test matched_cylinder_absorption_and_no_reflection ... ok
+test exact_and_numerically_unresolved_cancellations_break_unwrap ... ok
+test bp4_parallel_and_series_balance_excludes_internal_port_radiation ... ok
+test observation_phase_handles_duplicates_polarity_zero_and_matched ... ok
+test oscillator_circuit_and_helmholtz_recover_analytic_limits ... ok
+test phase_of_log_linear_and_resonant_pressure_has_consistent_delay ... ok
+test single_piston_sealed_box_and_resistive_source_have_explicit_balance ... ok
+test vented_and_passive_models_mark_missing_radiation_instead_of_inventing_efficiency ... ok
+test zero_drive_does_not_fabricate_an_efficiency ... ok
+test wall_dissipation_converges_under_geometric_subdivision ... ok
+test offset_passive_and_port_rear_have_explicit_loss_and_missing_total ... ok
+test lossless_transfer_preserves_flux_and_reciprocity ... ok
+test system_explicit_dissipation_in_lining_leak_series_and_walls ... ok
+test tapped_and_offset_with_and_without_wall_loss_are_passive ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/energy_regressions.rs (target/debug/deps/energy_regressions-f37a165fc49defb3)
+
+running 12 tests
+test ec001_equal_factors_cancel_without_overflow_in_a_matched_load ... ok
+test ec001_calibration_cannot_make_a_matched_load_reflect ... ok
+test ec001_matched_load_alone_does_not_define_spl ... ok
+test ec002_bandpass_pipe_power_uses_piston_termination ... ok
+test ec002_zero_input_has_no_defined_efficiency ... ok
+test ec002_direct_power_does_not_depend_on_observation_angle ... ok
+test ec004_silent_pressure_has_no_finite_phase ... ok
+test ec002_source_and_driver_terminal_efficiency_are_not_equivalent ... ok
+test ec001_piston_power_uses_scaled_effective_terminal_load ... ok
+test ec003_offset_at_throat_still_has_a_radiating_rear_face ... ok
+test ec002_tapped_power_is_terminal_flux_not_solid_angle_gain ... ok
+test ec002_offset_power_is_sum_of_actual_load_absorption ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

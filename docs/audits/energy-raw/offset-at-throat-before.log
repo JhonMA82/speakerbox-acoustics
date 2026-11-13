@@ -1,0 +1,22 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.47s
+     Running tests/energy_regressions.rs (target/debug/deps/energy_regressions-f37a165fc49defb3)
+
+running 1 test
+test ec003_offset_at_throat_still_has_a_radiating_rear_face ... FAILED
+
+failures:
+
+---- ec003_offset_at_throat_still_has_a_radiating_rear_face stdout ----
+
+thread 'ec003_offset_at_throat_still_has_a_radiating_rear_face' panicked at tests/energy_regressions.rs:142:228:
+assertion failed: (a.spl_db - b.spl_db).abs() > 0.01
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    ec003_offset_at_throat_still_has_a_radiating_rear_face
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test energy_regressions`
