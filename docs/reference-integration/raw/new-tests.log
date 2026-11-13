@@ -1,0 +1,11 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.45s
+     Running tests/reference_integration.rs (target/debug/deps/reference_integration-d5fad8079c758ae7)
+
+running 4 tests
+test zero_resistivity_is_exactly_compatible ... ok
+test alignments_satisfy_half_power_polynomial ... ok
+test darcy_matrix_and_independent_dissipation ... ok
+test offset_tl_has_analytic_modal_coupling_and_energy ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s

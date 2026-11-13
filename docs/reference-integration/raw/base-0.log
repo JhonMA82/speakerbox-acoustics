@@ -1,0 +1,4 @@
+cargo test --workspace
+/bin/sh: 1: cargo: not found
+
+EXIT=127
