@@ -1,0 +1,64 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.30s
+     Running tests/acoustic_consistency.rs (target/debug/deps/acoustic_consistency-2cc6e7d72de6e3bf)
+
+running 10 tests
+
+thread 'ac004_rejects_unreproducible_geometry' panicked at tests/acoustic_consistency.rs:43:2:
+assertion failed: Segment::new(Flare::Cylindrical, 1., 0.02, 0.01).validate().is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'ac001_shunts_share_the_series_horn_branch' panicked at tests/acoustic_consistency.rs:30:2:
+assertion failed: (s.loads(f).0 - expected).norm() / expected.norm() < 1e-12
+
+thread 'ac003_bandpass_polarity_preserves_electrical_solution' panicked at tests/acoustic_consistency.rs:37:4:
+assertion failed: phase_error(z.phase_deg, a.phase_deg + 180.) < 1e-8
+
+thread 'ac002_offset_radiates_rear_port_and_passive_radiator' panicked at tests/acoustic_consistency.rs:95:93:
+20: 75.89011918459585 vs 51.153420840824204
+
+thread 'ac007_offset_phase_tracks_combined_output' panicked at tests/acoustic_consistency.rs:100:139:
+assertion failed: phase_error(a.phase_deg, p.arg().to_degrees()) < 1e-8
+test ac004_rejects_unreproducible_geometry ... FAILED
+
+thread 'ac004_negative_t_has_a_real_contraction_branch' panicked at tests/acoustic_consistency.rs:51:2:
+assertion failed: (0..100).all(|i| s.area(i as f64 / 100.) >= s.area((i + 1) as f64 / 100.))
+test ac001_shunts_share_the_series_horn_branch ... FAILED
+test ac003_bandpass_polarity_preserves_electrical_solution ... FAILED
+test ac002_offset_radiates_rear_port_and_passive_radiator ... FAILED
+test ac007_offset_phase_tracks_combined_output ... FAILED
+
+thread 'ac005_parallel_poles_and_extreme_scales' panicked at tests/acoustic_consistency.rs:55:53:
+assertion failed: pole.re.is_infinite()
+
+thread 'lossless_suspension_qts_is_qes' panicked at tests/acoustic_consistency.rs:103:66:
+assertion failed: (d.qts(&Air::default()) - d.qes(&Air::default())).abs() < 1e-12
+test ac004_negative_t_has_a_real_contraction_branch ... FAILED
+test ac005_parallel_poles_and_extreme_scales ... FAILED
+test lossless_suspension_qts_is_qes ... FAILED
+
+thread 'ac006_bp6_series_low_frequency_lumped_limit' panicked at tests/acoustic_consistency.rs:65:52:
+assertion failed: (a.spl_db - z.spl_db).abs() < 0.01
+test ac006_bp6_series_low_frequency_lumped_limit ... FAILED
+
+thread 'ac001_series_load_and_energy_balance' panicked at tests/acoustic_consistency.rs:17:28:
+assertion failed: (zf - zh - C::new(r, 0.)).norm() < 1e-10 * (1. + zf.norm())
+test ac001_series_load_and_energy_balance ... FAILED
+
+failures:
+
+failures:
+    ac001_series_load_and_energy_balance
+    ac001_shunts_share_the_series_horn_branch
+    ac002_offset_radiates_rear_port_and_passive_radiator
+    ac003_bandpass_polarity_preserves_electrical_solution
+    ac004_negative_t_has_a_real_contraction_branch
+    ac004_rejects_unreproducible_geometry
+    ac005_parallel_poles_and_extreme_scales
+    ac006_bp6_series_low_frequency_lumped_limit
+    ac007_offset_phase_tracks_combined_output
+    lossless_suspension_qts_is_qes
+
+test result: FAILED. 0 passed; 10 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test acoustic_consistency`

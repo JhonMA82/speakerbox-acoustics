@@ -1,0 +1,41 @@
+$ cargo clippy --workspace --all-targets -- -D warnings
+    Checking num-traits v0.2.19
+    Checking serde_core v1.0.229
+    Checking zmij v1.0.23
+    Checking itoa v1.0.18
+    Checking memchr v2.8.3
+    Checking libm v0.2.16
+    Checking num-complex v0.4.6
+    Checking serde_json v1.0.154
+    Checking speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+error: the loop variable `k` is used to index `p`
+   --> src/tapped.rs:326:22
+    |
+326 |             for k in row + 1..m {
+    |                      ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_range_loop
+    = note: `-D clippy::needless-range-loop` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_range_loop)]`
+help: consider using an iterator and enumerate()
+    |
+326 |             for (k, <item>) in p.iter().enumerate().take(m).skip(row + 1) {
+    |                 ~~~~~~~~~~~    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+error: the loop variable `k` is used to index `p`
+   --> src/tapped.rs:419:22
+    |
+419 |             for k in row + 1..m {
+    |                      ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#needless_range_loop
+help: consider using an iterator and enumerate()
+    |
+419 |             for (k, <item>) in p.iter().enumerate().take(m).skip(row + 1) {
+    |                 ~~~~~~~~~~~    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+error: could not compile `speakerbox-acoustics` (lib) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `speakerbox-acoustics` (lib test) due to 2 previous errors
+
+EXIT=101; seconds=2.824

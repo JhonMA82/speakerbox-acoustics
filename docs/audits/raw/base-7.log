@@ -1,0 +1,25 @@
+$ cargo +1.75.0 check --workspace --all-targets
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded itoa v1.0.18
+  Downloaded zmij v1.0.23
+  Downloaded memchr v2.8.3
+  Downloaded autocfg v1.5.1
+  Downloaded num-traits v0.2.19
+  Downloaded num-complex v0.4.6
+  Downloaded libm v0.2.16
+  Downloaded serde_json v1.0.154
+  Downloaded serde_core v1.0.229
+   Compiling autocfg v1.5.1
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.154
+   Compiling libm v0.2.16
+    Checking itoa v1.0.18
+    Checking memchr v2.8.3
+   Compiling num-traits v0.2.19
+    Checking num-complex v0.4.6
+    Checking speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished dev [unoptimized + debuginfo] target(s) in 9.80s
+
+EXIT=0; seconds=9.849

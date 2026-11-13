@@ -1,0 +1,4 @@
+$ cargo +1.75.0 check --workspace --all-targets
+/bin/sh: 1: cargo: not found
+
+EXIT=127; seconds=0.001

@@ -1,0 +1,4 @@
+$ cargo fmt --all --check
+/bin/sh: 1: cargo: not found
+
+EXIT=127; seconds=0.002

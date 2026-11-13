@@ -1,0 +1,4 @@
+$ cargo test --test od_production --test th_production --test bp_production --test system_production --test production_accuracy -- --nocapture
+/bin/sh: 1: cargo: not found
+
+EXIT=127; seconds=0.001
