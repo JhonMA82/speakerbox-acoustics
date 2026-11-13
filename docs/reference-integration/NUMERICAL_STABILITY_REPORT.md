@@ -34,3 +34,10 @@ ruta analítica SIN pérdidas: ese criterio no resuelve nada en una matriz exact
 Las comprobaciones públicas de entrada se conservan. Para pérdidas, el dominio
 implementado comparte |γ|L/0.03≤30000 con la cuadratura disipativa, además de
 la cota de atenuación; es un límite numérico conservador explícito, no físico.
+
+Seguimiento de rendimiento: los puertos cilíndricos creados internamente por
+Bandpass reutilizan la validación ya realizada de frecuencia, aire y geometría.
+La ruta interna sólo evita comprobaciones repetidas; mantiene los diagnósticos
+numéricos y no cambia la seguridad de `try_matrix` pública. En 7 pares, BP6S
+2000 puntos pasó de 1.361 a 1.169 ms mediana, sin cambios de respuesta.
+La hipótesis alternativa de aislar el stack de TL no mejoró tiempos y se descartó.

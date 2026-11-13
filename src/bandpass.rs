@@ -417,7 +417,8 @@ impl Bandpass {
                 let length = Self::pipe_length(port);
                 let seg = Segment::new(Flare::Cylindrical, length, port.area, port.area);
                 let z_rad = piston_radiation_impedance(&self.air, port.area, f, self.solid_angle);
-                seg.matrix(&self.air, f).transform_impedance(z_rad)
+                seg.matrix_validated(&self.air, f)
+                    .transform_impedance(z_rad)
             }
         }
     }
@@ -445,7 +446,7 @@ impl Bandpass {
             PortModel::Pipe => {
                 let length = Self::pipe_length(port) + extra_length;
                 let seg = Segment::new(Flare::Cylindrical, length, port.area, port.area);
-                seg.matrix(&self.air, f)
+                seg.matrix_validated(&self.air, f)
             }
         }
     }
@@ -461,7 +462,7 @@ impl Bandpass {
             PortModel::Pipe => {
                 let length = Self::pipe_length(port);
                 let seg = Segment::new(Flare::Cylindrical, length, port.area, port.area);
-                let matrix = seg.matrix(&self.air, f);
+                let matrix = seg.matrix_validated(&self.air, f);
                 let z_rad = piston_radiation_impedance(&self.air, port.area, f, self.solid_angle);
                 let z_in = matrix.transform_impedance(z_rad);
                 let u_in = p_chamber / z_in;

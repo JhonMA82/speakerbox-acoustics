@@ -500,6 +500,10 @@ impl Segment {
         crate::error::check_frequency(f)?;
         air.validate()?;
         self.validate()?;
+        self.try_matrix_validated(air, f)
+    }
+
+    fn try_matrix_validated(&self, air: &Air, f: f64) -> Result<TransferMatrix, crate::SolveError> {
         if self.s1 == self.s2 && !matches!(self.flare, Flare::Custom(_)) {
             if !self.has_distributed_losses() {
                 let kl = air.wave_number(f) * self.length;
@@ -562,6 +566,17 @@ impl Segment {
             }
             coarse = fine;
         }
+    }
+
+    /// Internal only: caller has validated air/frequency and constructed a
+    /// physically valid segment. Numeric conditioning checks remain active.
+    pub(crate) fn matrix_validated(&self, air: &Air, f: f64) -> TransferMatrix {
+        self.try_matrix_validated(air, f).unwrap_or(TransferMatrix {
+            a: Complex64::new(f64::NAN, f64::NAN),
+            b: Complex64::new(f64::NAN, f64::NAN),
+            c: Complex64::new(f64::NAN, f64::NAN),
+            d: Complex64::new(f64::NAN, f64::NAN),
+        })
     }
 
     /// Matriz de transferencia del segmento a la frecuencia `freq_hz`.
