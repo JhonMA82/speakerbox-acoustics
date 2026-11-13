@@ -49,11 +49,13 @@ pub struct ResponsePoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub displacement_mm: f64,
-    /// Potencia acústica estimada (W), con el escalado de campo legado.
-    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
+    /// Potencia activa absorbida por las terminaciones explícitas (W).
+    /// Puede ser un subtotal: consultar try_energy_at para calidad/radiación.
+    /// Nunca se deduce de SPL ni incluye pérdidas mecánicas de un PR.
     pub acoustical_power_w: f64,
-    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
-    /// no usar como prueba de conservación energética.
+    /// 100·potencia de terminaciones / potencia activa de la fuente (incluye Rg).
+    /// No es η radiativa si el modelo está incompleto; NaN indica 0/0.
+    /// try_energy_at distingue la potencia radiada disponible o aproximada.
     pub efficiency_pct: f64,
     /// Parte real de la impedancia acústica de entrada (Pa·s/m³).
     pub za_real: f64,
@@ -135,7 +137,9 @@ impl ResponsePoint {
         if !(self.spl_db.is_finite() || self.spl_db == f64::NEG_INFINITY) {
             return Err(SolveError::InvalidResponse("spl_db"));
         }
-        if !self.phase_deg.is_finite() {
+        if !(self.phase_deg.is_finite()
+            || (self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY))
+        {
             return Err(SolveError::InvalidResponse("phase_deg"));
         }
         if !self.group_delay_ms.is_finite() {
@@ -153,7 +157,9 @@ impl ResponsePoint {
         if !(self.acoustical_power_w.is_finite() && self.acoustical_power_w >= 0.0) {
             return Err(SolveError::InvalidResponse("acoustical_power_w"));
         }
-        if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0) {
+        if !((self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+            || (self.efficiency_pct.is_nan() && self.acoustical_power_w == 0.0))
+        {
             return Err(SolveError::InvalidResponse("efficiency_pct"));
         }
         if !self.za_real.is_finite() {
@@ -309,9 +315,106 @@ impl System {
     }
 
     pub(crate) fn response_validated(&self, freq_hz: f64) -> Result<ResponsePoint, SolveError> {
+        if self.horn.as_ref().is_some_and(|h| h.matched_mouth) {
+            return Err(SolveError::InvalidResponse(
+                "SPL unavailable for matched absorber; use try_energy_at",
+            ));
+        }
         let point = self.solve_point(freq_hz)?;
         point.validate()?;
         Ok(point)
+    }
+
+    /// Balance RMS de la red. Disponible también para matched_mouth, que no
+    /// define SPL. No deduce pérdidas del residual ni potencia de la presión lejana.
+    pub fn try_energy_at(&self, f: f64) -> Result<crate::energy::EnergyReport, SolveError> {
+        use crate::energy::{
+            load_termination, shunt_power, termination, EnergyReport, RadiationQuality as Q,
+            TerminationKind as K,
+        };
+        check_frequency(f)?;
+        self.validate()?;
+        let prepared = self
+            .horn
+            .as_ref()
+            .map(|h| h.prepare(&self.air, f, self.solid_angle));
+        let (zf, zr) = self.loads_with_horn(f, prepared.as_ref().map(|h| h.input_impedance));
+        let ud = self.driver.volume_velocity(f, self.eg, self.rg, zf + zr);
+        let ze = self.driver.input_impedance(f, zf + zr) + self.rg;
+        let current = Complex64::new(self.eg, 0.0) / ze;
+        let mut report = EnergyReport::new(
+            &self.driver,
+            self.eg,
+            self.rg,
+            current,
+            ud,
+            (zf + zr).re * ud.norm_sqr(),
+        );
+        let mut quality = Q::SingleBaffledPiston;
+        if let (Some(h), Some(prepared)) = (&self.horn, prepared) {
+            let pn = zf * ud;
+            let r = self.horn_series.unwrap_or(0.0);
+            let uh = pn / (prepared.input_impedance + r);
+            let mut p = pn - r * uh;
+            let mut u = uh;
+            report.acoustic_losses.throat_series_w = r * uh.norm_sqr();
+            if let Some(r) = self.horn_leak {
+                if r > 0.0 {
+                    report.acoustic_losses.leakage_w += pn.norm_sqr() / r;
+                }
+            }
+            if let Some(ch) = self.throat_chamber {
+                if let Some(l) = ch.lining {
+                    let z = l.impedance(&self.air, f);
+                    if !z.re.is_infinite() {
+                        report.acoustic_losses.lining_w += shunt_power(pn, z);
+                    }
+                }
+            }
+            for (seg, m) in h.segments.iter().zip(&prepared.matrices) {
+                report.acoustic_losses.wall_w += seg.dissipated_power_w(&self.air, f, p, u)?;
+                (p, u) = m.apply(p, u);
+            }
+            let kind = if h.matched_mouth {
+                quality = Q::MatchedAbsorber;
+                K::MatchedAbsorber
+            } else if h.radiation_scale != 1.0 || h.mouth_radiation_area_factor != 1.0 {
+                quality = Q::CalibratedLoadApproximation;
+                K::CalibratedPiston
+            } else {
+                K::BaffledPiston
+            };
+            report
+                .terminations
+                .push(termination(kind, p, u, prepared.termination_impedance));
+        } else {
+            report
+                .terminations
+                .push(load_termination(K::BaffledPiston, ud, zf));
+        }
+        if let Some(ch) = self.rear_chamber {
+            let p = -zr * ud;
+            if let Some(l) = ch.lining {
+                let z = l.impedance(&self.air, f);
+                if !z.re.is_infinite() {
+                    report.acoustic_losses.lining_w += shunt_power(p, z);
+                }
+            }
+            if let (Some(ql), Some(fb)) = (self.rear_ql, self.rear_tuning_hz()) {
+                let r = ql / (std::f64::consts::TAU * fb * ch.compliance(&self.air));
+                report.acoustic_losses.chamber_ql_w = p.norm_sqr() / r;
+            }
+            if let Some(pr) = self.passive_radiator {
+                let upr = p / pr.impedance(f);
+                report.acoustic_losses.passive_suspension_w = pr.rms * (upr / pr.sd).norm_sqr();
+            }
+            if (self.port.is_some() || self.passive_radiator.is_some())
+                && quality != Q::MatchedAbsorber
+            {
+                quality = Q::IncompleteRadiationModel;
+            }
+        }
+        report.finish(quality)
     }
 
     /// Comprueba la configuración del sistema antes de calcular.
@@ -433,7 +536,7 @@ impl System {
         // Presión radiada. En una bocina se usa la velocidad de boca; en un
         // radiador directo con puerto o radiador pasivo se suman las presiones
         // complejas del diafragma y de cada salida trasera.
-        let (p_rms, p_ac, phase_deg) = if self.horn.is_some() {
+        let (p_rms, _field_power, phase_deg) = if self.horn.is_some() {
             let z_rad =
                 piston_radiation_impedance(&self.air, mouth_area, freq_hz, self.solid_angle);
             // La impedancia de radiación es la de pantalla infinita (2π). Para
@@ -489,6 +592,12 @@ impl System {
             let p_ac = p_rms * p_rms * self.solid_angle / (self.air.rho * self.air.c);
             (p_rms, p_ac, p_total.arg().to_degrees())
         };
+        // El campo de observación no modifica la potencia de la carga resuelta.
+        // Puertos lumped/PR no tienen aquí una terminación radiativa explícita.
+        let p_ac = u_mouth.norm_sqr()
+            * prepared
+                .as_ref()
+                .map_or(z_front.re, |h| h.termination_impedance.re);
         let spl = if p_rms > 0.0 {
             20.0 * (p_rms / self.air.p_ref).log10() + self.spl_offset_db
         } else {
@@ -523,13 +632,17 @@ impl System {
         Ok(ResponsePoint {
             freq: freq_hz,
             spl_db: spl,
-            phase_deg,
+            phase_deg: if p_rms > 0.0 { phase_deg } else { f64::NAN },
             group_delay_ms: 0.0,
             ze_mag: ze_in.norm(),
             ze_phase_deg: ze_in.arg().to_degrees(),
             displacement_mm: disp_mm,
             acoustical_power_w: p_ac,
-            efficiency_pct: if p_in > 0.0 { 100.0 * p_ac / p_in } else { 0.0 },
+            efficiency_pct: if p_in > 0.0 {
+                100.0 * p_ac / p_in
+            } else {
+                f64::NAN
+            },
             za_real: z_front.re,
             za_imag: z_front.im,
             mouth_volume_velocity: u_mouth.norm(),

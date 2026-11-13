@@ -89,11 +89,13 @@ pub struct BandpassPoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub displacement_mm: f64,
-    /// Potencia acústica estimada (W), con el escalado de campo legado.
-    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
+    /// Potencia activa absorbida por las terminaciones explícitas (W).
+    /// Puede ser un subtotal: consultar try_energy_at para calidad/radiación.
+    /// Nunca se deduce de SPL ni incluye pérdidas mecánicas de un PR.
     pub power_w: f64,
-    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
-    /// no usar como prueba de conservación energética.
+    /// 100·potencia de terminaciones / potencia activa de la fuente (incluye Rg).
+    /// No es η radiativa si el modelo está incompleto; NaN indica 0/0.
+    /// try_energy_at distingue la potencia radiada disponible o aproximada.
     pub efficiency_pct: f64,
     /// Velocidad del aire en el puerto delantero (m/s).
     pub front_port_velocity: f64,
@@ -127,7 +129,9 @@ impl BandpassPoint {
         if !(self.spl_db.is_finite() || self.spl_db == f64::NEG_INFINITY) {
             return Err(SolveError::InvalidResponse("spl_db"));
         }
-        if !self.phase_deg.is_finite() {
+        if !(self.phase_deg.is_finite()
+            || (self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY))
+        {
             return Err(SolveError::InvalidResponse("phase_deg"));
         }
         if !(self.ze_mag.is_finite() && self.ze_mag > 0.0) {
@@ -142,7 +146,9 @@ impl BandpassPoint {
         if !(self.power_w.is_finite() && self.power_w >= 0.0) {
             return Err(SolveError::InvalidResponse("power_w"));
         }
-        if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0) {
+        if !((self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+            || (self.efficiency_pct.is_nan() && self.power_w == 0.0))
+        {
             return Err(SolveError::InvalidResponse("efficiency_pct"));
         }
         if !(self.front_port_velocity.is_finite() && self.front_port_velocity >= 0.0) {
@@ -509,6 +515,72 @@ impl Bandpass {
         Ok(s)
     }
 
+    /// Balance de potencia por cámaras y puertos. Solo los puertos exteriores
+    /// de Pipe tienen carga de pistón; el puerto BP6 serie es interior.
+    pub fn try_energy_at(&self, f: f64) -> Result<crate::energy::EnergyReport, SolveError> {
+        use crate::energy::{
+            load_termination, shunt_power, EnergyReport, RadiationQuality as Q,
+            TerminationKind as K,
+        };
+        let s = self.try_solution_at(f)?;
+        let mut report = EnergyReport::new(
+            &self.driver,
+            self.eg,
+            self.rg,
+            s.input_current_a,
+            s.driver_volume_velocity,
+            s.acoustic_network_power_w,
+        );
+        let chamber_pressure = |port: Port, u: Complex64| match self.port_model {
+            PortModel::Lumped => port.impedance(&self.air, f) * u,
+            PortModel::Pipe => {
+                let m = self.port_matrix(port, f, 0.0);
+                let z = piston_radiation_impedance(&self.air, port.area, f, self.solid_angle);
+                (m.d * z * u - m.b * u) / (m.a * m.d - m.b * m.c)
+            }
+        };
+        let pf = chamber_pressure(self.front_port, s.front_volume_velocity);
+        let fb_f = self.front_tuning_hz();
+        let fb_r = self.rear_tuning_hz().unwrap_or(fb_f);
+        let zcr = self.chamber_impedance(self.rear_volume_m3, f, self.rear_ql, fb_r);
+        let zcf = self.chamber_impedance(self.front_volume_m3, f, self.front_ql, fb_f);
+        let pr = match (
+            self.rear_port_routing,
+            self.rear_port,
+            s.rear_volume_velocity,
+        ) {
+            (RearPortRouting::FrontChamber, Some(port), Some(u)) => {
+                let m = self.port_matrix(port, f, Self::flanged_end_correction(port.area));
+                (m.d * pf - m.b * u) / (m.a * m.d - m.b * m.c)
+            }
+            (RearPortRouting::Outside, Some(port), Some(u)) => chamber_pressure(port, u),
+            _ => -s.driver_volume_velocity * zcr,
+        };
+        report.acoustic_losses.chamber_ql_w = shunt_power(pf, zcf) + shunt_power(pr, zcr);
+        if self.port_model == PortModel::Lumped {
+            return report.finish(Q::IncompleteRadiationModel);
+        }
+        let zf = piston_radiation_impedance(&self.air, self.front_port.area, f, self.solid_angle);
+        report.terminations.push(load_termination(
+            K::BaffledPiston,
+            s.front_volume_velocity,
+            zf,
+        ));
+        let mut quality = Q::SingleBaffledPiston;
+        if let (RearPortRouting::Outside, Some(port), Some(u)) = (
+            self.rear_port_routing,
+            self.rear_port,
+            s.rear_volume_velocity,
+        ) {
+            let z = piston_radiation_impedance(&self.air, port.area, f, self.solid_angle);
+            report
+                .terminations
+                .push(load_termination(K::BaffledPiston, u, z));
+            quality = Q::IndependentLoadsApproximation;
+        }
+        report.finish(quality)
+    }
+
     fn zero_point(&self, f: f64) -> BandpassPoint {
         BandpassPoint {
             freq: f,
@@ -604,7 +676,21 @@ impl Bandpass {
         } else {
             f64::NEG_INFINITY
         };
-        let p_ac = p_rms * p_rms * self.solid_angle / (self.air.rho * self.air.c);
+        // Pipe es sin pérdidas: el flujo activo a la entrada es el de su
+        // terminación. Reutilizar Z_pf/Z_pr evita recalcular Bessel/Struve.
+        // Lumped solo modela una inertancia con salida de presión nula.
+        let p_ac = if self.port_model == PortModel::Pipe {
+            let front = p_front.norm_sqr() * (one / z_pf).re;
+            front
+                + match (self.rear_port_routing, z_pr) {
+                    (RearPortRouting::Outside, Some(z)) => {
+                        (-u_d * z_rear).norm_sqr() * (one / z).re
+                    }
+                    _ => 0.0,
+                }
+        } else {
+            0.0
+        };
 
         let ze_coil = self.driver.coil_impedance(f) + Complex64::new(self.rg, 0.0);
         let zm = self.driver.mechanical_impedance(f);
@@ -622,12 +708,20 @@ impl Bandpass {
         let point = BandpassPoint {
             freq: f,
             spl_db: spl,
-            phase_deg: u_total.arg().to_degrees(),
+            phase_deg: if p_rms > 0.0 {
+                u_total.arg().to_degrees()
+            } else {
+                f64::NAN
+            },
             ze_mag: ze.norm(),
             ze_phase_deg: ze.arg().to_degrees(),
             displacement_mm: disp_mm,
             power_w: p_ac,
-            efficiency_pct: if p_in > 0.0 { 100.0 * p_ac / p_in } else { 0.0 },
+            efficiency_pct: if p_in > 0.0 {
+                100.0 * p_ac / p_in
+            } else {
+                f64::NAN
+            },
             front_port_velocity: v_pf,
             rear_port_velocity: v_pr,
         };

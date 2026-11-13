@@ -394,6 +394,52 @@ impl Segment {
         (dp, du)
     }
 
+    /// Integra ∫g|p|² dx para la conductancia de pared g=loss·ωS/(ρc²).
+    /// Usa las mismas etapas RK4 del estado, no una resta de flujos como pérdida.
+    pub fn dissipated_power_w(
+        &self,
+        air: &Air,
+        f: f64,
+        mut p: Complex64,
+        mut u: Complex64,
+    ) -> Result<f64, crate::error::SolveError> {
+        crate::error::check_frequency(f)?;
+        self.validate()?;
+        air.validate()?;
+        if self.loss == 0.0 || self.length == 0.0 {
+            return Ok(0.0);
+        }
+        let w = omega(f);
+        let steps = ((air.wave_number(f) * self.length / 0.03).ceil() as usize).clamp(192, 60_000);
+        let dx = self.length / steps as f64;
+        let q = |x: f64, p: Complex64| {
+            self.loss * w * self.area(x) / (air.rho * air.c * air.c) * p.norm_sqr()
+        };
+        let mut loss = 0.0;
+        for i in 0..steps {
+            let x = i as f64 * dx;
+            let (a, b) = self.state_deriv(x, p, u, w, air.rho, air.c);
+            let p2 = p + 0.5 * dx * a;
+            let u2 = u + 0.5 * dx * b;
+            let (c, d) = self.state_deriv(x + 0.5 * dx, p2, u2, w, air.rho, air.c);
+            let p3 = p + 0.5 * dx * c;
+            let u3 = u + 0.5 * dx * d;
+            let (e, g) = self.state_deriv(x + 0.5 * dx, p3, u3, w, air.rho, air.c);
+            let p4 = p + dx * e;
+            let u4 = u + dx * g;
+            let (h, j) = self.state_deriv(x + dx, p4, u4, w, air.rho, air.c);
+            loss += dx / 6.0
+                * (q(x, p) + 2.0 * q(x + dx / 2.0, p2) + 2.0 * q(x + dx / 2.0, p3) + q(x + dx, p4));
+            p += dx / 6.0 * (a + 2.0 * c + 2.0 * e + h);
+            u += dx / 6.0 * (b + 2.0 * d + 2.0 * g + j);
+        }
+        if loss.is_finite() && loss >= 0.0 {
+            Ok(loss)
+        } else {
+            Err(crate::error::SolveError::NonFiniteResponse)
+        }
+    }
+
     /// Matriz de transferencia del segmento a la frecuencia `freq_hz`.
     pub fn matrix(&self, air: &Air, freq_hz: f64) -> TransferMatrix {
         if self.length <= 0.0 || freq_hz <= 0.0 {
@@ -488,10 +534,13 @@ impl Segment {
 pub struct Horn {
     pub segments: Vec<Segment>,
     /// Factor de escala aplicado a la impedancia de radiación de la boca.
-    /// 1.0 = pantalla infinita (2π); >1 simula un ángulo sólido menor.
+    /// 1.0 = pistón en pantalla infinita; otros valores son calibración de carga,
+    /// no una solución espacial exacta para otro ángulo sólido.
     pub radiation_scale: f64,
     /// Si es `true`, la boca se termina con una carga adaptada
-    /// `rho*c/S_boca` (sin reflexión) en lugar del pistón.
+    /// `rho*c/S_boca` geométrica (sin reflexión plana) en lugar del pistón.
+    /// Requiere radiation_scale == mouth_radiation_area_factor.
+    /// Es un absorbente ideal, no determina SPL; use System::try_energy_at.
     pub matched_mouth: bool,
     /// Factor de área efectiva para la impedancia de radiación de la boca.
     pub mouth_radiation_area_factor: f64,
@@ -532,6 +581,11 @@ impl Horn {
             self.mouth_radiation_area_factor,
             "horn.mouth_radiation_area_factor",
         )?;
+        if self.matched_mouth && self.radiation_scale != self.mouth_radiation_area_factor {
+            return Err(SolveError::InvalidParameter(
+                "matched_mouth requires radiation_scale == mouth_radiation_area_factor",
+            ));
+        }
         Ok(())
     }
 
@@ -595,28 +649,38 @@ impl Horn {
         )
     }
 
+    /// Carga de salida realmente utilizada por el solucionador (Pa·s/m³).
+    /// En modo adaptado los factores deben cancelarse para conservar ρc/Sgeom.
+    pub fn termination_impedance(&self, air: &Air, f: f64, solid_angle: f64) -> Complex64 {
+        if self.matched_mouth {
+            // Los factores iguales se cancelan algebraicamente antes de
+            // multiplicar áreas extremas; no puede aparecer una carga cero.
+            return Complex64::new(air.rho * air.c / self.mouth_area(), 0.0);
+        }
+        let area = self.mouth_area() * self.mouth_radiation_area_factor;
+        piston_radiation_impedance(air, area, f, solid_angle) * self.radiation_scale
+    }
+
     pub(crate) fn prepare(&self, air: &Air, f: f64, solid_angle: f64) -> PreparedHorn {
         let matrices = self.matrices(air, f);
-        let area = self.mouth_area() * self.mouth_radiation_area_factor;
-        let mut z = if self.matched_mouth {
-            Complex64::new(air.rho * air.c / area, 0.0)
-        } else {
-            piston_radiation_impedance(air, area, f, solid_angle)
-        } * self.radiation_scale;
+        let termination_impedance = self.termination_impedance(air, f, solid_angle);
+        let mut z = termination_impedance;
         for matrix in matrices.iter().rev() {
             z = matrix.transform_impedance(z);
         }
         PreparedHorn {
             matrices,
             input_impedance: z,
+            termination_impedance,
         }
     }
 }
 
 /// Estado local de una sola frecuencia; no sobrevive a un cambio paramétrico.
 pub(crate) struct PreparedHorn {
-    matrices: Vec<TransferMatrix>,
+    pub(crate) matrices: Vec<TransferMatrix>,
     pub input_impedance: Complex64,
+    pub termination_impedance: Complex64,
 }
 impl PreparedHorn {
     pub fn transmit(&self, mut p: Complex64, mut u: Complex64) -> Complex64 {

@@ -39,11 +39,13 @@ pub struct DesignPoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub xd_mm: f64,
-    /// Potencia acústica estimada (W), con el escalado de campo legado.
-    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
+    /// Potencia activa absorbida por las terminaciones explícitas (W).
+    /// Puede ser un subtotal: consultar try_energy_at para calidad/radiación.
+    /// Nunca se deduce de SPL ni incluye pérdidas mecánicas de un PR.
     pub power_w: f64,
-    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
-    /// no usar como prueba de conservación energética.
+    /// 100·potencia de terminaciones / potencia activa de la fuente (incluye Rg).
+    /// No es η radiativa si el modelo está incompleto; NaN indica 0/0.
+    /// try_energy_at distingue la potencia radiada disponible o aproximada.
     pub efficiency_pct: f64,
     /// Parte real de la impedancia acústica de referencia (Pa·s/m³).
     ///
@@ -62,6 +64,17 @@ pub struct DesignPoint {
     /// `None` significa «no aplicable» (TH, OD sin puerto trasero o radiador
     /// directo sin puerto), no una velocidad desconocida.
     pub port_velocity: Option<f64>,
+}
+
+/// Observación de campo legado: una estimación bajo la hipótesis compacta,
+/// no una solución espacial. matched_mouth no proporciona esta observación.
+#[derive(Clone, Copy, Debug)]
+pub struct AcousticObservation {
+    pub pressure_estimate_pa: Option<Complex64>,
+    pub spl_db: Option<f64>,
+    /// Fase de presión física respecto a Eg, sin trayecto común al observador.
+    pub phase_deg: Option<f64>,
+    pub group_delay_ms: Option<f64>,
 }
 
 /// Topología acústica.
@@ -111,7 +124,9 @@ impl DesignPoint {
         if !(self.spl_db.is_finite() || self.spl_db == f64::NEG_INFINITY) {
             return Err(SolveError::InvalidResponse("spl_db"));
         }
-        if !self.phase_deg.is_finite() {
+        if !(self.phase_deg.is_finite()
+            || (self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY))
+        {
             return Err(SolveError::InvalidResponse("phase_deg"));
         }
         if !self.group_delay_ms.is_finite() {
@@ -129,7 +144,9 @@ impl DesignPoint {
         if !(self.power_w.is_finite() && self.power_w >= 0.0) {
             return Err(SolveError::InvalidResponse("power_w"));
         }
-        if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0) {
+        if !((self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+            || (self.efficiency_pct.is_nan() && self.power_w == 0.0))
+        {
             return Err(SolveError::InvalidResponse("efficiency_pct"));
         }
         if !self.za_real.is_finite() {
@@ -279,6 +296,86 @@ impl Design {
         } else {
             Some(Complex64::new(p.za_real, p.za_imag))
         })
+    }
+
+    /// Presión y fase estimadas del mismo SPL legado, con ausencia explícita
+    /// ante matched_mouth y fase indefinida ante silencio/cancelación exacta.
+    pub fn try_observation_at(&self, f: f64) -> Result<AcousticObservation, SolveError> {
+        check_frequency(f)?;
+        self.validate()?;
+        if matches!(self,Self::System(s) if s.horn.as_ref().is_some_and(|h|h.matched_mouth)) {
+            return Ok(AcousticObservation {
+                pressure_estimate_pa: None,
+                spl_db: None,
+                phase_deg: None,
+                group_delay_ms: None,
+            });
+        }
+        let p = self.try_response_at(f)?;
+        let pref = match self {
+            Self::System(s) => s.air.p_ref,
+            Self::TappedHorn(s) => s.air.p_ref,
+            Self::OffsetHorn(s) => s.air.p_ref,
+            Self::Bandpass(s) => s.air.p_ref,
+        };
+        let silent = p.spl_db == f64::NEG_INFINITY;
+        let pressure = if silent {
+            Complex64::new(0.0, 0.0)
+        } else {
+            Complex64::from_polar(
+                pref * 10.0_f64.powf(p.spl_db / 20.0),
+                (p.phase_deg + 90.).to_radians(),
+            )
+        };
+        if !pressure.re.is_finite() || !pressure.im.is_finite() {
+            return Err(SolveError::NonFiniteResponse);
+        }
+        Ok(AcousticObservation {
+            pressure_estimate_pa: Some(pressure),
+            spl_db: Some(p.spl_db),
+            phase_deg: if silent {
+                None
+            } else {
+                Some(p.phase_deg + 90.)
+            },
+            group_delay_ms: None,
+        })
+    }
+
+    /// Ordena solo para derivar y restaura el orden, incluidas frecuencias
+    /// repetidas. Una muestra aislada o una cancelación no produce retardo.
+    pub fn try_observation_response(
+        &self,
+        freqs: &[f64],
+    ) -> Result<Vec<AcousticObservation>, SolveError> {
+        let mut out = freqs
+            .iter()
+            .map(|&f| self.try_observation_at(f))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut indices: Vec<usize> = (0..freqs.len()).collect();
+        indices.sort_by(|&a, &b| freqs[a].total_cmp(&freqs[b]));
+        indices.dedup_by(|a, b| freqs[*a] == freqs[*b]);
+        let f: Vec<_> = indices.iter().map(|&i| freqs[i]).collect();
+        let phases: Vec<_> = indices.iter().map(|&i| out[i].phase_deg).collect();
+        let trace = crate::phase::phase_trace(&f, &phases)?;
+        for (i, o) in out.iter_mut().enumerate() {
+            let j = f
+                .binary_search_by(|v| v.total_cmp(&freqs[i]))
+                .map_err(|_| SolveError::InvalidFrequency(freqs[i]))?;
+            o.phase_deg = trace[j].phase_deg;
+            o.group_delay_ms = trace[j].group_delay_ms;
+        }
+        Ok(out)
+    }
+
+    /// Balance científico sin deducir potencia de SPL ni descartar su calidad.
+    pub fn try_energy_at(&self, f: f64) -> Result<crate::energy::EnergyReport, SolveError> {
+        match self {
+            Self::System(s) => s.try_energy_at(f),
+            Self::TappedHorn(s) => s.try_energy_at(f),
+            Self::OffsetHorn(s) => s.try_energy_at(f),
+            Self::Bandpass(s) => s.try_energy_at(f),
+        }
     }
 
     /// Comprueba la configuración de la topología antes de calcular.

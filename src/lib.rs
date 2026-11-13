@@ -195,3 +195,6 @@ mod auto_traits {
 
 /// Fase desenrollada y retardo con representación explícita de cancelaciones.
 pub mod phase;
+
+/// Potencias activas de red y alcance de la interpretación radiativa.
+pub mod energy;

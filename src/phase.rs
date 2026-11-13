@@ -115,6 +115,35 @@ pub(crate) fn finalize(freqs: &[f64], phases: &mut [f64], spl: &[f64]) -> Vec<f6
     delays
 }
 
+/// Fase de presión compleja física (Pa), con cotas de error numérico en Pa.
+/// Una muestra cuyo módulo no supera su cota no tiene fase resoluble.
+/// No aplica un suelo de amplitud ni cambia la presión o SPL. Una fuente
+/// arbitrariamente débil conserva su fase si la cota es cero y p != 0.
+pub fn complex_phase_trace(
+    freqs: &[f64],
+    pressure_pa: &[num_complex::Complex64],
+    roundoff_bound_pa: &[f64],
+) -> Result<Vec<PhasePoint>, SolveError> {
+    if pressure_pa.len() != freqs.len() || roundoff_bound_pa.len() != freqs.len() {
+        return Err(SolveError::InvalidParameter("complex phase lengths"));
+    }
+    let mut phases = Vec::with_capacity(freqs.len());
+    for (p, &bound) in pressure_pa.iter().zip(roundoff_bound_pa) {
+        if !p.re.is_finite() || !p.im.is_finite() {
+            return Err(SolveError::NonFiniteResponse);
+        }
+        if !bound.is_finite() || bound < 0.0 {
+            return Err(SolveError::InvalidParameter("pressure error bound"));
+        }
+        phases.push(if p.norm() <= bound {
+            None
+        } else {
+            Some(p.arg().to_degrees())
+        });
+    }
+    phase_trace(freqs, &phases)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

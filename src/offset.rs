@@ -60,11 +60,13 @@ pub struct OffsetPoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub displacement_mm: f64,
-    /// Potencia acústica estimada (W), con el escalado de campo legado.
-    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
+    /// Potencia activa absorbida por las terminaciones explícitas (W).
+    /// Puede ser un subtotal: consultar try_energy_at para calidad/radiación.
+    /// Nunca se deduce de SPL ni incluye pérdidas mecánicas de un PR.
     pub power_w: f64,
-    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
-    /// no usar como prueba de conservación energética.
+    /// 100·potencia de terminaciones / potencia activa de la fuente (incluye Rg).
+    /// No es η radiativa si el modelo está incompleto; NaN indica 0/0.
+    /// try_energy_at distingue la potencia radiada disponible o aproximada.
     pub efficiency_pct: f64,
     pub port_velocity: Option<f64>,
 }
@@ -98,7 +100,9 @@ impl OffsetPoint {
         if !(self.spl_db.is_finite() || self.spl_db == f64::NEG_INFINITY) {
             return Err(SolveError::InvalidResponse("spl_db"));
         }
-        if !self.phase_deg.is_finite() {
+        if !(self.phase_deg.is_finite()
+            || (self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY))
+        {
             return Err(SolveError::InvalidResponse("phase_deg"));
         }
         if !(self.ze_mag.is_finite() && self.ze_mag > 0.0) {
@@ -113,7 +117,9 @@ impl OffsetPoint {
         if !(self.power_w.is_finite() && self.power_w >= 0.0) {
             return Err(SolveError::InvalidResponse("power_w"));
         }
-        if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0) {
+        if !((self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+            || (self.efficiency_pct.is_nan() && self.power_w == 0.0))
+        {
             return Err(SolveError::InvalidResponse("efficiency_pct"));
         }
         if let Some(velocity) = self.port_velocity {
@@ -403,6 +409,88 @@ impl OffsetHorn {
         Ok(s)
     }
 
+    /// Balance de cargas reales. Una salida lumped sin radiación hace que la
+    /// potencia radiada integral y su rendimiento se marquen no disponibles.
+    pub fn try_energy_at(&self, f: f64) -> Result<crate::energy::EnergyReport, SolveError> {
+        use crate::energy::{
+            load_termination, EnergyReport, RadiationQuality as Q, TerminationKind as K,
+        };
+        let s = self.try_solution_at(f)?;
+        let ud = s.driver_volume_velocity;
+        let mut report = EnergyReport::new(
+            &self.driver,
+            self.eg,
+            self.rg,
+            s.input_current_a,
+            ud,
+            s.acoustic_network_power_w,
+        );
+        let calibrated =
+            self.mouth_radiation_scale != 1.0 || self.mouth_radiation_area_factor != 1.0;
+        report.terminations.push(load_termination(
+            if calibrated {
+                K::CalibratedPiston
+            } else {
+                K::BaffledPiston
+            },
+            s.mouth_volume_velocity,
+            self.mouth_impedance(f),
+        ));
+        let mut quality = if calibrated {
+            Q::CalibratedLoadApproximation
+        } else {
+            Q::SingleBaffledPiston
+        };
+        if self.rear_chamber_m3.is_none() {
+            report
+                .terminations
+                .push(load_termination(K::BaffledPiston, -ud, s.rear_impedance));
+            if !calibrated {
+                quality = Q::IndependentLoadsApproximation;
+            }
+        } else {
+            if let (Some(pr), Some(u)) =
+                (self.rear_passive_radiator, s.rear_passive_volume_velocity)
+            {
+                report.acoustic_losses.passive_suspension_w = pr.rms * (u / pr.sd).norm_sqr();
+            }
+            if self.rear_port.is_some() || self.rear_passive_radiator.is_some() {
+                quality = Q::IncompleteRadiationModel;
+            }
+        }
+        if self.segments.iter().any(|seg| seg.loss > 0.0) {
+            let matrices: Vec<_> = self
+                .segments
+                .iter()
+                .map(|seg| seg.matrix(&self.air, f))
+                .collect();
+            let pt = s.front_impedance * ud;
+            if self.tap > 0 {
+                let mut total = TransferMatrix::identity();
+                for &m in &matrices[..self.tap] {
+                    total = total.then(m);
+                }
+                let mut p = pt / total.a;
+                let mut u = Complex64::new(0.0, 0.0);
+                for (seg, m) in self.segments[..self.tap].iter().zip(&matrices[..self.tap]) {
+                    report.acoustic_losses.wall_w += seg.dissipated_power_w(&self.air, f, p, u)?;
+                    (p, u) = m.apply(p, u);
+                }
+            }
+            let mut zp = self.mouth_impedance(f);
+            for m in matrices[self.tap..].iter().rev() {
+                zp = m.transform_impedance(zp);
+            }
+            let mut p = pt;
+            let mut u = pt / zp;
+            for (seg, m) in self.segments[self.tap..].iter().zip(&matrices[self.tap..]) {
+                report.acoustic_losses.wall_w += seg.dissipated_power_w(&self.air, f, p, u)?;
+                (p, u) = m.apply(p, u);
+            }
+        }
+        report.finish(quality)
+    }
+
     /// Punto neutro para una entrada o un sistema no resoluble.
     fn zero_point(f: f64) -> OffsetPoint {
         OffsetPoint {
@@ -487,8 +575,7 @@ impl OffsetHorn {
         };
         let p_horn = Complex64::from_polar(p_horn_mag, u_mouth.arg());
 
-        let rear_direct = self.tap > 0
-            && self.rear_chamber_m3.is_none()
+        let rear_direct = self.rear_chamber_m3.is_none()
             && self.rear_port.is_none()
             && self.rear_passive_radiator.is_none();
         let z_rear_rad = piston_radiation_impedance(&self.air, self.driver.sd, f, self.solid_angle);
@@ -516,11 +603,6 @@ impl OffsetHorn {
         } else {
             0.0
         };
-        let p_ac_rear = if p_rear_mag > 0.0 {
-            p_rear_mag * p_rear_mag * self.solid_angle / (self.air.rho * self.air.c)
-        } else {
-            0.0
-        };
         let p_rear = if rear_direct {
             Complex64::from_polar(p_rear_mag, (-u_d).arg())
         } else {
@@ -531,7 +613,12 @@ impl OffsetHorn {
         // Aproximación compacta a 1 m: igual distancia y fase de propagación.
         // No se asigna radiación a las pérdidas de cámara/PR.
         let mut p_total = p_total;
-        let mut p_ac = p_ac_horn + p_ac_rear;
+        let p_ac = u_mouth.norm_sqr() * z_mouth.re
+            + if self.rear_chamber_m3.is_none() {
+                u_d.norm_sqr() * z_rear.re
+            } else {
+                0.0
+            };
         if self.rear_chamber_m3.is_some() {
             let p_chamber = -u_d * z_rear;
             let outlets = self
@@ -551,7 +638,6 @@ impl OffsetHorn {
                     self.solid_angle,
                 );
                 p_total += pressure;
-                p_ac += pressure.norm_sqr() * self.solid_angle / (self.air.rho * self.air.c);
             }
         }
         let p_rms = p_total.norm();
@@ -581,12 +667,20 @@ impl OffsetHorn {
         let point = OffsetPoint {
             freq: f,
             spl_db: spl,
-            phase_deg: p_total.arg().to_degrees(),
+            phase_deg: if p_rms > 0.0 {
+                p_total.arg().to_degrees()
+            } else {
+                f64::NAN
+            },
             ze_mag: ze.norm(),
             ze_phase_deg: ze.arg().to_degrees(),
             displacement_mm: disp_mm,
             power_w: p_ac,
-            efficiency_pct: if p_in > 0.0 { 100.0 * p_ac / p_in } else { 0.0 },
+            efficiency_pct: if p_in > 0.0 {
+                100.0 * p_ac / p_in
+            } else {
+                f64::NAN
+            },
             port_velocity,
         };
         let p_rear = -u_d * z_rear;

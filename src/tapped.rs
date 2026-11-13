@@ -40,11 +40,13 @@ pub struct TappedPoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub displacement_mm: f64,
-    /// Potencia acústica estimada (W), con el escalado de campo legado.
-    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
+    /// Potencia activa absorbida por las terminaciones explícitas (W).
+    /// Puede ser un subtotal: consultar try_energy_at para calidad/radiación.
+    /// Nunca se deduce de SPL ni incluye pérdidas mecánicas de un PR.
     pub power_w: f64,
-    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
-    /// no usar como prueba de conservación energética.
+    /// 100·potencia de terminaciones / potencia activa de la fuente (incluye Rg).
+    /// No es η radiativa si el modelo está incompleto; NaN indica 0/0.
+    /// try_energy_at distingue la potencia radiada disponible o aproximada.
     pub efficiency_pct: f64,
 }
 
@@ -86,7 +88,9 @@ impl TappedPoint {
         if !(self.spl_db.is_finite() || self.spl_db == f64::NEG_INFINITY) {
             return Err(SolveError::InvalidResponse("spl_db"));
         }
-        if !self.phase_deg.is_finite() {
+        if !(self.phase_deg.is_finite()
+            || (self.phase_deg.is_nan() && self.spl_db == f64::NEG_INFINITY))
+        {
             return Err(SolveError::InvalidResponse("phase_deg"));
         }
         if !(self.ze_mag.is_finite() && self.ze_mag > 0.0) {
@@ -101,7 +105,9 @@ impl TappedPoint {
         if !(self.power_w.is_finite() && self.power_w >= 0.0) {
             return Err(SolveError::InvalidResponse("power_w"));
         }
-        if !(self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0) {
+        if !((self.efficiency_pct.is_finite() && self.efficiency_pct >= 0.0)
+            || (self.efficiency_pct.is_nan() && self.power_w == 0.0))
+        {
             return Err(SolveError::InvalidResponse("efficiency_pct"));
         }
         Ok(())
@@ -484,9 +490,10 @@ impl TappedHorn {
         let n = self.node_count();
         let p_mouth = p[n - 2];
         let u_mouth = p_mouth / zm;
-        let p_ac = u_mouth.norm_sqr() * zm.re * (std::f64::consts::TAU / self.solid_angle);
-        let p_rms = if p_ac > 0.0 {
-            (p_ac * self.air.rho * self.air.c / self.solid_angle).sqrt()
+        let p_ac = u_mouth.norm_sqr() * zm.re;
+        let field_power = p_ac * (std::f64::consts::TAU / self.solid_angle);
+        let p_rms = if field_power > 0.0 {
+            (field_power * self.air.rho * self.air.c / self.solid_angle).sqrt()
         } else {
             0.0
         };
@@ -509,13 +516,76 @@ impl TappedHorn {
         TappedPoint {
             freq: f,
             spl_db: spl,
-            phase_deg: u_mouth.arg().to_degrees(),
+            phase_deg: if p_rms > 0.0 {
+                u_mouth.arg().to_degrees()
+            } else {
+                f64::NAN
+            },
             ze_mag: ze.norm(),
             ze_phase_deg: ze.arg().to_degrees(),
             displacement_mm: disp_mm,
             power_w: p_ac,
-            efficiency_pct: if p_in > 0.0 { 100.0 * p_ac / p_in } else { 0.0 },
+            efficiency_pct: if p_in > 0.0 {
+                100.0 * p_ac / p_in
+            } else {
+                f64::NAN
+            },
         }
+    }
+
+    /// Potencia de las cargas y pérdidas identificadas del mismo sistema nodal.
+    pub fn try_energy_at(&self, f: f64) -> Result<crate::energy::EnergyReport, SolveError> {
+        use crate::energy::{
+            termination, EnergyReport, RadiationQuality as Q, TerminationKind as K,
+        };
+        check_frequency(f)?;
+        self.validate()?;
+        let (p, zm, zb, _, ud) = self.solve(f).ok_or(SolveError::SingularSystem)?;
+        let ze = self.driver.coil_impedance(f)
+            + self.rg
+            + self.driver.bl * self.driver.bl
+                / (self.driver_zm(f) - self.driver.sd * self.driver.sd * zb);
+        let current = Complex64::new(self.eg, 0.0) / ze;
+        let mut report = EnergyReport::new(
+            &self.driver,
+            self.eg,
+            self.rg,
+            current,
+            ud,
+            -zb.re * ud.norm_sqr(),
+        );
+        let pm = p[self.node_count() - 2];
+        let um = pm / zm;
+        let calibrated =
+            self.mouth_radiation_scale != 1.0 || self.mouth_radiation_area_factor != 1.0;
+        report.terminations.push(termination(
+            if calibrated {
+                K::CalibratedPiston
+            } else {
+                K::BaffledPiston
+            },
+            pm,
+            um,
+            zm,
+        ));
+        for (i, seg) in self.segments.iter().enumerate() {
+            if seg.loss == 0.0 {
+                continue;
+            }
+            let m = seg.matrix(&self.air, f);
+            let (pin, uin) = if i == 0 {
+                (p[0] / m.a, Complex64::new(0.0, 0.0))
+            } else {
+                let pin = p[i - 1];
+                (pin, (p[i] - m.a * pin) / m.b)
+            };
+            report.acoustic_losses.wall_w += seg.dissipated_power_w(&self.air, f, pin, uin)?;
+        }
+        report.finish(if calibrated {
+            Q::CalibratedLoadApproximation
+        } else {
+            Q::SingleBaffledPiston
+        })
     }
 
     /// Respuesta a una frecuencia. Devuelve un punto neutro si la entrada o el
