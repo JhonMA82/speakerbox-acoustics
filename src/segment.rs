@@ -426,7 +426,7 @@ impl Segment {
             return Ok(0.0);
         }
         let w = omega(f);
-        let steps = ((air.wave_number(f) * self.length / 0.03).ceil() as usize).clamp(192, 60_000);
+        let steps = self.integration_steps(air, f)? * 2;
         let dx = self.length / steps as f64;
         let q = |x: f64, p: Complex64, u: Complex64| {
             self.loss * w * self.area(x) / (air.rho * air.c * air.c) * p.norm_sqr()
@@ -460,30 +460,69 @@ impl Segment {
         }
     }
 
+    // Eigenvalues ±gamma of the local state operator. Area cancels in a*b.
+    fn propagation_constant(&self, air: &Air, f: f64) -> Complex64 {
+        let w = omega(f);
+        (Complex64::new(self.flow_resistivity, w * air.rho)
+            * Complex64::new(self.loss * w, w) / (air.rho * air.c * air.c)).sqrt()
+    }
+
+    fn integration_steps(&self, air: &Air, f: f64) -> Result<usize, crate::SolveError> {
+        let g = self.propagation_constant(air, f) * self.length;
+        // Transfer matrices carry growing AND decaying waves. exp(2 Re(g))
+        // bounds their conditioning; beyond 8 nepers roundoff can erase the
+        // transmitted wave. A scattering formulation is needed beyond this.
+        if !g.norm().is_finite() || g.re.abs() > 8.0 || g.norm() / 0.03 > 30_000.0 {
+            return Err(crate::SolveError::InvalidParameter("segment propagation exceeds transfer-matrix conditioning domain"));
+        }
+        Ok(((g.norm() / 0.03).ceil() as usize).max(192))
+    }
+
+    /// Checked propagation. Rejects >8 nepers attenuation per segment and
+    /// unresolved profiles instead of returning a plausible inaccurate state.
+    pub fn try_matrix(&self, air: &Air, f: f64) -> Result<TransferMatrix, crate::SolveError> {
+        crate::error::check_frequency(f)?;
+        air.validate()?;
+        self.validate()?;
+        let steps = self.integration_steps(air, f)?;
+        if self.s1 == self.s2 && !matches!(self.flare, Flare::Custom(_)) {
+            if !self.has_distributed_losses() {
+                let kl = air.wave_number(f) * self.length;
+                let z0 = air.rho * air.c / self.s1;
+                return Ok(TransferMatrix { a: kl.cos().into(), b: Complex64::new(0., -z0*kl.sin()), c: Complex64::new(0., -kl.sin()/z0), d: kl.cos().into() });
+            }
+            let g = self.propagation_constant(air, f);
+            let z = g * self.length;
+            let sinhc = if z.norm() < 1e-5 { Complex64::new(1.,0.) + z*z/6. + z.powu(4)/120. } else { z.sinh()/z };
+            let w = omega(f);
+            return Ok(TransferMatrix { a: z.cosh(), d: z.cosh(),
+                b: Complex64::new(-self.flow_resistivity,-w*air.rho)/self.s1*self.length*sinhc,
+                c: Complex64::new(-self.loss*w,-w)*self.s1/(air.rho*air.c*air.c)*self.length*sinhc });
+        }
+        if !self.has_distributed_losses() { return Ok(self.rk4_matrix(air, f, steps)); }
+        let mut n = steps;
+        let mut coarse = self.rk4_matrix(air, f, n);
+        loop {
+            n *= 2;
+            let fine = self.rk4_matrix(air, f, n);
+            let z0 = air.rho*air.c/(self.s1*self.s2).sqrt();
+            let error = [(coarse.a,fine.a),(coarse.b/z0,fine.b/z0),(coarse.c*z0,fine.c*z0),(coarse.d,fine.d)].iter().map(|(a,b)|(*a-*b).norm()/(1.+b.norm())).fold(0.,f64::max);
+            if error.is_finite() && error < 1e-7 { return Ok(fine); }
+            if n >= 30_000 { return Err(crate::SolveError::InvalidResponse("segment RK4 did not converge")); }
+            coarse = fine;
+        }
+    }
+
     /// Matriz de transferencia del segmento a la frecuencia `freq_hz`.
     pub fn matrix(&self, air: &Air, freq_hz: f64) -> TransferMatrix {
-        if self.length <= 0.0 || freq_hz <= 0.0 {
-            return TransferMatrix::identity();
-        }
-        // Perfil constante sin pérdidas: exponencial de estado exacta.
-        // Se excluye Custom: sus extremos iguales no garantizan área constante.
-        if self.s1 == self.s2
-            && !self.has_distributed_losses()
-            && !matches!(self.flare, Flare::Custom(_))
-        {
-            let kl = air.wave_number(freq_hz) * self.length;
-            let z0 = air.rho * air.c / self.s1;
-            return TransferMatrix {
-                a: Complex64::new(kl.cos(), 0.0),
-                b: Complex64::new(0.0, -z0 * kl.sin()),
-                c: Complex64::new(0.0, -kl.sin() / z0),
-                d: Complex64::new(kl.cos(), 0.0),
-            };
-        }
+        self.try_matrix(air, freq_hz).unwrap_or(TransferMatrix {
+            a: Complex64::new(f64::NAN, f64::NAN), b: Complex64::new(f64::NAN, f64::NAN),
+            c: Complex64::new(f64::NAN, f64::NAN), d: Complex64::new(f64::NAN, f64::NAN),
+        })
+    }
+
+    fn rk4_matrix(&self, air: &Air, freq_hz: f64, steps: usize) -> TransferMatrix {
         let w = omega(freq_hz);
-        let k = air.wave_number(freq_hz);
-        // Paso: al menos 192 pasos y ~0.03 rad de fase por paso.
-        let steps = ((k * self.length / 0.03).ceil() as usize).clamp(192, 60_000);
         let dx = self.length / steps as f64;
 
         // Dos estados base: [1,0] y [0,1].
@@ -906,5 +945,43 @@ mod tests {
         horn.mouth_radiation_area_factor = f64::NAN;
         assert!(horn.validate().is_err());
         assert!(Horn::new(vec![]).validate().is_err());
+    }
+}
+
+#[cfg(test)]
+mod complex_propagation_tests {
+    use super::*;
+    #[test]
+    fn analytic_complex_propagation_and_rk4_converge() {
+        let air = Air::default();
+        for rf in [0., 1., 1000., 100000.] {
+            for (f,l) in [(10.,0.008),(100.,0.8),(1000.,0.08)] {
+                let l = if rf > 10000. { l / 10. } else { l };
+                let s=Segment::new(Flare::Cylindrical,l,0.02,0.02).with_flow_resistivity(rf);
+                let exact=s.try_matrix(&air,f).unwrap();
+                let a=s.rk4_matrix(&air,f,32); let b=s.rk4_matrix(&air,f,128);
+                let e1=(a.b-exact.b).norm(); let e2=(b.b-exact.b).norm();
+                assert!(e2 < e1/100. || e2 < exact.b.norm()*1e-12);
+                assert!(e2 < exact.b.norm()*1e-6);
+                // Terminate resistively, then verify independent loss integral.
+                let z=Complex64::new(air.rho*air.c/0.02,0.);
+                let zin=exact.transform_impedance(z);
+                let u=Complex64::new(1e-4,0.);let p=zin*u;
+                let (po,uo)=exact.apply(p,u);
+                let loss=s.dissipated_power_w(&air,f,p,u).unwrap();
+                let delta=(p*u.conj()-po*uo.conj()).re;
+                assert!(delta>=-1e-10);
+                assert!((delta-loss).abs()<1e-8+1e-5*loss);
+            }
+        }
+    }
+    #[test]
+    fn variable_profile_refines_and_extreme_is_explicit() {
+        let air=Air::default();
+        let s=Segment::new(Flare::Conical,0.8,0.02,0.04).with_flow_resistivity(1000.);
+        let a=s.try_matrix(&air,100.).unwrap();let b=s.rk4_matrix(&air,100.,4096);
+        assert!((a.b-b.b).norm()/b.b.norm()<1e-7);
+        let extreme=Segment::new(Flare::Cylindrical,0.8,0.02,0.02).with_flow_resistivity(1e8);
+        assert!(extreme.try_matrix(&air,10.).is_err());
     }
 }
