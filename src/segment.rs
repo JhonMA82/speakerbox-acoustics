@@ -539,7 +539,7 @@ impl Segment {
         }
         let steps = self.integration_steps(air, f)?;
         if !self.has_distributed_losses() {
-            return Ok(self.rk4_matrix(air, f, steps));
+            return self.rk4_matrix(air, f, steps).checked();
         }
         let mut n = steps;
         let mut coarse = self.rk4_matrix(air, f, n);

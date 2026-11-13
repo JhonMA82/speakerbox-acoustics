@@ -23,3 +23,19 @@ fn subdivision_cannot_hide_ill_conditioned_total_attenuation() {
     assert!(s.try_response_at(10.).is_err());
     assert!(s.try_energy_at(10.).is_err());
 }
+
+#[test]
+fn checked_matrix_rejects_invalid_custom_area_seen_during_integration() {
+    use std::sync::Arc;
+    let profile = Flare::Custom(Arc::new(|x| {
+        if (x - 1. / 384.).abs() < 1e-10 {
+            0.
+        } else {
+            0.02
+        }
+    }));
+    let segment = Segment::new(profile, 1., 0.02, 0.02);
+    // The invalid point lies between the preliminary validation samples.
+    assert!(segment.validate().is_ok());
+    assert!(segment.try_matrix(&Air::default(), 10.).is_err());
+}
