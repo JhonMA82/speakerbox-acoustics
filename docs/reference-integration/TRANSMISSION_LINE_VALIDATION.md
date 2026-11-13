@@ -38,3 +38,10 @@ La presión de extremo inicial se obtiene directamente como g·Ud/denominador.
 Una resistencia artificial no añade una fuente exterior de SPL. Se comprueban
 los polos impares de cuarto de onda acercándose por dos refinamientos de f:
 la impedancia crece aproximadamente ×10 y el caudal del driver decrece ×0.1.
+
+Contrato de terminación: una resistencia arbitraria y la frontera ideal de
+presión nula usan `TerminationKind::PrescribedResistance`, nunca
+MatchedAbsorber (que implica ausencia de reflexión). La etiqueta incorrecta
+se reprodujo con la prueba existente y se corrigió sin cambiar estados ni
+potencias (boundary-kind-before/after.log). Los matches exhaustivos de
+TerminationKind deben incluir la nueva variante.

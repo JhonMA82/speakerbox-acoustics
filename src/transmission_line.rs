@@ -301,7 +301,7 @@ impl TransmissionLine {
                 if matches!(self.termination, LineTermination::BaffledPiston) {
                     K::BaffledPiston
                 } else {
-                    K::MatchedAbsorber
+                    K::PrescribedResistance
                 },
                 s.point.mouth_volume_velocity_m3_s,
                 z,

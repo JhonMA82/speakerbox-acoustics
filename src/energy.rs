@@ -13,6 +13,8 @@ pub enum TerminationKind {
     BaffledPiston,
     CalibratedPiston,
     MatchedAbsorber,
+    /// Resistencia prescrita (incluye presión nula); no implica adaptación.
+    PrescribedResistance,
 }
 /// Estado físico de una terminación realmente incluida en la red.
 #[derive(Clone, Copy, Debug)]

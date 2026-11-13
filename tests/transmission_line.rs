@@ -79,6 +79,10 @@ fn closed_boundary_zones_folds_and_energy() {
         for f in [10., 50., 100., 400.] {
             let p = t.try_response_at(f).unwrap();
             let e = t.try_energy_at(f).unwrap();
+            if matches!(term, LineTermination::Resistance(_)) {
+                assert!(e.terminations.iter().all(|load| load.kind
+                    != speakerbox_acoustics::energy::TerminationKind::MatchedAbsorber));
+            }
             assert!(e.acoustic_losses.total_w() > 0.);
             assert!(
                 e.balance_error_w().abs() < 1e-8 + 1e-5 * e.source_active_w,
