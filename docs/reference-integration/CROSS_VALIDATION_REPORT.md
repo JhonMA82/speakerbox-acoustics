@@ -38,3 +38,14 @@ rechaza rejillas distintas y datos no finitos. Pruebas Python: errores analític
 sintéticos conocidos y rechazo de rejillas distintas (2/2 pasan).
 Categoría de evidencia: comparación de implementaciones, no validación física
 independiente. Hornresp histórico y pruebas analíticas conservan sus categorías.
+
+Se ejecutó además el comparador con tolerancias diagnósticas ilustrativas
+(no criterios de exactitud física): SPL 0.01 dB, Ze 0.1 Ω, fase Ze/acústica
+0.1°, excursión 0.001 mm y retardo 0.001 ms. Puntos fuera de tolerancia de
+201: respectivamente 72, 17, 68, 22, 69 y 151 (orden por magnitud citado).
+El JSON `comparison-with-tolerances.json` conserva los recuentos por banda.
+No se ampliaron tolerancias para hacer pasar esta comparación.
+
+El comparador también rechaza comparación vacía, ausencia de magnitudes comunes
+y tolerancias no finitas/negativas: ninguna de ellas puede producir un informe
+aparentemente aprobado con cero errores.

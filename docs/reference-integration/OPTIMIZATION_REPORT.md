@@ -21,3 +21,8 @@ paraboloide; Rosenbrock <1e-8; DE Rastrigin <1e-6; reproducibilidad, bloqueos,
 límites, cancelación, presupuesto, todos inválidos; ajuste acústico recupera
 25 litros de caja sellada a <0.01 litro y coste SPL <1e-8.
 No hay afirmación de optimización global garantizada ni parametrización CAD.
+
+La función objetivo debe representar una configuración fija durante cada
+búsqueda (geometría, aire, calibración y excitación ajenos a los parámetros no
+cambian a mitad de ejecución); esto es requisito de cualquier optimización
+reproducible y del caché local. Cada nueva búsqueda crea un caché nuevo.
