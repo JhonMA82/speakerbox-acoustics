@@ -89,14 +89,33 @@ pub struct BandpassPoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub displacement_mm: f64,
-    /// Potencia acústica radiada (W).
+    /// Potencia acústica estimada (W), con el escalado de campo legado.
+    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
     pub power_w: f64,
-    /// Rendimiento acústico (%).
+    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
+    /// no usar como prueba de conservación energética.
     pub efficiency_pct: f64,
     /// Velocidad del aire en el puerto delantero (m/s).
     pub front_port_velocity: f64,
     /// Velocidad del aire en el puerto trasero (m/s), solo BP6.
     pub rear_port_velocity: Option<f64>,
+}
+
+/// Solución compleja RMS. En BP6 serie el caudal trasero es interior;
+/// solamente `front_volume_velocity` radia al exterior.
+#[derive(Clone, Copy, Debug)]
+pub struct BandpassSolution {
+    pub point: BandpassPoint,
+    pub driver_volume_velocity: Complex64,
+    pub front_volume_velocity: Complex64,
+    pub rear_volume_velocity: Option<Complex64>,
+    pub reduced_pressure_pa: Complex64,
+    pub input_impedance: Complex64,
+    pub input_current_a: Complex64,
+    /// Potencia real absorbida por la red acústica, sin escalado de campo.
+    pub acoustic_network_power_w: f64,
+    /// Potencia activa suministrada, incluyendo Rg.
+    pub electrical_input_power_w: f64,
 }
 
 impl BandpassPoint {
@@ -457,9 +476,37 @@ impl Bandpass {
     pub fn try_response_at(&self, f: f64) -> Result<BandpassPoint, SolveError> {
         check_frequency(f)?;
         self.validate()?;
-        let point = self.solve_point(f).ok_or(SolveError::SingularSystem)?;
-        point.validate()?;
-        Ok(point)
+        self.response_validated(f)
+    }
+
+    pub(crate) fn response_validated(&self, f: f64) -> Result<BandpassPoint, SolveError> {
+        Ok(self.solution_validated(f)?.point)
+    }
+    /// Devuelve fasores y cada puerto sin reducirlos a un máximo.
+    pub fn try_solution_at(&self, f: f64) -> Result<BandpassSolution, SolveError> {
+        check_frequency(f)?;
+        self.validate()?;
+        self.solution_validated(f)
+    }
+    fn solution_validated(&self, f: f64) -> Result<BandpassSolution, SolveError> {
+        let s = self.solve_point(f).ok_or(SolveError::SingularSystem)?;
+        s.point.validate()?;
+        for z in [
+            Some(s.driver_volume_velocity),
+            Some(s.front_volume_velocity),
+            s.rear_volume_velocity,
+            Some(s.reduced_pressure_pa),
+            Some(s.input_impedance),
+            Some(s.input_current_a),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if !z.re.is_finite() || !z.im.is_finite() {
+                return Err(SolveError::NonFiniteResponse);
+            }
+        }
+        Ok(s)
     }
 
     fn zero_point(&self, f: f64) -> BandpassPoint {
@@ -477,7 +524,7 @@ impl Bandpass {
         }
     }
 
-    fn solve_point(&self, f: f64) -> Option<BandpassPoint> {
+    fn solve_point(&self, f: f64) -> Option<BandpassSolution> {
         let w = omega(f);
         let fb_front = self.front_tuning_hz();
         let fb_rear = self.rear_tuning_hz().unwrap_or(fb_front);
@@ -572,7 +619,7 @@ impl Bandpass {
         let p_in = self.eg * current.re;
         let disp_mm = (v.norm() / w) * 1000.0 * std::f64::consts::SQRT_2;
 
-        Some(BandpassPoint {
+        let point = BandpassPoint {
             freq: f,
             spl_db: spl,
             phase_deg: u_total.arg().to_degrees(),
@@ -583,6 +630,17 @@ impl Bandpass {
             efficiency_pct: if p_in > 0.0 { 100.0 * p_ac / p_in } else { 0.0 },
             front_port_velocity: v_pf,
             rear_port_velocity: v_pr,
+        };
+        Some(BandpassSolution {
+            point,
+            driver_volume_velocity: u_d,
+            front_volume_velocity: u_pf,
+            rear_volume_velocity: u_pr,
+            reduced_pressure_pa: u_total * (self.air.rho * w / self.solid_angle),
+            input_impedance: ze,
+            input_current_a: current,
+            acoustic_network_power_w: z_load.re * u_d.norm_sqr(),
+            electrical_input_power_w: self.eg * current.re,
         })
     }
 

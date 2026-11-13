@@ -40,9 +40,11 @@ pub struct TappedPoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub displacement_mm: f64,
-    /// Potencia acústica radiada (W).
+    /// Potencia acústica estimada (W), con el escalado de campo legado.
+    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
     pub power_w: f64,
-    /// Rendimiento acústico (%).
+    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
+    /// no usar como prueba de conservación energética.
     pub efficiency_pct: f64,
 }
 
@@ -216,10 +218,10 @@ impl TappedHorn {
         let pa = p[ia];
         let pb = p[ib];
         let ud = (ps - (pa - pb)) / zd;
-        let z_branch = if ud.norm() > 1.0e-30 {
+        let z_branch = if ud != Complex64::new(0.0, 0.0) {
             (pb - pa) / ud
         } else {
-            Complex64::new(0.0, 0.0)
+            return None;
         };
         Some((
             p.into_iter().map(|v| v * self.eg).collect(),
@@ -345,22 +347,23 @@ impl TappedHorn {
     /// gráfica de impedancia acústica de un tapped horn.
     pub fn neck_impedance(&self, f: f64) -> Complex64 {
         if self.segments.is_empty() || self.tap_a == 0 || self.tap_a > self.segments.len() {
-            return Complex64::new(0.0, 0.0);
+            return Complex64::new(f64::NAN, f64::NAN);
         }
         let tap = self.tap_a;
         let mut z_path = self.mouth_impedance(f);
         for seg in self.segments[tap..].iter().rev() {
             z_path = seg.matrix(&self.air, f).transform_impedance(z_path);
         }
-        let y_path = Complex64::new(1.0, 0.0) / z_path;
-        let tr0 = self.segments[0].matrix(&self.air, f);
-        let y_stub = if tr0.a.norm() > 1.0e-30 {
-            -tr0.c / tr0.a
+        let mut total = crate::segment::TransferMatrix::identity();
+        for seg in &self.segments[..tap] {
+            total = total.then(seg.matrix(&self.air, f));
+        }
+        let z_stub = if total.c == Complex64::new(0.0, 0.0) {
+            Complex64::new(f64::INFINITY, 0.0)
         } else {
-            Complex64::new(0.0, 0.0)
+            -total.a / total.c
         };
-        let y_total = y_stub + y_path;
-        Complex64::new(1.0, 0.0) / y_total
+        crate::element::parallel(z_stub, z_path)
     }
 
     /// Impedancia diferencial de la red pasiva entre las dos tomas, con el
@@ -369,7 +372,7 @@ impl TappedHorn {
     pub fn network_impedance(&self, f: f64) -> Complex64 {
         let n = self.node_count();
         if n < 3 || self.tap_a == 0 || self.tap_b == 0 || self.tap_a >= n || self.tap_b >= n {
-            return Complex64::new(0.0, 0.0);
+            return Complex64::new(f64::NAN, f64::NAN);
         }
         let m = n - 1;
         let mut y = vec![vec![Complex64::new(0.0, 0.0); m]; m];
@@ -377,7 +380,7 @@ impl TappedHorn {
         for (i, seg) in self.segments.iter().enumerate() {
             let tr = seg.matrix(&self.air, f);
             if tr.b.norm() < 1.0e-30 {
-                return Complex64::new(0.0, 0.0);
+                return Complex64::new(f64::NAN, f64::NAN);
             }
             if i == 0 {
                 y[0][0] += -tr.c / tr.a;
@@ -402,7 +405,7 @@ impl TappedHorn {
                 }
             }
             if y[piv][col].norm() < 1.0e-30 {
-                return Complex64::new(0.0, 0.0);
+                return Complex64::new(f64::NAN, f64::NAN);
             }
             y.swap(col, piv);
             rhs.swap(col, piv);
@@ -436,7 +439,7 @@ impl TappedHorn {
         let ia = self.tap_a.saturating_sub(1);
         match self.solve_pressures(f, 0.0, Some(self.tap_a)) {
             Some((p, _, _, _)) if ia < p.len() => p[ia],
-            _ => Complex64::new(0.0, 0.0),
+            _ => Complex64::new(f64::NAN, f64::NAN),
         }
     }
 
@@ -528,6 +531,10 @@ impl TappedHorn {
     pub fn try_response_at(&self, f: f64) -> Result<TappedPoint, SolveError> {
         check_frequency(f)?;
         self.validate()?;
+        self.response_validated(f)
+    }
+
+    pub(crate) fn response_validated(&self, f: f64) -> Result<TappedPoint, SolveError> {
         let Some((p, zm, z_branch, ps, ud)) = self.solve(f) else {
             return Err(SolveError::SingularSystem);
         };

@@ -57,9 +57,34 @@ impl TransferMatrix {
         (self.a * p + self.b * u, self.c * p + self.d * u)
     }
 
+    /// Cascada geométrica: aplica primero self y después next.
+    pub fn then(self, next: Self) -> Self {
+        Self {
+            a: next.a * self.a + next.b * self.c,
+            b: next.a * self.b + next.b * self.d,
+            c: next.c * self.a + next.d * self.c,
+            d: next.c * self.b + next.d * self.d,
+        }
+    }
+
     /// Transforma una impedancia `Z = p/U` del plano de salida al de entrada.
     pub fn transform_impedance(&self, z_out: Complex64) -> Complex64 {
-        (self.b - self.d * z_out) / (self.c * z_out - self.a)
+        if !z_out.re.is_nan()
+            && !z_out.im.is_nan()
+            && (z_out.re.is_infinite() || z_out.im.is_infinite())
+        {
+            if self.c == Complex64::new(0.0, 0.0) {
+                return Complex64::new(f64::INFINITY, 0.0);
+            }
+            return -self.d / self.c;
+        }
+        let num = self.b - self.d * z_out;
+        let den = self.c * z_out - self.a;
+        if den == Complex64::new(0.0, 0.0) && num != Complex64::new(0.0, 0.0) {
+            Complex64::new(f64::INFINITY, 0.0)
+        } else {
+            num / den
+        }
     }
 }
 
@@ -177,7 +202,9 @@ impl Segment {
                 "segment.endpoints",
             ));
         }
-        if matches!(self.flare, Flare::HyperbolicExponential { .. }) && !(self.xt > 0.0) {
+        if matches!(self.flare, Flare::HyperbolicExponential { .. })
+            && (self.xt.is_nan() || self.xt <= 0.0)
+        {
             return Err(crate::error::SolveError::InvalidParameter(
                 "segment.hypex_domain",
             ));
@@ -193,8 +220,10 @@ impl Segment {
                 ));
             }
         }
-        for i in 1..64 {
-            require_positive(self.area(self.length * (i as f64 / 64.0)), "segment.area")?;
+        if matches!(self.flare, Flare::Custom(_)) {
+            for i in 1..64 {
+                require_positive(self.area(self.length * (i as f64 / 64.0)), "segment.area")?;
+            }
         }
         require_non_negative(self.loss, "segment.loss")?;
         Ok(())
@@ -370,6 +399,18 @@ impl Segment {
         if self.length <= 0.0 || freq_hz <= 0.0 {
             return TransferMatrix::identity();
         }
+        // Perfil constante sin pérdidas: exponencial de estado exacta.
+        // Se excluye Custom: sus extremos iguales no garantizan área constante.
+        if self.s1 == self.s2 && self.loss == 0.0 && !matches!(self.flare, Flare::Custom(_)) {
+            let kl = air.wave_number(freq_hz) * self.length;
+            let z0 = air.rho * air.c / self.s1;
+            return TransferMatrix {
+                a: Complex64::new(kl.cos(), 0.0),
+                b: Complex64::new(0.0, -z0 * kl.sin()),
+                c: Complex64::new(0.0, -kl.sin() / z0),
+                d: Complex64::new(kl.cos(), 0.0),
+            };
+        }
         let w = omega(freq_hz);
         let k = air.wave_number(freq_hz);
         // Paso: al menos 192 pasos y ~0.03 rad de fase por paso.
@@ -535,23 +576,10 @@ impl Horn {
     /// Impedancia acústica de entrada de la bocina, cargada por la impedancia
     /// de radiación de la boca.
     pub fn input_impedance(&self, air: &Air, freq_hz: f64, solid_angle: f64) -> Complex64 {
-        let area = self.mouth_area() * self.mouth_radiation_area_factor;
-        let z_rad = if self.matched_mouth {
-            Complex64::new(air.rho * air.c / area, 0.0)
-        } else {
-            piston_radiation_impedance(air, area, freq_hz, solid_angle)
-        };
-        let mut z = z_rad * self.radiation_scale;
-        for m in self.matrices(air, freq_hz).iter().rev() {
-            z = m.transform_impedance(z);
-        }
-        z
+        self.prepare(air, freq_hz, solid_angle).input_impedance
     }
 
-    /// Calcula la impedancia de entrada y la velocidad volumétrica en la boca
-    /// para un estado dado en la garganta.
-    ///
-    /// Devuelve `(Z_entrada, U_boca)`.
+    /// Calcula impedancia y transmite usando una única colección de matrices.
     pub fn transmit(
         &self,
         air: &Air,
@@ -560,25 +588,42 @@ impl Horn {
         p_throat: Complex64,
         u_throat: Complex64,
     ) -> (Complex64, Complex64) {
-        let matrices = self.matrices(air, freq_hz);
+        let prepared = self.prepare(air, freq_hz, solid_angle);
+        (
+            prepared.input_impedance,
+            prepared.transmit(p_throat, u_throat),
+        )
+    }
+
+    pub(crate) fn prepare(&self, air: &Air, f: f64, solid_angle: f64) -> PreparedHorn {
+        let matrices = self.matrices(air, f);
         let area = self.mouth_area() * self.mouth_radiation_area_factor;
-        let z_rad = if self.matched_mouth {
+        let mut z = if self.matched_mouth {
             Complex64::new(air.rho * air.c / area, 0.0)
         } else {
-            piston_radiation_impedance(air, area, freq_hz, solid_angle)
-        };
-        let mut z = z_rad * self.radiation_scale;
-        for m in matrices.iter().rev() {
-            z = m.transform_impedance(z);
+            piston_radiation_impedance(air, area, f, solid_angle)
+        } * self.radiation_scale;
+        for matrix in matrices.iter().rev() {
+            z = matrix.transform_impedance(z);
         }
-        let mut p = p_throat;
-        let mut u = u_throat;
-        for m in &matrices {
-            let (p2, u2) = m.apply(p, u);
-            p = p2;
-            u = u2;
+        PreparedHorn {
+            matrices,
+            input_impedance: z,
         }
-        (z, u)
+    }
+}
+
+/// Estado local de una sola frecuencia; no sobrevive a un cambio paramétrico.
+pub(crate) struct PreparedHorn {
+    matrices: Vec<TransferMatrix>,
+    pub input_impedance: Complex64,
+}
+impl PreparedHorn {
+    pub fn transmit(&self, mut p: Complex64, mut u: Complex64) -> Complex64 {
+        for matrix in &self.matrices {
+            (p, u) = matrix.apply(p, u);
+        }
+        u
     }
 }
 

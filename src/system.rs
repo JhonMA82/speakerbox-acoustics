@@ -49,9 +49,11 @@ pub struct ResponsePoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub displacement_mm: f64,
-    /// Potencia acústica radiada (W).
+    /// Potencia acústica estimada (W), con el escalado de campo legado.
+    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
     pub acoustical_power_w: f64,
-    /// Rendimiento acústico (%).
+    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
+    /// no usar como prueba de conservación energética.
     pub efficiency_pct: f64,
     /// Parte real de la impedancia acústica de entrada (Pa·s/m³).
     pub za_real: f64,
@@ -229,11 +231,22 @@ impl System {
 
     /// Impedancias de carga del diafragma `(Z_frente, Z_trasera)`.
     pub fn loads(&self, freq_hz: f64) -> (Complex64, Complex64) {
-        let front = if let Some(horn) = &self.horn {
+        let zh = self
+            .horn
+            .as_ref()
+            .map(|h| h.input_impedance(&self.air, freq_hz, self.solid_angle));
+        self.loads_with_horn(freq_hz, zh)
+    }
+
+    fn loads_with_horn(
+        &self,
+        freq_hz: f64,
+        horn_impedance: Option<Complex64>,
+    ) -> (Complex64, Complex64) {
+        let front = if let Some(zh) = horn_impedance {
             // La resistencia pertenece a la rama de bocina; cámara y fuga
             // derivan desde el nodo del diafragma, antes de esa resistencia.
-            let zh0 = horn.input_impedance(&self.air, freq_hz, self.solid_angle)
-                + Complex64::new(self.horn_series.unwrap_or(0.0), 0.0);
+            let zh0 = zh + Complex64::new(self.horn_series.unwrap_or(0.0), 0.0);
             let zh = match self.horn_leak {
                 Some(r) => crate::element::parallel(zh0, Complex64::new(r, 0.0)),
                 _ => zh0,
@@ -292,6 +305,10 @@ impl System {
     pub fn try_response_at(&self, freq_hz: f64) -> Result<ResponsePoint, SolveError> {
         check_frequency(freq_hz)?;
         self.validate()?;
+        self.response_validated(freq_hz)
+    }
+
+    pub(crate) fn response_validated(&self, freq_hz: f64) -> Result<ResponsePoint, SolveError> {
         let point = self.solve_point(freq_hz)?;
         point.validate()?;
         Ok(point)
@@ -381,7 +398,12 @@ impl System {
 
     /// Resuelve la red a la frecuencia `freq_hz` sin validar la entrada.
     fn solve_point(&self, freq_hz: f64) -> Result<ResponsePoint, SolveError> {
-        let (z_front, z_rear) = self.loads(freq_hz);
+        let prepared = self
+            .horn
+            .as_ref()
+            .map(|h| h.prepare(&self.air, freq_hz, self.solid_angle));
+        let (z_front, z_rear) =
+            self.loads_with_horn(freq_hz, prepared.as_ref().map(|h| h.input_impedance));
         let z_load = z_front + z_rear;
         let u_d = self
             .driver
@@ -394,8 +416,8 @@ impl System {
             .as_ref()
             .map(|h| h.mouth_area())
             .unwrap_or(self.driver.sd);
-        let u_mouth = if let Some(horn) = &self.horn {
-            let zh_horn = horn.input_impedance(&self.air, freq_hz, self.solid_angle);
+        let u_mouth = if let Some(horn) = &prepared {
+            let zh_horn = horn.input_impedance;
             // Presión en el nodo de garganta y corriente que entra realmente
             // en la bocina. Con una cámara de garganta en derivación, parte
             // del volumen del diafragma se va a la compliancia de la cámara:
@@ -404,8 +426,7 @@ impl System {
             let r_series = self.horn_series.unwrap_or(0.0);
             let u_horn = p_throat / (zh_horn + Complex64::new(r_series, 0.0));
             let p_horn = p_throat - Complex64::new(r_series, 0.0) * u_horn;
-            let (_, um) = horn.transmit(&self.air, freq_hz, self.solid_angle, p_horn, u_horn);
-            um
+            horn.transmit(p_horn, u_horn)
         } else {
             u_d
         };
@@ -423,7 +444,32 @@ impl System {
             } else {
                 0.0
             };
-            (p_rms, p_ac, u_mouth.arg().to_degrees())
+            let mut pressure = Complex64::from_polar(p_rms, u_mouth.arg());
+            if self.rear_chamber.is_some() {
+                let p_rear = -u_d * z_rear;
+                for (area, z) in self
+                    .port
+                    .map(|p| (p.area, p.impedance(&self.air, freq_hz)))
+                    .into_iter()
+                    .chain(
+                        self.passive_radiator
+                            .map(|pr| (pr.sd, pr.impedance(freq_hz))),
+                    )
+                {
+                    pressure +=
+                        radiator_pressure(&self.air, area, p_rear / z, freq_hz, self.solid_angle);
+                }
+            }
+            if self.port.is_some() || self.passive_radiator.is_some() {
+                let rms = pressure.norm();
+                (
+                    rms,
+                    rms * rms * self.solid_angle / (self.air.rho * self.air.c),
+                    pressure.arg().to_degrees(),
+                )
+            } else {
+                (p_rms, p_ac, u_mouth.arg().to_degrees())
+            }
         } else {
             let mut p_total =
                 radiator_pressure(&self.air, self.driver.sd, u_d, freq_hz, self.solid_angle);

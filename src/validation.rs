@@ -476,6 +476,51 @@ pub fn validate(system: &System, oracle: &[OraclePoint]) -> ValidationReport {
     }
 }
 
+/// Diagnóstico de fase eléctrica, separado de las tolerancias históricas.
+/// No declara aprobación física por defecto: el usuario fija el criterio.
+#[derive(Clone, Copy, Debug)]
+pub struct PhaseValidationReport {
+    pub n: usize,
+    pub invalid_points: usize,
+    pub rmse_deg: f64,
+    pub max_abs_deg: f64,
+}
+
+/// Compara fase de impedancia con diferencia circular en [-180,180).
+/// Requiere un oráculo con fase REAL (p.ej. TSV); CSV de cuatro columnas no
+/// contiene fase y no debe usarse aquí. No se inventa una tolerancia.
+pub fn validate_impedance_phase(system: &System, oracle: &[OraclePoint]) -> PhaseValidationReport {
+    let mut sum = 0.0;
+    let mut max_abs = 0.0_f64;
+    let mut n = 0;
+    let mut invalid_points = 0;
+    for o in oracle {
+        if !valid_oracle_point(o) {
+            invalid_points += 1;
+            continue;
+        }
+        match system.try_response_at(o.freq_hz) {
+            Ok(p) => {
+                let delta = (p.ze_phase_deg - o.ze_phase_deg + 180.).rem_euclid(360.) - 180.;
+                sum += delta * delta;
+                max_abs = max_abs.max(delta.abs());
+                n += 1;
+            }
+            Err(_) => invalid_points += 1,
+        }
+    }
+    PhaseValidationReport {
+        n,
+        invalid_points,
+        rmse_deg: if n > 0 {
+            (sum / n as f64).sqrt()
+        } else {
+            f64::NAN
+        },
+        max_abs_deg: if n > 0 { max_abs } else { f64::NAN },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

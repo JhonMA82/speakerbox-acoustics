@@ -60,11 +60,33 @@ pub struct OffsetPoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub displacement_mm: f64,
-    /// Potencia acústica radiada (W).
+    /// Potencia acústica estimada (W), con el escalado de campo legado.
+    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
     pub power_w: f64,
-    /// Rendimiento acústico (%).
+    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
+    /// no usar como prueba de conservación energética.
     pub efficiency_pct: f64,
     pub port_velocity: Option<f64>,
+}
+
+/// Solución compleja, con fase reducida p/j y caudales externos salientes.
+/// Aproximación compacta: salidas a igual distancia, sin retardos espaciales
+/// ni impedancias mutuas; no usar para patrones polares o cajas grandes.
+#[derive(Clone, Copy, Debug)]
+pub struct OffsetSolution {
+    pub point: OffsetPoint,
+    pub driver_volume_velocity: Complex64,
+    pub mouth_volume_velocity: Complex64,
+    pub rear_port_volume_velocity: Option<Complex64>,
+    pub rear_passive_volume_velocity: Option<Complex64>,
+    pub reduced_pressure_pa: Complex64,
+    pub front_impedance: Complex64,
+    pub rear_impedance: Complex64,
+    pub input_current_a: Complex64,
+    /// Potencia real absorbida por la red acústica, sin escalado de campo.
+    pub acoustic_network_power_w: f64,
+    /// Potencia activa suministrada, incluyendo Rg.
+    pub electrical_input_power_w: f64,
 }
 
 impl OffsetPoint {
@@ -346,9 +368,39 @@ impl OffsetHorn {
     pub fn try_response_at(&self, f: f64) -> Result<OffsetPoint, SolveError> {
         check_frequency(f)?;
         self.validate()?;
-        let point = self.solve_point(f)?;
-        point.validate()?;
-        Ok(point)
+        self.response_validated(f)
+    }
+
+    pub(crate) fn response_validated(&self, f: f64) -> Result<OffsetPoint, SolveError> {
+        Ok(self.solution_validated(f)?.point)
+    }
+    /// Conserva los fasores RMS y las contribuciones individuales.
+    pub fn try_solution_at(&self, f: f64) -> Result<OffsetSolution, SolveError> {
+        check_frequency(f)?;
+        self.validate()?;
+        self.solution_validated(f)
+    }
+    pub(crate) fn solution_validated(&self, f: f64) -> Result<OffsetSolution, SolveError> {
+        let s = self.solve_point(f)?;
+        s.point.validate()?;
+        for z in [
+            Some(s.driver_volume_velocity),
+            Some(s.mouth_volume_velocity),
+            s.rear_port_volume_velocity,
+            s.rear_passive_volume_velocity,
+            Some(s.reduced_pressure_pa),
+            Some(s.front_impedance),
+            Some(s.rear_impedance),
+            Some(s.input_current_a),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if !z.re.is_finite() || !z.im.is_finite() {
+                return Err(SolveError::NonFiniteResponse);
+            }
+        }
+        Ok(s)
     }
 
     /// Punto neutro para una entrada o un sistema no resoluble.
@@ -367,8 +419,31 @@ impl OffsetHorn {
     }
 
     /// Resuelve la red a la frecuencia `f` sin validar la entrada.
-    fn solve_point(&self, f: f64) -> Result<OffsetPoint, SolveError> {
-        let z_horn = self.horn_impedance(f);
+    fn solve_point(&self, f: f64) -> Result<OffsetSolution, SolveError> {
+        // Matrices locales a esta frecuencia/configuración, reutilizadas en
+        // stub, camino y propagación; no pueden quedar obsoletas.
+        let matrices: Vec<_> = self
+            .segments
+            .iter()
+            .map(|s| s.matrix(&self.air, f))
+            .collect();
+        let mut z_path = self.mouth_impedance(f);
+        for m in matrices[self.tap..].iter().rev() {
+            z_path = m.transform_impedance(z_path);
+        }
+        let z_horn = if self.tap == 0 {
+            z_path
+        } else {
+            let mut total = TransferMatrix::identity();
+            for &m in &matrices[..self.tap] {
+                total = cascade(m, total);
+            }
+            if total.c == Complex64::new(0.0, 0.0) {
+                z_path
+            } else {
+                parallel(-total.a / total.c, z_path)
+            }
+        };
         let z_rear = self.rear_impedance(f);
         let zm = self.driver_zm(f);
         let ze_coil = self.driver.coil_impedance(f) + Complex64::new(self.rg, 0.0);
@@ -384,18 +459,16 @@ impl OffsetHorn {
 
         // Presión en la toma y velocidad que entra en el camino a la boca.
         let p_tap = z_horn * u_d;
-        let z_path = self.path_impedance(f);
-        let u_path = if z_path.norm() > 1.0e-30 {
-            p_tap / z_path
-        } else {
-            Complex64::new(0.0, 0.0)
-        };
+        if z_path == Complex64::new(0.0, 0.0) {
+            return Err(SolveError::SingularSystem);
+        }
+        let u_path = p_tap / z_path;
 
         // Propagar el estado (p, U) desde la toma hasta la boca.
         let mut p = p_tap;
         let mut u = u_path;
-        for seg in &self.segments[self.tap..] {
-            let (p2, u2) = seg.matrix(&self.air, f).apply(p, u);
+        for matrix in &matrices[self.tap..] {
+            let (p2, u2) = matrix.apply(p, u);
             p = p2;
             u = u2;
         }
@@ -498,14 +571,14 @@ impl OffsetHorn {
 
         let port_velocity = match (&self.rear_port, self.rear_chamber_m3) {
             (Some(port), Some(_)) => {
-                let p_rear = z_rear * u_d;
+                let p_rear = -z_rear * u_d;
                 let u_port = p_rear / port.impedance(&self.air, f);
                 Some((u_port / port.area).norm())
             }
             _ => None,
         };
 
-        Ok(OffsetPoint {
+        let point = OffsetPoint {
             freq: f,
             spl_db: spl,
             phase_deg: p_total.arg().to_degrees(),
@@ -515,6 +588,24 @@ impl OffsetHorn {
             power_w: p_ac,
             efficiency_pct: if p_in > 0.0 { 100.0 * p_ac / p_in } else { 0.0 },
             port_velocity,
+        };
+        let p_rear = -u_d * z_rear;
+        Ok(OffsetSolution {
+            point,
+            driver_volume_velocity: u_d,
+            mouth_volume_velocity: u_mouth,
+            rear_port_volume_velocity: self
+                .rear_port
+                .map(|port| p_rear / port.impedance(&self.air, f)),
+            rear_passive_volume_velocity: self
+                .rear_passive_radiator
+                .map(|pr| p_rear / pr.impedance(f)),
+            reduced_pressure_pa: p_total,
+            front_impedance: z_horn,
+            rear_impedance: z_rear,
+            input_current_a: current,
+            acoustic_network_power_w: (z_horn + z_rear).re * u_d.norm_sqr(),
+            electrical_input_power_w: self.eg * current.re,
         })
     }
 

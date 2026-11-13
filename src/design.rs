@@ -39,9 +39,11 @@ pub struct DesignPoint {
     pub ze_phase_deg: f64,
     /// Desplazamiento de pico del diafragma (mm).
     pub xd_mm: f64,
-    /// Potencia acústica radiada (W).
+    /// Potencia acústica estimada (W), con el escalado de campo legado.
+    /// No es un balance energético general; ver docs/audits/REMAINING_LIMITATIONS.md.
     pub power_w: f64,
-    /// Rendimiento acústico (%).
+    /// Rendimiento estimado (%) a partir de la potencia de campo legada;
+    /// no usar como prueba de conservación energética.
     pub efficiency_pct: f64,
     /// Parte real de la impedancia acústica de referencia (Pa·s/m³).
     ///
@@ -74,6 +76,26 @@ pub enum Design {
     OffsetHorn(OffsetHorn),
     /// Recinto bandpass de 4º o 6º orden.
     Bandpass(Bandpass),
+}
+
+/// Respuesta nativa para consumidores que necesitan campos por topología.
+#[derive(Clone, Copy, Debug)]
+pub enum TopologyPoint {
+    System(ResponsePoint),
+    TappedHorn(TappedPoint),
+    OffsetHorn(OffsetPoint),
+    Bandpass(BandpassPoint),
+}
+
+/// Configuración validada prestada; el solver sigue validando cada resultado.
+pub struct PreparedDesign<'a> {
+    design: &'a Design,
+}
+impl PreparedDesign<'_> {
+    pub fn try_response_at(&self, f: f64) -> Result<DesignPoint, SolveError> {
+        check_frequency(f)?;
+        self.design.response_validated(f)
+    }
 }
 
 impl DesignPoint {
@@ -209,20 +231,54 @@ impl Design {
     /// Respuesta a una frecuencia, con error explícito si la entrada, la
     /// configuración o el resultado no son válidos.
     pub fn try_response_at(&self, freq_hz: f64) -> Result<DesignPoint, SolveError> {
+        check_frequency(freq_hz)?;
+        self.validate()?;
+        self.response_validated(freq_hz)
+    }
+
+    fn response_validated(&self, freq_hz: f64) -> Result<DesignPoint, SolveError> {
         let point = match self {
-            Design::System(sys) => from_system(sys.try_response_at(freq_hz)?),
+            Design::System(sys) => from_system(sys.response_validated(freq_hz)?),
             Design::TappedHorn(th) => {
-                let p = th.try_response_at(freq_hz)?;
+                let p = th.response_validated(freq_hz)?;
                 from_tapped(p, th.neck_impedance(freq_hz))
             }
             Design::OffsetHorn(od) => {
-                let p = od.try_response_at(freq_hz)?;
-                from_offset(p, od.horn_impedance(freq_hz))
+                let solution = od.solution_validated(freq_hz)?;
+                from_offset(solution.point, solution.front_impedance)
             }
-            Design::Bandpass(bp) => from_bandpass(bp.try_response_at(freq_hz)?),
+            Design::Bandpass(bp) => from_bandpass(bp.response_validated(freq_hz)?),
         };
         point.validate()?;
         Ok(point)
+    }
+
+    /// Valida una vez y presta inmutablemente toda la configuración.
+    /// Mientras exista el préstamo no puede cambiar geometría, aire, driver,
+    /// calibración ni excitación. No hay caché global ni invalidación manual.
+    pub fn prepare(&self) -> Result<PreparedDesign<'_>, SolveError> {
+        self.validate()?;
+        Ok(PreparedDesign { design: self })
+    }
+
+    /// Respuesta nativa sin reducir los puertos a una velocidad máxima.
+    pub fn try_topology_response_at(&self, f: f64) -> Result<TopologyPoint, SolveError> {
+        match self {
+            Self::System(s) => Ok(TopologyPoint::System(s.try_response_at(f)?)),
+            Self::TappedHorn(s) => Ok(TopologyPoint::TappedHorn(s.try_response_at(f)?)),
+            Self::OffsetHorn(s) => Ok(TopologyPoint::OffsetHorn(s.try_response_at(f)?)),
+            Self::Bandpass(s) => Ok(TopologyPoint::Bandpass(s.try_response_at(f)?)),
+        }
+    }
+
+    /// Impedancia de referencia opcional; BP no dispone de esa referencia.
+    pub fn try_reference_impedance_at(&self, f: f64) -> Result<Option<Complex64>, SolveError> {
+        let p = self.try_response_at(f)?;
+        Ok(if matches!(self, Self::Bandpass(_)) {
+            None
+        } else {
+            Some(Complex64::new(p.za_real, p.za_imag))
+        })
     }
 
     /// Comprueba la configuración de la topología antes de calcular.
@@ -308,12 +364,12 @@ impl Design {
         if points < 2 {
             return Err(SolveError::InvalidParameter("points"));
         }
-        self.validate()?;
+        let prepared = self.prepare()?;
         let mut out = Vec::with_capacity(points);
         for i in 0..points {
             let t = i as f64 / (points - 1) as f64;
             let f = fmin * (fmax / fmin).powf(t);
-            out.push(self.try_response_at(f)?);
+            out.push(prepared.try_response_at(f)?);
         }
         Self::finalize(&mut out);
         for point in &out {

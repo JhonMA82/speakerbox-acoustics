@@ -516,6 +516,44 @@ pub fn import_owdr(text: &str) -> Result<ImportedDriver, ImportError> {
         .or_else(|| specs.values().find_map(Value::as_object))
         .ok_or(ImportError::NotOpenIsd)?;
 
+    // Campo presente malformado no equivale a ausente: evita derivaciones
+    // silenciosas (en particular Le inválida convertida antes en cero).
+    for key in [
+        "Fs_hz",
+        "Fs",
+        "Qms",
+        "Qes",
+        "Qts",
+        "Vas_m3",
+        "Vas_l",
+        "Re_ohm",
+        "Re",
+        "Sd_m2",
+        "Sd_cm2",
+        "Mms_kg",
+        "Mms_g",
+        "Cms_m_per_N",
+        "Cms_mm_per_N",
+        "BL_Tm",
+        "BL",
+        "Rms_kg_per_s",
+        "Rms",
+        "Le_H",
+        "Le_mH",
+        "Znom_ohm",
+        "Znom",
+        "Xmax_m",
+        "Xmax_mm",
+        "Pe_W",
+    ] {
+        if woofer.contains_key(key) && !owdr_number(woofer, key).is_some_and(|v| v.is_finite()) {
+            return Err(ImportError::InvalidNumber {
+                key: key.to_string(),
+                value: woofer[key].to_string(),
+            });
+        }
+    }
+
     let mut ts = TsInput {
         fs: owdr_first(woofer, &[("Fs_hz", 1.0), ("Fs", 1.0)]),
         qms: owdr_number(woofer, "Qms"),

@@ -314,3 +314,60 @@ fn group_delay_is_centered_on_nonuniform_frequency_grid() {
     let d = speakerbox_acoustics::Design::System(s);
     assert!((d.response(&f)[1].group_delay_ms - expected).abs() < 1e-10);
 }
+#[test]
+fn tapped_neck_stub_includes_every_segment_before_tap() {
+    use speakerbox_acoustics::TappedHorn;
+    let segs = vec![
+        Segment::conical(0.2, 0.01, 0.02),
+        Segment::conical(0.35, 0.02, 0.03),
+        Segment::conical(0.7, 0.03, 0.05),
+        Segment::conical(0.2, 0.05, 0.08),
+    ];
+    let mut t = TappedHorn::new_4seg_th(driver(), segs.clone());
+    t.tap_a = 2;
+    t.tap_b = 3;
+    let mut o = OffsetHorn::new_4seg_od1(driver(), segs);
+    o.mouth_radiation_scale = t.mouth_radiation_scale;
+    o.mouth_radiation_area_factor = t.mouth_radiation_area_factor;
+    o.solid_angle = t.solid_angle;
+    for f in [20., 50., 100.] {
+        let a = t.neck_impedance(f);
+        let b = o.horn_impedance(f);
+        assert!((a - b).norm() / b.norm() < 1e-10);
+    }
+}
+#[test]
+fn transfer_matrix_accepts_open_termination_limit() {
+    let a = Air::default();
+    let m = Segment::new(Flare::Cylindrical, 0.1, 0.02, 0.02).matrix(&a, 50.);
+    let expected = -m.d / m.c;
+    let got = m.transform_impedance(C::new(f64::INFINITY, 0.));
+    assert!((got - expected).norm() / expected.norm() < 1e-12);
+}
+#[test]
+fn malformed_owdr_inductance_is_not_replaced_by_zero() {
+    let text = r#"{"specs":{"woofer":{"Sd_m2":{"value":0.02},"Re_ohm":{"value":6},"Mms_kg":{"value":0.03},"Cms_m_per_N":{"value":0.0004},"BL_Tm":{"value":10},"Rms":{"value":2},"Le_H":{"value":"invalid"}}}}"#;
+    assert!(speakerbox_acoustics::import_driver(text).is_err());
+}
+#[test]
+fn system_horn_includes_external_rear_port() {
+    let mut s = System::new(Air::default(), driver());
+    s.horn = Some(horn());
+    s.rear_chamber = Some(Chamber::new(0.03));
+    s.port = Some(Port::new(0.005, 0.1, EndCorrection::None));
+    let f = 50.;
+    let (zf, zr) = s.loads(f);
+    let ud = s.driver.volume_velocity(f, s.eg, s.rg, zf + zr);
+    let h = s.horn.as_ref().unwrap();
+    let (_, um) = h.transmit(&s.air, f, s.solid_angle, zf * ud, ud);
+    let pressure = |area: f64, u: C| {
+        let rad = piston_radiation_impedance(&s.air, area, f, s.solid_angle);
+        u * (rad.re * TAU * s.air.rho * s.air.c / s.solid_angle.powi(2)).sqrt()
+    };
+    let port = s.port.unwrap();
+    let total =
+        pressure(h.mouth_area(), um) + pressure(port.area, -ud * zr / port.impedance(&s.air, f));
+    let actual = s.try_response_at(f).unwrap();
+    assert!((actual.spl_db - 20. * (total.norm() / s.air.p_ref).log10()).abs() < 1e-9);
+    assert!(phase_error(actual.phase_deg, total.arg().to_degrees()) < 1e-8);
+}
