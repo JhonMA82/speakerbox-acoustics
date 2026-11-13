@@ -1,0 +1,5 @@
+SOURCE=b74fbe8ba380fde98f3d79aa4b3195e038183849
+COMMAND=cargo build --release --example perf_sweep --example completion_perf --example uniform_loss_perf
+    Finished `release` profile [optimized] target(s) in 0.00s
+
+EXIT=0

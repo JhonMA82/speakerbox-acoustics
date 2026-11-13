@@ -1,0 +1,33 @@
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded serde_core v1.0.229
+  Downloaded itoa v1.0.18
+  Downloaded num-complex v0.4.6
+  Downloaded zmij v1.0.23
+  Downloaded libm v0.2.16
+  Downloaded autocfg v1.5.1
+  Downloaded num-traits v0.2.19
+  Downloaded memchr v2.8.3
+  Downloaded serde_json v1.0.154
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.37s
+     Running tests/completion_numerics.rs (target/debug/deps/completion_numerics-ae5f434f9bf0fdec)
+
+running 1 test
+test checked_matrix_rejects_invalid_custom_area_seen_during_integration ... FAILED
+
+failures:
+
+---- checked_matrix_rejects_invalid_custom_area_seen_during_integration stdout ----
+
+thread 'checked_matrix_rejects_invalid_custom_area_seen_during_integration' panicked at tests/completion_numerics.rs:34:5:
+assertion failed: segment.try_matrix(&Air::default(), 10.).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    checked_matrix_rejects_invalid_custom_area_seen_during_integration
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test completion_numerics`

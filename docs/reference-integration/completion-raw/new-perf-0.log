@@ -1,0 +1,24 @@
+COMMAND=cargo run --release --example completion_perf
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `release` profile [optimized] target(s) in 4.23s
+     Running `target/release/examples/completion_perf`
+TL uniform,500,0.262425,energy_relative_max=3.029137846e-16
+TL uniform,2000,1.036060,energy_relative_max=3.029137846e-16
+TL variable,500,17.361431,energy_relative_max=4.080354843e-13
+TL variable,2000,67.437719,energy_relative_max=4.080354843e-13
+TL damped,500,0.474795,energy_relative_max=1.637343502e-12
+TL damped,2000,1.728051,energy_relative_max=1.637343502e-12
+TL variable damped,500,49.604229,energy_relative_max=5.952949444e-12
+TL variable damped,2000,195.444862,energy_relative_max=5.952949444e-12
+complex uniform matrix,10000,2.339982
+optimizer NelderMead,budget=100,actual=100,ms=0.032759,cost=2.882974089e-7,stop=Budget
+optimizer NelderMead,budget=1000,actual=363,ms=0.078908,cost=3.153835686e-23,stop=Converged
+optimizer NelderMead,budget=5000,actual=363,ms=0.072269,cost=3.153835686e-23,stop=Converged
+optimizer DifferentialEvolution,budget=100,actual=100,ms=0.017967,cost=8.220898564e-1,stop=Budget
+optimizer DifferentialEvolution,budget=1000,actual=1000,ms=0.454695,cost=2.483165223e-4,stop=Budget
+optimizer DifferentialEvolution,budget=5000,actual=5000,ms=8.595307,cost=5.866621290e-24,stop=Budget
+acoustic DE,budget=100,actual=100,ms=0.125799,cost=2.078343106e-1
+acoustic DE,budget=1000,actual=1000,ms=1.350392,cost=9.070628755e-5
+acoustic DE,budget=5000,actual=5000,ms=11.728342,cost=7.889641008e-20
+
+EXIT=0

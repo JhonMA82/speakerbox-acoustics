@@ -1,0 +1,18 @@
+TL uniform,500,0.241739,energy_relative_max=3.029137846e-16
+TL uniform,2000,0.843130,energy_relative_max=3.029137846e-16
+TL variable,500,17.043110,energy_relative_max=4.080354843e-13
+TL variable,2000,70.008096,energy_relative_max=4.080354843e-13
+TL damped,500,0.445390,energy_relative_max=1.637343502e-12
+TL damped,2000,1.665839,energy_relative_max=1.637343502e-12
+TL variable damped,500,49.901855,energy_relative_max=5.952949444e-12
+TL variable damped,2000,199.029911,energy_relative_max=5.952949444e-12
+complex uniform matrix,10000,2.093733
+optimizer NelderMead,budget=100,actual=100,ms=0.106748,cost=2.882974089e-7,stop=Budget
+optimizer NelderMead,budget=1000,actual=363,ms=0.327746,cost=3.153835686e-23,stop=Converged
+optimizer NelderMead,budget=5000,actual=363,ms=0.172296,cost=3.153835686e-23,stop=Converged
+optimizer DifferentialEvolution,budget=100,actual=100,ms=0.018928,cost=8.220898564e-1,stop=Budget
+optimizer DifferentialEvolution,budget=1000,actual=1000,ms=0.707679,cost=2.483165223e-4,stop=Budget
+optimizer DifferentialEvolution,budget=5000,actual=5000,ms=10.414086,cost=5.866621290e-24,stop=Budget
+acoustic DE,budget=100,actual=100,ms=0.167628,cost=2.078343106e-1
+acoustic DE,budget=1000,actual=1000,ms=1.088774,cost=9.070628755e-5
+acoustic DE,budget=5000,actual=5000,ms=11.451794,cost=7.889641008e-20

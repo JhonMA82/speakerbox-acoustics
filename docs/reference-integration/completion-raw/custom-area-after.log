@@ -1,0 +1,11 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.52s
+     Running tests/completion_numerics.rs (target/debug/deps/completion_numerics-ae5f434f9bf0fdec)
+
+running 3 tests
+test extreme_attenuation_must_not_return_an_apparently_valid_response ... ok
+test subdivision_cannot_hide_ill_conditioned_total_attenuation ... ok
+test checked_matrix_rejects_invalid_custom_area_seen_during_integration ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

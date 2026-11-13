@@ -35,6 +35,33 @@ La fase 3 añade `DriverBank` (N drivers, cableado, isobaric, push-pull, DVC),
 la importación de drivers WinISD `.wdr` / OpenISD `.owdr` y deja pendiente el
 array espacial `RadiatorArray` para line arrays.
 
+## Integración científica adicional
+
+Las auditorías previas y sus oráculos se conservan. Se añadieron capacidades
+opcionales, con dominios y evidencia distintos de la validación Hornresp:
+
+- `Segment::try_matrix`: propagación compleja exacta en tubo uniforme y RK4
+  refinado en perfiles con pérdidas; diagnóstico de atenuación mal condicionada.
+- `CoilModel::SemiInductance { ke }`: alternativa a Le con calor adicional
+  incluido en `EnergyReport`; Ke en Ω√s.
+- `TransmissionLine` en `Design`: segmentos, driver desplazado, terminaciones,
+  zonas de relleno y pliegues lineales. **Experimental respecto a referencias
+  externas**; dispone de pruebas analíticas y energéticas, no de oráculo Hornresp TL.
+- `optimization`: Nelder–Mead y Differential Evolution acotados, cancelables,
+  reproducibles, con validación del candidato y objetivos acústicos.
+- `measured_data`: importación FRD/ZMA con fase opcional, referencias explícitas
+  e interpolación compleja; independiente del motor de simulación.
+- `alignments`: síntesis sellada y ventilada con dominios de Qts explícitos;
+  EBS devuelve una propuesta optimizada con coste, no una solución exacta.
+
+Ver [contratos y ejemplos](docs/reference-integration/NEW_CAPABILITIES.md),
+[informe de finalización](docs/reference-integration/COMPLETION_REPORT.md) y
+[comparación externa reproducible](docs/reference-integration/CROSS_VALIDATION_REPORT.md).
+Los literales de `Driver` deben añadir `coil_model: CoilModel::Inductance`;
+los constructores existentes conservan sus valores predeterminados. Los matches
+exhaustivos de `Design`/`TopologyPoint` deben contemplar `TransmissionLine`;
+`TerminationKind` añade `PrescribedResistance` para cargas que no implican adaptación.
+
 ## Versión y estabilidad
 
 - **Versión actual:** `0.2.0`, pre-1.0.

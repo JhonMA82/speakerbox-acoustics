@@ -1,0 +1,24 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.67s
+     Running tests/transmission_line.rs (target/debug/deps/transmission_line-d64d87a51272289a)
+
+running 1 test
+test closed_boundary_zones_folds_and_energy ... FAILED
+
+failures:
+
+---- closed_boundary_zones_folds_and_energy stdout ----
+
+thread 'closed_boundary_zones_folds_and_energy' panicked at tests/transmission_line.rs:83:17:
+assertion failed: e.terminations.iter().all(|load|
+        load.kind !=
+            speakerbox_acoustics::energy::TerminationKind::MatchedAbsorber)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    closed_boundary_zones_folds_and_energy
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.05s
+
+error: test failed, to rerun pass `--test transmission_line`

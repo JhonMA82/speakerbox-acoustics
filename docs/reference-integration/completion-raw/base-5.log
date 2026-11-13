@@ -1,0 +1,4 @@
+cargo run --release --example perf_sweep
+/bin/sh: 1: cargo: not found
+
+EXIT=127

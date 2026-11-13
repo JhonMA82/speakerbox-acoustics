@@ -1,0 +1,11 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.39s
+     Running tests/transmission_line.rs (target/debug/deps/transmission_line-d64d87a51272289a)
+
+running 3 tests
+test quarter_wave_modes_and_driver_positions_are_analytic ... ok
+test subdivision_reciprocity_polarity_and_profile_are_preserved ... ok
+test closed_boundary_zones_folds_and_energy ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+

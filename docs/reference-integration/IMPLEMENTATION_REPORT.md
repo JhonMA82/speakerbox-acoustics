@@ -1,3 +1,7 @@
+> Informe histórico de la integración en 3e9e15d. El estado posterior está en
+> [COMPLETION_REPORT.md](COMPLETION_REPORT.md); las limitaciones de este informe
+> no deben interpretarse como el estado actual de implementación.
+
 # Estado de implementación — parcial
 Base 72f4e61 con ambas auditorías. Rama feature/acoustic-reference-integration.
 Referencia HEAD a0e128dfb6c21f68599d74584d4d6af2ec418820; README declara MIT, pero no hay texto LICENSE ni atribución/procedencia

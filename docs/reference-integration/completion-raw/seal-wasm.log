@@ -1,0 +1,6 @@
+SOURCE=b74fbe8ba380fde98f3d79aa4b3195e038183849
+COMMAND=cargo build --lib --target wasm32-unknown-unknown
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.61s
+
+EXIT=0

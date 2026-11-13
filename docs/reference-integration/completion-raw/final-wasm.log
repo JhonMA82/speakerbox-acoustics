@@ -1,0 +1,13 @@
+COMMAND=cargo build --lib --target wasm32-unknown-unknown
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling zmij v1.0.23
+   Compiling serde_core v1.0.229
+   Compiling num-traits v0.2.19
+   Compiling libm v0.2.16
+   Compiling num-complex v0.4.6
+   Compiling serde_json v1.0.154
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.21s
+
+EXIT=0

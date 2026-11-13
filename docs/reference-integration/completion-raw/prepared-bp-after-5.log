@@ -1,0 +1,12 @@
+speakerbox-acoustics perf_sweep (release); 20 Hz–200 Hz, barrido logarítmico
+
+caso                         puntos   total (ms)     µs/punto
+System bocina 4 tramos          500       14.219        28.44
+System bocina 4 tramos         2000       56.399        28.20
+TappedHorn 4 tramos             500       27.854        55.71
+TappedHorn 4 tramos            2000      110.185        55.09
+Bandpass BP6 serie              500        0.305         0.61
+Bandpass BP6 serie             2000        1.141         0.57
+100 cambios × 50 puntos        5000      150.742        30.15
+
+Tiempo total de los cambios de parámetro: 150.742 ms

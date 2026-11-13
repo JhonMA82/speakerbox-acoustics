@@ -4,6 +4,18 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 El proyecto sigue versionado SemVer, pero permanece en `0.x` mientras la API
 pública pueda cambiar.
 
+## [Unreleased] — finalización de integración acústica
+
+- Matriz analítica compleja para tramos uniformes y refinamiento RK4 en perfiles
+  con pérdidas; errores explícitos por condicionamiento de tramo/cascada.
+- Semiinductancia opcional con pérdidas eléctricas y escalado de bancos coherentes.
+- TL segmentada integrada en Design, con cierres, zonas, estados complejos,
+  pliegues lineales y balance RMS; validación externa todavía experimental.
+- Optimizadores acotados locales/globales, importación FRD/ZMA independiente,
+  adaptador de comparación externa y alineamientos físicamente realizables.
+- Migración de literales Driver y matches exhaustivos documentada en README.
+- Sin cambios de calibración ni de los oráculos originales.
+
 ## [0.2.0] — 2026-11-09
 
 ### Añadido

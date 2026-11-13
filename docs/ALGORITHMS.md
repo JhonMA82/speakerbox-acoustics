@@ -637,3 +637,32 @@ Una cancelación tiene fase/retardo None; los puntos legados usan NaN en fase
 de silencio. La función complex_phase_trace permite cortar una derivada
 cuando el módulo de presión no supera su cota de error numérico. La
 excursión sigue siendo pico, mientras estados y potencias usan RMS.
+
+
+## Finalización de integración: propagación, bobina y línea distribuida
+
+Para Rf homogénea, el operador de estado es A=[[0,a],[b,0]],
+a=−(Rf+jωρ)/S y b=−(loss+j)ωS/(ρc²). En sección uniforme,
+M=I cosh(γL)+A·L·sinhc(γL), γ²=ab. En perfil variable se usa |γ| para
+resolver tanto fase como atenuación y se comprueba convergencia de RK4.
+Se limita la atenuación total aceptada por matrices de transferencia;
+el diagnóstico no es un límite físico del material. Ver
+[estabilidad numérica](reference-integration/NUMERICAL_STABILITY_REPORT.md).
+
+La bobina puede usar Re+Ke√(jω), Ke en Ω√s, sustituyendo Le. Su parte real
+adicional es disipación y se suma al calor de bobina con la frecuencia de
+resolución; no se modifica el modelo mecánico ni los T/S importados.
+
+TransmissionLine usa los mismos segmentos y matrices. En el nodo del driver,
+Yleft=−Cleft/Aleft y Yright=(Aright−Cright ZL)/(Dright ZL−Bright).
+La combinación se calcula mediante productos cruzados para evitar cocientes
+singulares intermedios. Se conservan presión y caudales complejos; la potencia
+proviene de las cargas y la cuadratura local, no del SPL compacto estimado.
+La presión a 1 m comparte la referencia reducida de la fachada (presión física
+= j·presión reducida). No se reconstruye geometría espacial de pliegues ni
+radiación mutua a partir de longitudes solamente. Ver
+[validación TL](reference-integration/TRANSMISSION_LINE_VALIDATION.md).
+
+Alineamientos: [derivaciones y dominios](reference-integration/ALIGNMENT_VALIDATION.md).
+Se separa la síntesis T/S ideal del solver completo; desviaciones y coste de
+propuestas EBS se exponen en lugar de ocultarse con calibración.

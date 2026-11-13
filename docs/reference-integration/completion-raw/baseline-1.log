@@ -1,0 +1,22 @@
+cargo test --test completion_numerics -- --nocapture
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.51s
+     Running tests/completion_numerics.rs (target/debug/deps/completion_numerics-ae5f434f9bf0fdec)
+
+running 1 test
+
+thread 'extreme_attenuation_must_not_return_an_apparently_valid_response' panicked at tests/completion_numerics.rs:6:2:
+assertion failed: s.try_response_at(10.).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test extreme_attenuation_must_not_return_an_apparently_valid_response ... FAILED
+
+failures:
+
+failures:
+    extreme_attenuation_must_not_return_an_apparently_valid_response
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test completion_numerics`
+
+EXIT=101

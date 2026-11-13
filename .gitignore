@@ -1,2 +1,4 @@
 /target
 /.rsc/
+
+__pycache__/

@@ -1,3 +1,7 @@
+> Informe histórico de la integración en 3e9e15d. El estado posterior está en
+> [COMPLETION_REPORT.md](COMPLETION_REPORT.md); las limitaciones de este informe
+> no deben interpretarse como el estado actual de implementación.
+
 # Validación física
 RF distribuido: dp/dx=-(Rf+jωρ)U/S. Con el convenio exp(jωt),
 k=(ω/c)sqrt(1-jRf/(ωρ)), Zc=(ρc/S)sqrt(1-jRf/(ωρ)).

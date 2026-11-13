@@ -1,0 +1,8 @@
+COMMAND=python tools/cross-validation/test_compare.py
+..
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+OK
+
+EXIT=0

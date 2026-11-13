@@ -1,0 +1,4 @@
+SOURCE=b74fbe8ba380fde98f3d79aa4b3195e038183849
+COMMAND=cargo fmt --all --check
+
+EXIT=0
