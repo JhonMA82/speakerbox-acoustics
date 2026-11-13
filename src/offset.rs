@@ -388,6 +388,7 @@ impl OffsetHorn {
         self.solution_validated(f)
     }
     pub(crate) fn solution_validated(&self, f: f64) -> Result<OffsetSolution, SolveError> {
+        crate::segment::check_cascade(&self.segments, &self.air, f)?;
         let s = self.solve_point(f)?;
         s.point.validate()?;
         for z in [

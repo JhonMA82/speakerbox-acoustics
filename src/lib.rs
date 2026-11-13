@@ -147,7 +147,7 @@ pub use air::Air;
 pub use bandpass::{Bandpass, BandpassOrder, BandpassPoint, PortModel, RearPortRouting};
 pub use calibration::Calibration;
 pub use design::{Design, DesignPoint};
-pub use driver::{Driver, CoilModel};
+pub use driver::{CoilModel, Driver};
 pub use driver_bank::{BankError, DriverBank, DvcWiring, Mechanical, Wiring};
 #[cfg(not(target_arch = "wasm32"))]
 pub use driver_import::import_driver_file;
@@ -203,7 +203,7 @@ pub mod energy;
 pub mod reference_design;
 
 pub mod transmission_line;
-pub use transmission_line::{TransmissionLine,LinePoint,LineTermination,Fold};
+pub use transmission_line::{Fold, LinePoint, LineTermination, TransmissionLine};
 
 pub mod optimization;
 

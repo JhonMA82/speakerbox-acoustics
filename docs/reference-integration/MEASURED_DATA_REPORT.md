@@ -19,3 +19,7 @@ Tres pruebas con fixtures sintéticos propios: separadores, comentarios,
 encabezados, fase envuelta/continua, datos faltantes, errores y unidades,
 impedancia compleja interpolada. No se han copiado mediciones Wavecor ni se
 presentan estos fixtures como experimentos de laboratorio.
+
+La conversión compleja devuelve Result<Option<_>>: distingue fase ausente de
+overflow/underflow de amplitud. Una prueba adicional cubre 1e-300..1e300 Hz
+mediante diferencias de logaritmos y rechaza presión no representable.

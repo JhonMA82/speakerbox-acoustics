@@ -29,3 +29,12 @@ inversión de polaridad; balance con zonas de Rf, áreas variables y pliegue R+M
 API Design y barridos. Los polos exactos ideales no resolubles dan error explícito.
 La topología sigue experimental respecto a validación externa: las pruebas son
 analíticas/invariantes, no un oráculo Hornresp TL ni mediciones espaciales.
+
+Seguimiento numérico: las admitancias se combinan mediante productos cruzados,
+Zline=Aleft·g/(Aleft·h−Cleft·g). Esto evita dividir por cero en nodos de presión;
+una cancelación del denominador a escala de redondeo devuelve SingularSystem.
+Para la rama posterior, g=DZL−B, h=A−CZL (cierre: g=D, h=−C).
+La presión de extremo inicial se obtiene directamente como g·Ud/denominador.
+Una resistencia artificial no añade una fuente exterior de SPL. Se comprueban
+los polos impares de cuarto de onda acercándose por dos refinamientos de f:
+la impedancia crece aproximadamente ×10 y el caudal del driver decrece ×0.1.

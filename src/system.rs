@@ -335,6 +335,9 @@ impl System {
         };
         check_frequency(f)?;
         self.validate()?;
+        if let Some(h) = &self.horn {
+            crate::segment::check_cascade(&h.segments, &self.air, f)?;
+        }
         let prepared = self
             .horn
             .as_ref()
@@ -503,6 +506,9 @@ impl System {
 
     /// Resuelve la red a la frecuencia `freq_hz` sin validar la entrada.
     fn solve_point(&self, freq_hz: f64) -> Result<ResponsePoint, SolveError> {
+        if let Some(h) = &self.horn {
+            crate::segment::check_cascade(&h.segments, &self.air, freq_hz)?;
+        }
         let prepared = self
             .horn
             .as_ref()

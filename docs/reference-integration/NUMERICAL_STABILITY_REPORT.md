@@ -22,3 +22,9 @@ Pruebas: solución compleja exacta frente RK4 32/128 pasos, reducción de error,
 Rf 0/1/1000/100000, 10/100/1000 Hz y distintas longitudes; flujo de potencia
 frente integral positiva; perfil cónico frente 4096 pasos; estrés explícitamente
 rechazado. Se conserva la ruta histórica sin pérdidas para evitar coste adicional.
+
+Seguimiento: también se comprueba la suma de atenuaciones en las rutas estrictas
+System/TH/OD/TL; subdividir un tramo no permite eludir el diagnóstico. Se añadió
+una regresión de 80 tramos individualmente admisibles cuya cascada es inválida.
+La API `Segment::matrix` ya no representa f≤0 como una identidad física; use
+`try_matrix` para diagnóstico. Se verifica finitud de las matrices analíticas.

@@ -507,6 +507,12 @@ impl From<Bandpass> for Design {
     }
 }
 
+impl From<crate::TransmissionLine> for Design {
+    fn from(t: crate::TransmissionLine) -> Self {
+        Self::TransmissionLine(t)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -695,5 +701,3 @@ mod tests {
         }
     }
 }
-
-impl From<crate::TransmissionLine> for Design { fn from(t:crate::TransmissionLine)->Self {Self::TransmissionLine(t)} }

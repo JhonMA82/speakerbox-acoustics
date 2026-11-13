@@ -106,7 +106,8 @@ impl EnergyReport {
             driver_terminal_active_w: active_power(voltage, current),
             coil_loss_w: driver.coil_impedance(frequency_hz).re * current.norm_sqr(),
             coil_dc_loss_w: driver.re * current.norm_sqr(),
-            coil_excess_loss_w: (driver.coil_impedance(frequency_hz).re - driver.re) * current.norm_sqr(),
+            coil_excess_loss_w: (driver.coil_impedance(frequency_hz).re - driver.re)
+                * current.norm_sqr(),
             suspension_loss_w: driver.rms * (ud / driver.sd).norm_sqr(),
             acoustic_input_w,
             acoustic_losses: AcousticLosses::default(),

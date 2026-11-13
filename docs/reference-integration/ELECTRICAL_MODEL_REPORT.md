@@ -15,3 +15,6 @@ Pruebas: DC, parte real/imaginaria exactas, pasividad, independencia de Le,
 rechazo de Ke negativo, calor adicional y balance energético con Rg no nula;
 suite energética y regresiones de integración. No se afirma validación ZMA
 experimental: no hay medición con procedencia/referencia suficiente disponible.
+
+Cobertura adicional: escala eléctrica de Ke en bancos serie/paralelo y balances
+semiinductivos en Bandpass, TappedHorn y OffsetHorn (no sólo System).

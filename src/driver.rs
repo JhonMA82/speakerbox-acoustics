@@ -112,7 +112,9 @@ impl Driver {
         require_positive(self.bl, "driver.bl")?;
         require_non_negative(self.rms, "driver.rms")?;
         require_non_negative(self.le, "driver.le")?;
-        if let CoilModel::SemiInductance { ke } = self.coil_model { require_non_negative(ke, "driver.ke")?; }
+        if let CoilModel::SemiInductance { ke } = self.coil_model {
+            require_non_negative(ke, "driver.ke")?;
+        }
         Ok(())
     }
 
@@ -209,10 +211,15 @@ impl Driver {
     }
 
     /// Selecciona modelo sin cambiar los parámetros almacenados.
-    pub fn with_coil_model(mut self, model: CoilModel) -> Self { self.coil_model = model; self }
+    pub fn with_coil_model(mut self, model: CoilModel) -> Self {
+        self.coil_model = model;
+        self
+    }
 
     pub(crate) fn scale_coil_model(&mut self, factor: f64) {
-        if let CoilModel::SemiInductance { ke } = &mut self.coil_model { *ke *= factor; }
+        if let CoilModel::SemiInductance { ke } = &mut self.coil_model {
+            *ke *= factor;
+        }
     }
 
     /// Impedancia de entrada (eléctrica) para una carga acústica dada.

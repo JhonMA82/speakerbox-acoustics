@@ -541,6 +541,7 @@ impl TappedHorn {
         };
         check_frequency(f)?;
         self.validate()?;
+        crate::segment::check_cascade(&self.segments, &self.air, f)?;
         let (p, zm, zb, _, ud) = self.solve(f).ok_or(SolveError::SingularSystem)?;
         let ze = self.driver.coil_impedance(f)
             + self.rg
@@ -607,6 +608,7 @@ impl TappedHorn {
     }
 
     pub(crate) fn response_validated(&self, f: f64) -> Result<TappedPoint, SolveError> {
+        crate::segment::check_cascade(&self.segments, &self.air, f)?;
         let Some((p, zm, z_branch, ps, ud)) = self.solve(f) else {
             return Err(SolveError::SingularSystem);
         };
