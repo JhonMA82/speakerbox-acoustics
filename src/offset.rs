@@ -52,7 +52,7 @@ pub struct OffsetPoint {
     pub freq: f64,
     /// SPL de potencia a 1 m (dB re 20 µPa).
     pub spl_db: f64,
-    /// Fase de la velocidad volumétrica radiada (grados).
+    /// Fase reducida de la presión TOTAL (grados); presión física añade +90°.
     pub phase_deg: f64,
     /// Módulo de la impedancia eléctrica (Ω).
     pub ze_mag: f64,
@@ -454,20 +454,44 @@ impl OffsetHorn {
             Complex64::new(0.0, 0.0)
         };
         let p_total = p_horn + p_rear;
+        // Salidas traseras: el caudal saliente es opuesto al del diafragma.
+        // Aproximación compacta a 1 m: igual distancia y fase de propagación.
+        // No se asigna radiación a las pérdidas de cámara/PR.
+        let mut p_total = p_total;
+        let mut p_ac = p_ac_horn + p_ac_rear;
+        if self.rear_chamber_m3.is_some() {
+            let p_chamber = -u_d * z_rear;
+            let outlets = self
+                .rear_port
+                .map(|port| (port.area, port.impedance(&self.air, f)))
+                .into_iter()
+                .chain(
+                    self.rear_passive_radiator
+                        .map(|pr| (pr.sd, pr.impedance(f))),
+                );
+            for (area, z) in outlets {
+                let pressure = crate::system::radiator_pressure(
+                    &self.air,
+                    area,
+                    p_chamber / z,
+                    f,
+                    self.solid_angle,
+                );
+                p_total += pressure;
+                p_ac += pressure.norm_sqr() * self.solid_angle / (self.air.rho * self.air.c);
+            }
+        }
         let p_rms = p_total.norm();
         let spl = if p_rms > 0.0 {
             20.0 * (p_rms / self.air.p_ref).log10() + self.spl_offset_db
         } else {
             f64::NEG_INFINITY
         };
-        let p_ac = p_ac_horn + p_ac_rear;
 
         let ze = ze_coil
             + Complex64::new(self.driver.bl * self.driver.bl, 0.0)
                 / (zm + self.driver.sd * self.driver.sd * (z_horn + z_rear));
-        let v = u_d / self.driver.sd;
-        let current =
-            (Complex64::new(self.eg, 0.0) - Complex64::new(self.driver.bl, 0.0) * v) / ze_coil;
+        let current = Complex64::new(self.eg, 0.0) / ze;
         let p_in = self.eg * current.re;
         let disp_mm =
             (u_d.norm() / (omega(f) * self.driver.sd)) * 1000.0 * std::f64::consts::SQRT_2;
@@ -484,7 +508,7 @@ impl OffsetHorn {
         Ok(OffsetPoint {
             freq: f,
             spl_db: spl,
-            phase_deg: u_mouth.arg().to_degrees(),
+            phase_deg: p_total.arg().to_degrees(),
             ze_mag: ze.norm(),
             ze_phase_deg: ze.arg().to_degrees(),
             displacement_mm: disp_mm,

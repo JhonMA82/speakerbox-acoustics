@@ -1,0 +1,111 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-base)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.46s
+     Running tests/acoustic_consistency.rs (/workspace/scratch/87410607ed70/speakerbox-base/target/debug/deps/acoustic_consistency-2cc6e7d72de6e3bf)
+
+running 19 tests
+
+thread 'ac004_negative_t_has_a_real_contraction_branch' panicked at tests/acoustic_consistency.rs:104:5:
+assertion failed: (0..100).all(|i| s.area(i as f64 / 100.) >= s.area((i + 1) as f64 / 100.))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'ac001_shunts_share_the_series_horn_branch' panicked at tests/acoustic_consistency.rs:63:5:
+assertion failed: (s.loads(f).0 - expected).norm() / expected.norm() < 1e-12
+
+thread 'ac005_parallel_poles_and_extreme_scales' panicked at tests/acoustic_consistency.rs:109:5:
+assertion failed: pole.re.is_infinite()
+
+thread 'ac004_rejects_unreproducible_geometry' panicked at tests/acoustic_consistency.rs:87:5:
+assertion failed: Segment::new(Flare::Cylindrical, 1., 0.02, 0.01).validate().is_err()
+
+thread 'ac003_bandpass_polarity_preserves_electrical_solution' panicked at tests/acoustic_consistency.rs:78:13:
+assertion failed: phase_error(z.phase_deg, a.phase_deg + 180.) < 1e-8
+test ac001_shunts_share_the_series_horn_branch ... FAILED
+test ac004_negative_t_has_a_real_contraction_branch ... FAILED
+
+thread 'ac008_radiation_small_argument_has_no_cancellation' panicked at tests/acoustic_consistency.rs:238:5:
+Complex { re: 0.0, im: 8.79638760139366e-5 }
+test ac005_parallel_poles_and_extreme_scales ... FAILED
+
+thread 'custom_profile_does_not_hide_invalid_area' panicked at tests/acoustic_consistency.rs:283:5:
+assertion failed: s.area(0.5).is_nan()
+test ac004_rejects_unreproducible_geometry ... FAILED
+
+thread 'group_delay_is_centered_on_nonuniform_frequency_grid' panicked at tests/acoustic_consistency.rs:310:2:
+assertion failed: (s.response(&f)[1].group_delay_ms - expected).abs() < 1e-10
+test ac003_bandpass_polarity_preserves_electrical_solution ... FAILED
+
+thread 'hypex_contraction_with_positive_t_is_rejected_independently' panicked at tests/acoustic_consistency.rs:303:5:
+assertion failed: s.validate().is_err()
+test ac008_radiation_small_argument_has_no_cancellation ... FAILED
+
+thread 'invalid_bank_driver_is_rejected_at_conversion' panicked at tests/acoustic_consistency.rs:298:5:
+assertion failed: DriverBank::new(d, 2).equivalent_driver().is_err()
+
+thread 'ac006_bp6_series_low_frequency_lumped_limit' panicked at tests/acoustic_consistency.rs:131:5:
+pipe=BandpassPoint { freq: 1.0, spl_db: -80.08188361378333, phase_deg: 81.63863553443531, ze_mag: 6.064090490002903, ze_phase_deg: 7.784753480176359, displacement_mm: 4.756870920849981, power_w: 5.949849888141547e-20, efficiency_pct: 4.5469466829294496e-18, front_port_velocity: 0.16441777548784003, rear_port_velocity: Some(0.14903677835602122) } lumped=BandpassPoint { freq: 1.0, spl_db: -80.21817568980907, phase_deg: -98.34873521592934, ze_mag: 6.063895229188161, ze_phase_deg: 7.773013875689859, displacement_mm: 4.749684657839156, power_w: 5.766028719850363e-20, efficiency_pct: 4.406203122017908e-18, front_port_velocity: 0.16185799796401176, rear_port_velocity: Some(0.14663641584962792) }
+test custom_profile_does_not_hide_invalid_area ... FAILED
+
+thread 'lossless_suspension_qts_is_qes' panicked at tests/acoustic_consistency.rs:227:5:
+assertion failed: (d.qts(&Air::default()) - d.qes(&Air::default())).abs() < 1e-12
+test group_delay_is_centered_on_nonuniform_frequency_grid ... FAILED
+
+thread 'struve_h1_is_even_on_real_axis' panicked at tests/acoustic_consistency.rs:244:5:
+assertion failed: (struve_h1(-30.) - struve_h1(30.)).abs() < 1e-12
+test hypex_contraction_with_positive_t_is_rejected_independently ... FAILED
+test invalid_bank_driver_is_rejected_at_conversion ... FAILED
+test ac006_bp6_series_low_frequency_lumped_limit ... FAILED
+test lossless_suspension_qts_is_qes ... FAILED
+test struve_h1_is_even_on_real_axis ... FAILED
+
+thread 'ac002_offset_radiates_rear_port_and_passive_radiator' panicked at tests/acoustic_consistency.rs:208:13:
+20: 75.89011918459585 vs 51.153420840824204
+
+thread 'zero_resistance_leak_is_a_physical_short' panicked at tests/acoustic_consistency.rs:291:5:
+assertion `left == right` failed
+  left: Complex { re: 58.170141241016, im: 5167.329265293445 }
+ right: Complex { re: 0.0, im: 0.0 }
+
+thread 'ac007_offset_phase_tracks_combined_output' panicked at tests/acoustic_consistency.rs:220:9:
+assertion failed: phase_error(a.phase_deg, p.arg().to_degrees()) < 1e-8
+test ac002_offset_radiates_rear_port_and_passive_radiator ... FAILED
+test zero_resistance_leak_is_a_physical_short ... FAILED
+test ac007_offset_phase_tracks_combined_output ... FAILED
+
+thread 'ac001_series_load_and_energy_balance' panicked at tests/acoustic_consistency.rs:33:13:
+assertion failed: (zf - zh - C::new(r, 0.)).norm() < 1e-10 * (1. + zf.norm())
+test ac001_series_load_and_energy_balance ... FAILED
+
+thread 'tapped_polarity_preserves_efficiency' panicked at tests/acoustic_consistency.rs:277:5:
+assertion failed: (a.efficiency_pct - z.efficiency_pct).abs() < 1e-9
+test tapped_polarity_preserves_efficiency ... FAILED
+
+thread 'tapped_zero_drive_keeps_passive_electrical_impedance' panicked at tests/acoustic_consistency.rs:259:5:
+assertion failed: (a.ze_mag - z.ze_mag).abs() < 1e-9
+test tapped_zero_drive_keeps_passive_electrical_impedance ... FAILED
+
+failures:
+
+failures:
+    ac001_series_load_and_energy_balance
+    ac001_shunts_share_the_series_horn_branch
+    ac002_offset_radiates_rear_port_and_passive_radiator
+    ac003_bandpass_polarity_preserves_electrical_solution
+    ac004_negative_t_has_a_real_contraction_branch
+    ac004_rejects_unreproducible_geometry
+    ac005_parallel_poles_and_extreme_scales
+    ac006_bp6_series_low_frequency_lumped_limit
+    ac007_offset_phase_tracks_combined_output
+    ac008_radiation_small_argument_has_no_cancellation
+    custom_profile_does_not_hide_invalid_area
+    group_delay_is_centered_on_nonuniform_frequency_grid
+    hypex_contraction_with_positive_t_is_rejected_independently
+    invalid_bank_driver_is_rejected_at_conversion
+    lossless_suspension_qts_is_qes
+    struve_h1_is_even_on_real_axis
+    tapped_polarity_preserves_efficiency
+    tapped_zero_drive_keeps_passive_electrical_impedance
+    zero_resistance_leak_is_a_physical_short
+
+test result: FAILED. 0 passed; 19 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test acoustic_consistency`

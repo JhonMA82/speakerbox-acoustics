@@ -271,25 +271,14 @@ impl Design {
 
     /// Desenrolla la fase y calcula el retardo de grupo.
     fn finalize(pts: &mut [DesignPoint]) {
-        if pts.len() < 2 {
-            return;
+        let freqs: Vec<f64> = pts.iter().map(|p| p.freq_hz).collect();
+        let mut phases: Vec<f64> = pts.iter().map(|p| p.phase_deg).collect();
+        let spl: Vec<f64> = pts.iter().map(|p| p.spl_db).collect();
+        let delays = crate::phase::finalize(&freqs, &mut phases, &spl);
+        for (i, p) in pts.iter_mut().enumerate() {
+            p.phase_deg = phases[i];
+            p.group_delay_ms = delays[i];
         }
-        for i in 1..pts.len() {
-            while pts[i].phase_deg - pts[i - 1].phase_deg > 180.0 {
-                pts[i].phase_deg -= 360.0;
-            }
-            while pts[i].phase_deg - pts[i - 1].phase_deg < -180.0 {
-                pts[i].phase_deg += 360.0;
-            }
-        }
-        for i in 1..pts.len() {
-            let df = pts[i].freq_hz - pts[i - 1].freq_hz;
-            if df.abs() > 1.0e-12 {
-                let dphi = (pts[i].phase_deg - pts[i - 1].phase_deg).to_radians();
-                pts[i].group_delay_ms = -(dphi / (std::f64::consts::TAU * df)) * 1000.0;
-            }
-        }
-        pts[0].group_delay_ms = pts[1].group_delay_ms;
     }
 
     /// Barrido logarítmico entre `fmin` y `fmax` con `points` muestras.
@@ -327,6 +316,9 @@ impl Design {
             out.push(self.try_response_at(f)?);
         }
         Self::finalize(&mut out);
+        for point in &out {
+            point.validate()?;
+        }
         Ok(out)
     }
 }

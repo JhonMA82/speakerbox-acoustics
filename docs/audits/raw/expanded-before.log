@@ -1,0 +1,54 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.51s
+     Running tests/acoustic_consistency.rs (target/debug/deps/acoustic_consistency-2cc6e7d72de6e3bf)
+
+running 15 tests
+test ac004_rejects_unreproducible_geometry ... ok
+test ac005_parallel_poles_and_extreme_scales ... ok
+test ac004_negative_t_has_a_real_contraction_branch ... ok
+test ac001_shunts_share_the_series_horn_branch ... ok
+test custom_profile_does_not_hide_invalid_area ... ok
+test ac008_radiation_small_argument_has_no_cancellation ... FAILED
+test struve_h1_is_even_on_real_axis ... FAILED
+test lossless_suspension_qts_is_qes ... ok
+test ac006_bp6_series_low_frequency_lumped_limit ... ok
+test tapped_zero_drive_keeps_passive_electrical_impedance ... FAILED
+test tapped_polarity_preserves_efficiency ... FAILED
+test ac007_offset_phase_tracks_combined_output ... ok
+test ac001_series_load_and_energy_balance ... ok
+test ac002_offset_radiates_rear_port_and_passive_radiator ... ok
+test ac003_bandpass_polarity_preserves_electrical_solution ... ok
+
+failures:
+
+---- ac008_radiation_small_argument_has_no_cancellation stdout ----
+
+thread 'ac008_radiation_small_argument_has_no_cancellation' panicked at tests/acoustic_consistency.rs:111:2:
+Complex { re: 0.0, im: 8.79638760139366e-5 }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- struve_h1_is_even_on_real_axis stdout ----
+
+thread 'struve_h1_is_even_on_real_axis' panicked at tests/acoustic_consistency.rs:117:2:
+assertion failed: (struve_h1(-30.) - struve_h1(30.)).abs() < 1e-12
+
+---- tapped_zero_drive_keeps_passive_electrical_impedance stdout ----
+
+thread 'tapped_zero_drive_keeps_passive_electrical_impedance' panicked at tests/acoustic_consistency.rs:125:2:
+assertion failed: (a.ze_mag - z.ze_mag).abs() < 1e-9
+
+---- tapped_polarity_preserves_efficiency stdout ----
+
+thread 'tapped_polarity_preserves_efficiency' panicked at tests/acoustic_consistency.rs:131:93:
+assertion failed: (a.efficiency_pct - z.efficiency_pct).abs() < 1e-9
+
+
+failures:
+    ac008_radiation_small_argument_has_no_cancellation
+    struve_h1_is_even_on_real_axis
+    tapped_polarity_preserves_efficiency
+    tapped_zero_drive_keeps_passive_electrical_impedance
+
+test result: FAILED. 11 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test acoustic_consistency`

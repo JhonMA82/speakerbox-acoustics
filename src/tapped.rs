@@ -209,7 +209,8 @@ impl TappedHorn {
         if n < 3 || self.tap_a == 0 || self.tap_b == 0 || self.tap_a >= n || self.tap_b >= n {
             return None;
         }
-        let (p, zm, zd, ps) = self.solve_pressures(f, self.eg, None)?;
+        // Resolver con 1 V conserva la carga pasiva incluso con Eg=0.
+        let (p, zm, zd, ps) = self.solve_pressures(f, 1.0, None)?;
         let ia = self.tap_a - 1;
         let ib = self.tap_b - 1;
         let pa = p[ia];
@@ -220,7 +221,13 @@ impl TappedHorn {
         } else {
             Complex64::new(0.0, 0.0)
         };
-        Some((p, zm, z_branch, ps, ud))
+        Some((
+            p.into_iter().map(|v| v * self.eg).collect(),
+            zm,
+            z_branch,
+            ps * self.eg,
+            ud * self.eg,
+        ))
     }
 
     /// Resuelve las presiones nodales para una tensión `eg` y, opcionalmente,
@@ -323,8 +330,8 @@ impl TappedHorn {
         let mut p = vec![Complex64::new(0.0, 0.0); m];
         for row in (0..m).rev() {
             let mut acc = rhs[row];
-            for k in row + 1..m {
-                acc -= y[row][k] * p[k];
+            for (k, pk) in p.iter().enumerate().skip(row + 1) {
+                acc -= y[row][k] * pk;
             }
             p[row] = acc / y[row][row];
         }
@@ -416,8 +423,8 @@ impl TappedHorn {
         let mut p = vec![Complex64::new(0.0, 0.0); m];
         for row in (0..m).rev() {
             let mut acc = rhs[row];
-            for k in row + 1..m {
-                acc -= y[row][k] * p[k];
+            for (k, pk) in p.iter().enumerate().skip(row + 1) {
+                acc -= y[row][k] * pk;
             }
             p[row] = acc / y[row][row];
         }
@@ -492,9 +499,7 @@ impl TappedHorn {
         let ze = ze_coil
             + Complex64::new(self.driver.bl * self.driver.bl, 0.0)
                 / (self.driver_zm(f) - self.driver.sd * self.driver.sd * z_branch);
-        let v = ud / self.driver.sd;
-        let current =
-            (Complex64::new(self.eg, 0.0) - Complex64::new(self.driver.bl, 0.0) * v) / ze_coil;
+        let current = Complex64::new(self.eg, 0.0) / ze;
         let p_in = self.eg * current.re;
         let disp_mm = (ud.norm() / (omega(f) * self.driver.sd)) * 1000.0 * std::f64::consts::SQRT_2;
 

@@ -192,3 +192,6 @@ mod auto_traits {
         assert_send_sync::<DesignPoint>();
     }
 }
+
+/// Fase desenrollada y retardo con representación explícita de cancelaciones.
+pub mod phase;

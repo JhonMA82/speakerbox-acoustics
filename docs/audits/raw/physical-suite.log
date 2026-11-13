@@ -1,0 +1,266 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.89s
+     Running unittests src/lib.rs (target/debug/deps/speakerbox_acoustics-3c8fad2d3286b9b4)
+
+running 123 tests
+test air::tests::defaults_match_reference ... ok
+test air::tests::validation_rejects_invalid_properties ... ok
+test auto_traits::core_types_are_send_sync ... ok
+test bandpass::tests::bp4_rejects_a_rear_port ... ok
+test bandpass::tests::bp6_requires_a_rear_port ... ok
+test bandpass::tests::bp4_reference_excursion_is_peak ... ok
+test bandpass::tests::bp6_reports_both_port_velocities ... ok
+test bandpass::tests::bp6_series_ql_is_applied_to_the_front_chamber_only ... ok
+test bandpass::tests::bp6_differs_from_bp4 ... ok
+test bandpass::tests::front_tuning_decreases_with_larger_volume ... ok
+test bandpass::tests::invalid_ql_is_rejected ... ok
+test bandpass::tests::pipe_low_frequency_matches_lumped ... ok
+test bandpass::tests::invalid_volumes_are_rejected ... ok
+test bandpass::tests::bp4_matches_reference_points ... ok
+test bandpass::tests::bp6_series_differs_from_parallel ... ok
+test bandpass::tests::pipe_and_lumped_differ_near_port_resonance ... ok
+test bandpass::tests::point_validation_rejects_invalid_fields ... ok
+test bandpass::tests::response_filters_non_finite_frequencies ... ok
+test bandpass::tests::try_response_at_rejects_invalid_frequency ... ok
+test design::tests::bandpass_variant_preserves_response ... ok
+test design::tests::log_sweep_is_monotonic_and_finite ... ok
+test design::tests::response_filters_non_finite_frequencies ... ok
+test design::tests::design_point_validation_rejects_invalid_fields ... ok
+test design::tests::sweep_log_rejects_invalid_bounds_and_point_counts ... ok
+test design::tests::system_variant_preserves_response ... ok
+test bandpass::tests::bp4_is_finite_and_has_a_passband ... ok
+test design::tests::try_response_at_reports_invalid_frequencies ... ok
+test bandpass::tests::bp6_parallel_matches_reference_points ... ok
+test design::tests::try_response_at_reports_invalid_tap ... ok
+test design::tests::try_sweep_log_matches_sweep_log ... ok
+test driver::tests::electrical_impedance_at_mechanical_resonance ... ok
+test driver::tests::mechanical_impedance_is_capacitive_below_resonance ... ok
+test design::tests::try_response_at_rejects_invalid_frequency_and_design ... ok
+test driver::tests::nd_is_informational_and_not_clamped ... ok
+test driver::tests::validation_rejects_non_physical_parameters ... ok
+test driver::tests::ts_parameters_are_physical ... ok
+test driver_bank::tests::four_isobaric_drivers_are_two_pairs ... ok
+test driver_bank::tests::dvc_parallel_and_series ... ok
+test bandpass::tests::pipe_response_is_finite ... ok
+test driver_bank::tests::four_series_parallel_drivers_scale ... ok
+test driver_bank::tests::isobaric_pair_scales_mass_and_compliance ... ok
+test driver_bank::tests::invalid_counts_are_rejected ... ok
+test driver_bank::tests::two_parallel_drivers_scale ... ok
+test driver_bank::tests::push_pull_is_linear_equivalent_to_standard ... ok
+test driver_bank::tests::two_series_drivers_scale ... ok
+test driver_import::tests::imports_owdr_value_layout ... ok
+test driver_import::tests::imports_owdr_readings_layout_and_derives ... ok
+test driver_import::tests::imports_wdr_and_preserves_si_values ... ok
+test bandpass::tests::bp6_series_with_closed_rear_port_matches_bp4 ... ok
+test driver_import::tests::rejects_negative_le ... ok
+test driver_import::tests::rejects_invalid_air_properties ... ok
+test driver_import::tests::rejects_mms_not_above_air_mass ... ok
+test driver_import::tests::rejects_non_finite_derived_driver ... ok
+test driver_import::tests::rejects_invalid_numvc_and_vccon ... ok
+test driver_import::tests::rejects_unrelated_text ... ok
+test driver_import::tests::wdr_accepts_comma_decimals_and_derives_missing ... ok
+test driver_import::tests::wdr_derives_from_ts ... ok
+test element::tests::chamber_compliance_is_physical ... ok
+test element::tests::element_validation_rejects_non_physical_values ... ok
+test driver_import::tests::owdr_rejects_invalid_air_numvc_and_mms ... ok
+test design::tests::tapped_horn_variant_preserves_response ... ok
+test element::tests::end_correction_positive ... ok
+test element::tests::port_mass_scales_with_length ... ok
+test element::tests::chamber_impedance_is_capacitive ... ok
+test error::tests::parameter_checks_distinguish_zero_and_negative ... ok
+test error::tests::display_names_the_field ... ok
+test error::tests::frequency_check_rejects_non_finite_and_non_positive ... ok
+test offset::tests::closed_stub_of_short_tube_is_a_compliance ... ok
+test design::tests::offset_horn_variant_preserves_response ... ok
+test offset::tests::point_validation_rejects_invalid_fields ... ok
+test offset::tests::response_filters_non_finite_frequencies ... ok
+test offset::tests::try_response_at_rejects_invalid_tap_and_chamber ... ok
+test phase::tests::invalid_order_and_cancellation_are_explicit ... ok
+test phase::tests::nonuniform_quadratic_phase_has_exact_derivative ... ok
+test phase::tests::unwraps_across_branch_cut ... ok
+test bandpass::tests::bp6_series_is_finite_and_has_a_passband ... ok
+test radiation::tests::low_frequency_asymptotes ... ok
+test radiation::tests::series_and_asymptotic_match ... ok
+test radiation::tests::struve_known_values ... ok
+test record::tests::builds_two_segment_system ... ok
+test record::tests::parses_default_record ... ok
+test record::tests::rejects_bad_length ... ok
+test segment::tests::exponential_area_endpoints ... ok
+test segment::tests::exponential_cutoff_matches_reference ... ok
+test segment::tests::cylindrical_matrix_matches_analytic ... ok
+test segment::tests::horn_validation_rejects_empty_and_invalid_factors ... ok
+test offset::tests::try_response_at_rejects_invalid_frequency ... ok
+test segment::tests::conical_matrix_matches_exact_solution ... ok
+test segment::tests::horn_volume_is_positive ... ok
+test segment::tests::hypex_area_endpoints ... ok
+test segment::tests::segment_validation_rejects_invalid_geometry ... ok
+test system::tests::direct_radiator_has_finite_spl ... ok
+test segment::tests::matched_impedance_is_preserved ... ok
+test system::tests::negative_eg_is_valid_and_inverts_phase ... ok
+test system::tests::group_delay_is_finite ... ok
+test system::tests::response_at_returns_neutral_point_on_invalid_input ... ok
+test offset::tests::multisegment_stub_matches_transfer_matrix ... ok
+test system::tests::response_filters_non_finite_frequencies ... ok
+test segment::tests::exponential_matrix_matches_analytic_webster ... ok
+test system::tests::try_response_at_rejects_incoherent_configuration ... ok
+test system::tests::try_response_at_rejects_invalid_driver ... ok
+test system::tests::try_response_at_rejects_invalid_frequency ... ok
+test tapped::tests::response_at_returns_neutral_point_on_invalid_input ... ok
+test system::tests::response_point_validation_rejects_invalid_fields ... ok
+test tapped::tests::try_response_at_rejects_invalid_segment ... ok
+test tapped::tests::try_response_at_rejects_invalid_taps ... ok
+test validation::tests::csv_parses_and_rejects_invalid_rows ... ok
+test offset::tests::moving_the_tap_changes_the_response ... ok
+test validation::tests::empty_oracle_never_passes ... ok
+test validation::tests::invalid_oracle_points_never_pass ... ok
+test validation::tests::tsv_preserves_column_positions_with_an_empty_optional_cell ... ok
+test validation::tests::phase_is_parsed_but_not_compared ... ok
+test validation::tests::parses_tsv_with_comma_decimals ... ok
+test validation::tests::tsv_rejects_empty_or_header_only ... ok
+test validation::tests::tsv_rejects_missing_columns_and_invalid_cells ... ok
+test validation::tests::tsv_rejects_invalid_frequencies_and_values ... ok
+test offset::tests::larger_rear_chamber_increases_low_frequency_excursion ... ok
+test validation::tests::zero_drive_is_not_a_valid_report ... ok
+test tapped::tests::point_validation_rejects_invalid_fields ... ok
+test tapped::tests::try_response_at_rejects_invalid_frequency ... ok
+test offset::tests::offset_horn_is_finite ... ok
+test offset::tests::tap_at_throat_matches_normal_horn ... ok
+test system::tests::horn_system_runs_and_is_finite ... ok
+
+test result: ok. 123 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src/bin/speakerbox-cli.rs (target/debug/deps/speakerbox_cli-cf460a2ab74fd64d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/acoustic_consistency.rs (target/debug/deps/acoustic_consistency-2cc6e7d72de6e3bf)
+
+running 19 tests
+test ac004_rejects_unreproducible_geometry ... ok
+test ac004_negative_t_has_a_real_contraction_branch ... ok
+test ac005_parallel_poles_and_extreme_scales ... ok
+test ac008_radiation_small_argument_has_no_cancellation ... ok
+test custom_profile_does_not_hide_invalid_area ... ok
+test ac001_shunts_share_the_series_horn_branch ... ok
+test hypex_contraction_with_positive_t_is_rejected_independently ... ok
+test invalid_bank_driver_is_rejected_at_conversion ... ok
+test lossless_suspension_qts_is_qes ... ok
+test ac006_bp6_series_low_frequency_lumped_limit ... ok
+test group_delay_is_centered_on_nonuniform_frequency_grid ... ok
+test struve_h1_is_even_on_real_axis ... ok
+test zero_resistance_leak_is_a_physical_short ... ok
+test tapped_zero_drive_keeps_passive_electrical_impedance ... ok
+test tapped_polarity_preserves_efficiency ... ok
+test ac007_offset_phase_tracks_combined_output ... ok
+test ac001_series_load_and_energy_balance ... ok
+test ac003_bandpass_polarity_preserves_electrical_solution ... ok
+test ac002_offset_radiates_rear_port_and_passive_radiator ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/bandpass.rs (target/debug/deps/bandpass-b891a4e220ad577e)
+
+running 2 tests
+test bp6_without_rear_port_reports_error ... ok
+test bp4_public_api_sweep_is_finite ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/bp_production.rs (target/debug/deps/bp_production-af0e0073b94c93c3)
+
+running 3 tests
+test bp4_a_meets_production_tolerances ... ok
+test bp6s_a_meets_production_tolerances ... ok
+test bp6p_a_meets_production_tolerances ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/driver_bank.rs (target/debug/deps/driver_bank-21f04eb1769aa45c)
+
+running 3 tests
+test bank_volume_scale_matches_mechanical_configuration ... ok
+test push_pull_does_not_change_the_linear_equivalent ... ok
+test four_driver_bank_builds_a_finite_sealed_system ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/driver_import.rs (target/debug/deps/driver_import-c4e5886c0a77f280)
+
+running 3 tests
+test public_wdr_api ... ok
+test public_owdr_api ... ok
+test public_auto_detect ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/engine.rs (target/debug/deps/engine-327c7d86ab79f362)
+
+running 6 tests
+test rear_tuning_matches_helmholtz ... ok
+test direct_radiator_electrical_impedance_has_resonance ... ok
+test custom_flare_profile ... ok
+test vented_box_with_port_and_passive_radiator ... ok
+test vented_box_impedance_minimum_near_tuning ... ok
+test horn_sweep_is_finite_and_ordered ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/od_production.rs (target/debug/deps/od_production-1728957e7c013ee6)
+
+running 3 tests
+test od2_c_meets_production_tolerances ... ok
+test od1_b_meets_production_tolerances ... ok
+test od_a_meets_production_tolerances ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
+
+     Running tests/production_accuracy.rs (target/debug/deps/production_accuracy-5583c17ae4361113)
+
+running 4 tests
+test default_record_meets_production_tolerances ... ok
+test calibration_reduces_error_versus_uncalibrated ... ok
+test third_design_meets_production_tolerances ... ok
+test second_design_meets_production_tolerances ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.59s
+
+     Running tests/system_production.rs (target/debug/deps/system_production-a98db790a785e631)
+
+running 3 tests
+test passive_radiator_box_meets_production_tolerances ... ok
+test vented_box_meets_production_tolerances ... ok
+test sealed_box_meets_production_tolerances ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/tapped.rs (target/debug/deps/tapped-a0367ca74e2772b2)
+
+running 2 tests
+test th2_taps_are_s2_and_s4 ... ok
+test th2_volume_matches_reference_schematic ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/th_production.rs (target/debug/deps/th_production-adcec15ac109245b)
+
+running 3 tests
+test th2_meets_production_tolerances ... ok
+test th1_s2s3_meets_production_tolerances ... ok
+test th1_meets_production_tolerances ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.96s
+
+   Doc-tests speakerbox_acoustics
+
+running 6 tests
+test src/design.rs - design (line 7) - compile ... ok
+test src/lib.rs - (line 20) ... ok
+test src/driver_import.rs - driver_import (line 13) ... ok
+test src/lib.rs - (line 70) ... ok
+test src/driver_bank.rs - driver_bank (line 8) ... ok
+test src/lib.rs - (line 34) ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+

@@ -68,6 +68,10 @@ pub enum DvcWiring {
 /// Error de configuración de un banco.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BankError {
+    /// Driver base o equivalente no físico.
+    InvalidDriver,
+    /// El número no cabe en el campo público nd.
+    CountOutOfRange,
     /// El banco no puede tener cero drivers.
     ZeroDrivers,
     /// `SeriesParallel` necesita un número par de unidades.
@@ -87,6 +91,8 @@ pub enum BankError {
 impl std::fmt::Display for BankError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = match self {
+            Self::InvalidDriver => "driver base o equivalente inválido",
+            Self::CountOutOfRange => "count excede u32::MAX",
             Self::ZeroDrivers => "un banco necesita al menos un driver",
             Self::OddCountForSeriesParallel => "series-parallel necesita un número par de unidades",
             Self::IsobaricRequiresEven => "isobaric necesita un número par de drivers",
@@ -173,6 +179,10 @@ impl DriverBank {
             return Err(BankError::PushPullRequiresEven);
         }
 
+        self.driver
+            .validate()
+            .map_err(|_| BankError::InvalidDriver)?;
+        let count = u32::try_from(self.count).map_err(|_| BankError::CountOutOfRange)?;
         let base = self.apply_dvc()?;
         let (unit, units) = self.apply_mechanical(base)?;
 
@@ -204,7 +214,8 @@ impl DriverBank {
         eq.mmd *= units_f;
         eq.cms /= units_f;
         eq.rms *= units_f;
-        eq.nd = self.count as u32;
+        eq.nd = count;
+        eq.validate().map_err(|_| BankError::InvalidDriver)?;
         Ok(eq)
     }
 

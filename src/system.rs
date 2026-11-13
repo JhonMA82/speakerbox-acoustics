@@ -39,7 +39,7 @@ pub struct ResponsePoint {
     pub freq: f64,
     /// Nivel de presión sonora de la respuesta de potencia a 1 m (dB SPL).
     pub spl_db: f64,
-    /// Fase de la presión radiada (grados).
+    /// Fase reducida de la presión total (grados): presión física añade +90°.
     pub phase_deg: f64,
     /// Retardo de grupo (ms).
     pub group_delay_ms: f64,
@@ -175,7 +175,7 @@ impl ResponsePoint {
 /// Presión compleja de un radiador de área `area` para una velocidad
 /// volumétrica `u`. La magnitud usa la resistencia de radiación del pistón;
 /// la fase es la de `u` (el factor común `jωρ` no afecta a la suma).
-fn radiator_pressure(
+pub(crate) fn radiator_pressure(
     air: &Air,
     area: f64,
     u: Complex64,
@@ -230,9 +230,12 @@ impl System {
     /// Impedancias de carga del diafragma `(Z_frente, Z_trasera)`.
     pub fn loads(&self, freq_hz: f64) -> (Complex64, Complex64) {
         let front = if let Some(horn) = &self.horn {
-            let zh0 = horn.input_impedance(&self.air, freq_hz, self.solid_angle);
+            // La resistencia pertenece a la rama de bocina; cámara y fuga
+            // derivan desde el nodo del diafragma, antes de esa resistencia.
+            let zh0 = horn.input_impedance(&self.air, freq_hz, self.solid_angle)
+                + Complex64::new(self.horn_series.unwrap_or(0.0), 0.0);
             let zh = match self.horn_leak {
-                Some(r) if r > 0.0 => crate::element::parallel(zh0, Complex64::new(r, 0.0)),
+                Some(r) => crate::element::parallel(zh0, Complex64::new(r, 0.0)),
                 _ => zh0,
             };
             match self.throat_chamber {
@@ -497,30 +500,13 @@ impl System {
             .filter(|f| f.is_finite() && *f > 0.0)
             .map(|f| self.response_at(f))
             .collect();
-        if pts.is_empty() {
-            return pts;
-        }
-
-        // Fase desenrollada.
-        for i in 1..pts.len() {
-            while pts[i].phase_deg - pts[i - 1].phase_deg > 180.0 {
-                pts[i].phase_deg -= 360.0;
-            }
-            while pts[i].phase_deg - pts[i - 1].phase_deg < -180.0 {
-                pts[i].phase_deg += 360.0;
-            }
-        }
-
-        // Retardo de grupo = -d(phi)/d(omega).
-        for i in 1..pts.len() {
-            let df = pts[i].freq - pts[i - 1].freq;
-            if df.abs() > 1.0e-9 {
-                let dphi = (pts[i].phase_deg - pts[i - 1].phase_deg).to_radians();
-                pts[i].group_delay_ms = -(dphi / (std::f64::consts::TAU * df)) * 1000.0;
-            }
-        }
-        if pts.len() > 1 {
-            pts[0].group_delay_ms = pts[1].group_delay_ms;
+        let freqs: Vec<f64> = pts.iter().map(|p| p.freq).collect();
+        let mut phases: Vec<f64> = pts.iter().map(|p| p.phase_deg).collect();
+        let spl: Vec<f64> = pts.iter().map(|p| p.spl_db).collect();
+        let delays = crate::phase::finalize(&freqs, &mut phases, &spl);
+        for (i, p) in pts.iter_mut().enumerate() {
+            p.phase_deg = phases[i];
+            p.group_delay_ms = delays[i];
         }
 
         pts

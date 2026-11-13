@@ -401,12 +401,18 @@ impl Bandpass {
     /// `extra_length` añade corrección de extremo en la salida; se usa en el
     /// puerto trasero del BP6 serie, cuyo extremo desemboca en la cámara
     /// delantera y no radica al exterior. Para `PortModel::Lumped` la
-    /// corrección ya está incluida en la masa del puerto.
+    /// longitud acústica es la misma que en Pipe: tramo interior + extra.
+    /// Con exp(jωt), U positiva de entrada a salida, p2=p1-ZU:
+    /// A=D=1, B=-jωρL/S, C=0.
     fn port_matrix(&self, port: Port, f: f64, extra_length: f64) -> TransferMatrix {
         match self.port_model {
             PortModel::Lumped => TransferMatrix {
                 a: Complex64::new(1.0, 0.0),
-                b: port.impedance(&self.air, f),
+                // p_out = p_in - Z·U; U positiva de entrada a salida.
+                b: Complex64::new(
+                    0.0,
+                    -omega(f) * self.air.rho * (Self::pipe_length(port) + extra_length) / port.area,
+                ),
                 c: Complex64::new(0.0, 0.0),
                 d: Complex64::new(1.0, 0.0),
             },
@@ -514,7 +520,9 @@ impl Bandpass {
             _ => None,
         };
         let z_load = series.map_or(z_rear + z_front, |s| s.0);
-        let u_d = self.driver.volume_velocity(f, self.eg, self.rg, z_load);
+        let u_d = self
+            .driver
+            .volume_velocity(f, self.eg * self.polarity, self.rg, z_load);
         if !u_d.re.is_finite() || !u_d.im.is_finite() {
             return None;
         }
@@ -560,8 +568,7 @@ impl Bandpass {
             return None;
         }
         let v = u_d / self.driver.sd;
-        let current =
-            (Complex64::new(self.eg, 0.0) - Complex64::new(self.driver.bl, 0.0) * v) / ze_coil;
+        let current = Complex64::new(self.eg, 0.0) / ze;
         let p_in = self.eg * current.re;
         let disp_mm = (v.norm() / w) * 1000.0 * std::f64::consts::SQRT_2;
 

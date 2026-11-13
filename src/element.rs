@@ -318,13 +318,48 @@ impl PassiveRadiator {
     }
 }
 
-/// Combinación en paralelo de dos impedancias.
+/// Combinación en paralelo, sin umbral dimensional ni producto Z1·Z2.
+///
+/// Un polo ideal se representa por `(∞, 0)` (circuito abierto). NaN se
+/// propaga; cero en cualquier rama finita es un cortocircuito real. Para
+/// distinguir una antirresonancia singular use [`try_parallel`].
 pub fn parallel(z1: Complex64, z2: Complex64) -> Complex64 {
-    let den = z1 + z2;
-    if den.norm() < 1.0e-30 {
-        Complex64::new(0.0, 0.0)
+    if z1.re.is_nan() || z1.im.is_nan() || z2.re.is_nan() || z2.im.is_nan() {
+        return Complex64::new(f64::NAN, f64::NAN);
+    }
+    let open = |z: Complex64| z.re.is_infinite() || z.im.is_infinite();
+    if open(z1) {
+        return z2;
+    }
+    if open(z2) {
+        return z1;
+    }
+    let size = |z: Complex64| z.re.abs().max(z.im.abs());
+    let (small, large) = if size(z1) <= size(z2) {
+        (z1, z2)
     } else {
-        z1 * z2 / den
+        (z2, z1)
+    };
+    if size(small) == 0.0 {
+        return small;
+    }
+    let scale = size(large);
+    let ratio = (small / scale) / (large / scale);
+    let den = Complex64::new(1.0, 0.0) + ratio;
+    let den_scale = size(den);
+    if den_scale == 0.0 {
+        return Complex64::new(f64::INFINITY, 0.0);
+    }
+    (small / den_scale) / (den / den_scale)
+}
+
+/// Paralelo con error explícito si el resultado no admite impedancia finita.
+pub fn try_parallel(z1: Complex64, z2: Complex64) -> Result<Complex64, crate::error::SolveError> {
+    let z = parallel(z1, z2);
+    if z.re.is_finite() && z.im.is_finite() {
+        Ok(z)
+    } else {
+        Err(crate::error::SolveError::SingularSystem)
     }
 }
 

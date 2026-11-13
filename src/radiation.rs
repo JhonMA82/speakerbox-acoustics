@@ -11,21 +11,22 @@
 //! donde `J1` es la función de Bessel de primera especie y `H1` la función de
 //! Struve. La impedancia acústica es `Za = Zm/S² = (rho·c/S)·(R1 + jX1)`.
 //!
-//! Para un ángulo de radiación sólido `Ω` se aplica el escalado geométrico
-//! `Za(Ω) = (2π/Ω)·Za(2π)`, que reproduce los casos 4π (espacio libre), 2π
-//! (pantalla infinita), π (cuarto de espacio) y π/2 (octavo de espacio) que
-//! ofrece el software de referencia (*Radiation Angle*).
+//! La carga implementada es SIEMPRE la del pistón en pantalla infinita (2π).
+//! `solid_angle` se conserva por compatibilidad, pero NO modifica esta carga.
+//! No es la solución de un pistón sin pantalla en 4π ni de imágenes en esquinas.
+//! Los solvers usan Ω para estimar presión/potencia; ese escalado de presentación
+//! no introduce automáticamente carga mecánica ni impedancias mutuas.
 
 use crate::air::Air;
 use num_complex::Complex64;
 
 /// Función de Struve de orden 1.
 ///
-/// Serie de potencias para `x < 8` y desarrollo asintótico para `x >= 8`
+/// Serie de potencias para `|x| < 25` y desarrollo asintótico para `|x| >= 25`
 /// (DLMF 11.6.1). Precisión típica mejor que 1e-7 en el rango audible.
 pub fn struve_h1(x: f64) -> f64 {
     let ax = x.abs();
-    if ax < 1.0e-12 {
+    if ax == 0.0 {
         return 0.0;
     }
     if ax < 25.0 {
@@ -47,7 +48,7 @@ pub fn struve_h1(x: f64) -> f64 {
         // H1(x) ~ Y1(x) + (2/π) * sum_k c_k,
         // c_0 = 1,  c_{k+1}/c_k = (1 - 4k²)/x²
         // La serie asintótica es divergente: se trunca en el término mínimo.
-        let y1 = libm::y1(x);
+        let y1 = libm::y1(ax);
         let mut c = 1.0_f64;
         let mut sum = 1.0_f64;
         let mut prev = 1.0_f64;
@@ -81,15 +82,17 @@ pub fn piston_radiation_impedance(
     let k = air.wave_number(freq_hz);
     let x = 2.0 * k * a;
 
-    let r1 = if x < 1.0e-9 {
-        // R1 ~ x²/8
-        0.125 * x * x
+    let r1 = if x < 1.0e-3 {
+        // Serie: evita cancelación catastrófica en 1-2J1(x)/x.
+        let x2 = x * x;
+        x2 * (0.125 + x2 * (-1.0 / 192.0 + x2 / 9216.0))
     } else {
         1.0 - 2.0 * libm::j1(x) / x
     };
-    let x1 = if x < 1.0e-9 {
-        // X1 ~ 8x/(3π)
-        8.0 * x / (3.0 * std::f64::consts::PI)
+    let x1 = if x < 1.0e-3 {
+        // x=2ka, por lo que X1~4x/(3π), no 8x/(3π).
+        let x2 = x * x;
+        4.0 * x / (3.0 * std::f64::consts::PI) * (1.0 + x2 * (-1.0 / 15.0 + x2 / 525.0))
     } else {
         2.0 * struve_h1(x) / x
     };

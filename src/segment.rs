@@ -84,7 +84,7 @@ pub enum Flare {
     HyperbolicExponential { t: f64 },
     /// Perfil arbitrario `S(x)` en m². Útil para tractrix, Bessel, OS, etc.
     ///
-    /// La función debe devolver un área finita y no negativa para todo
+    /// La función debe devolver un área finita y estrictamente positiva para todo
     /// `x` en `[0, L]`. El motor no puede validar una closure arbitraria; una
     /// función no física produce resultados inválidos que `try_response_at`
     /// rechaza.
@@ -157,7 +157,9 @@ impl Segment {
     /// - `length` finita y no negativa (un tramo de longitud cero es la
     ///   identidad).
     /// - `s1` y `s2` finitas y estrictamente positivas.
-    /// - En `HyperbolicExponential`, `t` finito y `|t| < 1`.
+    /// - En `HyperbolicExponential`, `t` finito, `|t| < 1`, expansión
+    ///   para t>=0; para t<0 contracción hasta S1(1-t²), primera raíz.
+    /// - Cilindro y tramo nulo requieren S1=S2; extremos relativos a 1e-10.
     /// - `loss` finito y no negativo.
     pub fn validate(&self) -> Result<(), crate::error::SolveError> {
         use crate::error::{require_finite, require_non_negative, require_positive};
@@ -169,6 +171,30 @@ impl Segment {
             if t.abs() >= 1.0 {
                 return Err(crate::error::SolveError::InvalidParameter("segment.t"));
             }
+        }
+        if (matches!(self.flare, Flare::Cylindrical) || self.length == 0.0) && self.s1 != self.s2 {
+            return Err(crate::error::SolveError::InvalidParameter(
+                "segment.endpoints",
+            ));
+        }
+        if matches!(self.flare, Flare::HyperbolicExponential { .. }) && !(self.xt > 0.0) {
+            return Err(crate::error::SolveError::InvalidParameter(
+                "segment.hypex_domain",
+            ));
+        }
+        // Los extremos deben coincidir; una closure se muestrea además en
+        // cada paso RK4 (no hay demostración global para funciones arbitrarias).
+        for (x, expected) in [(0.0, self.s1), (self.length, self.s2)] {
+            let got = self.area(x);
+            require_positive(got, "segment.area")?;
+            if ((got - expected) / expected).abs() > 1.0e-10 {
+                return Err(crate::error::SolveError::InvalidParameter(
+                    "segment.endpoints",
+                ));
+            }
+        }
+        for i in 1..64 {
+            require_positive(self.area(self.length * (i as f64 / 64.0)), "segment.area")?;
         }
         require_non_negative(self.loss, "segment.loss")?;
         Ok(())
@@ -219,23 +245,21 @@ impl Segment {
                 let r = r1 + (r2 - r1) * xr;
                 r * r
             }
-            Flare::Exponential => {
-                let m = (self.s2 / self.s1).ln() / l;
-                self.s1 * (m * x).exp()
-            }
+            Flare::Exponential => (self.s1.ln() * (1.0 - xr) + self.s2.ln() * xr).exp(),
             Flare::Parabolic => self.s1 + (self.s2 - self.s1) * xr,
             Flare::HyperbolicExponential { t } => {
-                if self.xt <= 0.0 {
+                if self.xt == f64::INFINITY {
                     self.s1
                 } else {
-                    let u = x / self.xt;
-                    let q = u.cosh() + t * u.sinh();
-                    self.s1 * q * q
+                    let shift = t.atanh();
+                    let log_cosh =
+                        |v: f64| v.abs() + (-2.0 * v.abs()).exp().ln_1p() - std::f64::consts::LN_2;
+                    (self.s1.ln() + 2.0 * (log_cosh(x / self.xt + shift) - log_cosh(shift))).exp()
                 }
             }
             // El perfil `Custom` es responsabilidad del consumidor: se
             // documenta que debe devolver un área finita y no negativa.
-            Flare::Custom(f) => f(x).max(0.0),
+            Flare::Custom(f) => f(x),
         }
     }
 
@@ -278,31 +302,39 @@ impl Segment {
             return 0.0;
         };
         let t = *t;
-        if self.length <= 0.0 || self.s1 <= 0.0 || self.s2 <= 0.0 {
-            return 0.0;
+        if !t.is_finite() || t.abs() >= 1.0 || self.length < 0.0 || self.s1 <= 0.0 || self.s2 <= 0.0
+        {
+            return f64::NAN;
         }
-        let ratio = (self.s2 / self.s1).sqrt();
-        let t = t.clamp(-0.999_999, 0.999_999);
-        let f = |u: f64| u.cosh() + t * u.sinh() - ratio;
-        // f(u) es monótona creciente para u>0 y |t|<1.
-        let mut hi = 1.0;
-        while f(hi) < 0.0 && hi < 1.0e6 {
-            hi *= 2.0;
+        if self.s1 == self.s2 {
+            return f64::INFINITY;
         }
-        let mut lo = 0.0;
-        for _ in 0..200 {
-            let mid = 0.5 * (lo + hi);
-            if f(mid) < 0.0 {
-                lo = mid;
-            } else {
-                hi = mid;
-            }
+        if self.length == 0.0 {
+            return f64::NAN;
         }
-        let u = 0.5 * (lo + hi);
-        if u > 1.0e-12 {
+        // cosh(u)+t sinh(u)=sqrt(1-t²) cosh(u+atanh(t)).
+        // t>=0 solo expande. t<0 admite contracción hasta S1(1-t²).
+        // Para contracción se elige la primera raíz, sin cintura oculta.
+        let log_ratio = 0.5 * (self.s2.ln() - self.s1.ln());
+        let log_min = 0.5 * (-t * t).ln_1p();
+        if log_ratio < 0.0 && (t >= 0.0 || log_ratio < log_min) {
+            return f64::NAN;
+        }
+        let log_arg = log_ratio - log_min;
+        let acosh = if log_arg > 350.0 {
+            log_arg + std::f64::consts::LN_2
+        } else {
+            log_arg.exp().acosh()
+        };
+        let u = if log_ratio < 0.0 {
+            -t.atanh() - acosh
+        } else {
+            -t.atanh() + acosh
+        };
+        if u > 0.0 {
             self.length / u
         } else {
-            0.0
+            f64::NAN
         }
     }
 
@@ -317,7 +349,12 @@ impl Segment {
         rho: f64,
         c: f64,
     ) -> (Complex64, Complex64) {
-        let s = self.area(x);
+        let area = self.area(x);
+        let s = if area.is_finite() && area > 0.0 {
+            area
+        } else {
+            f64::NAN
+        };
         // Convenio físico: U positiva hacia el interior del segmento. Con
         // este signo, un tubo abierto presenta reactancia másica (+) a baja
         // frecuencia, como en la aplicación original.

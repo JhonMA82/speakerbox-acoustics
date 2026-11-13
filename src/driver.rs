@@ -139,7 +139,7 @@ impl Driver {
     pub fn qts(&self, air: &Air) -> f64 {
         let qms = self.qms(air);
         let qes = self.qes(air);
-        qms * qes / (qms + qes)
+        1.0 / (1.0 / qms + 1.0 / qes)
     }
 
     /// Volumen equivalente de suspensión `Vas = rho·c²·Sd²·Cms` (m³).
