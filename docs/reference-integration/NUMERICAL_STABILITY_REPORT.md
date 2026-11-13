@@ -28,3 +28,9 @@ System/TH/OD/TL; subdividir un tramo no permite eludir el diagnóstico. Se añad
 una regresión de 80 tramos individualmente admisibles cuya cascada es inválida.
 La API `Segment::matrix` ya no representa f≤0 como una identidad física; use
 `try_matrix` para diagnóstico. Se verifica finitud de las matrices analíticas.
+
+Coste: se eliminó el cálculo del criterio RK4/número de onda complejo en la
+ruta analítica SIN pérdidas: ese criterio no resuelve nada en una matriz exacta.
+Las comprobaciones públicas de entrada se conservan. Para pérdidas, el dominio
+implementado comparte |γ|L/0.03≤30000 con la cuadratura disipativa, además de
+la cota de atenuación; es un límite numérico conservador explícito, no físico.

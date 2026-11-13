@@ -500,7 +500,6 @@ impl Segment {
         crate::error::check_frequency(f)?;
         air.validate()?;
         self.validate()?;
-        let steps = self.integration_steps(air, f)?;
         if self.s1 == self.s2 && !matches!(self.flare, Flare::Custom(_)) {
             if !self.has_distributed_losses() {
                 let kl = air.wave_number(f) * self.length;
@@ -513,6 +512,7 @@ impl Segment {
                 }
                 .checked();
             }
+            self.integration_steps(air, f)?;
             let g = self.propagation_constant(air, f);
             let z = g * self.length;
             let sinhc = if z.norm() < 1e-5 {
@@ -533,6 +533,7 @@ impl Segment {
             }
             .checked();
         }
+        let steps = self.integration_steps(air, f)?;
         if !self.has_distributed_losses() {
             return Ok(self.rk4_matrix(air, f, steps));
         }
