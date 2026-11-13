@@ -296,3 +296,18 @@ exports propios de Hornresp 60.70; no se copió código de Hornresp ni de otros
 repositorios. Los únicos datos externos son los exports propios usados como
 oráculo de validación. El formato del registro de 734 bytes está documentado en
 [`docs/RECORD_FORMAT.md`](docs/RECORD_FORMAT.md).
+
+## Auditoría física y numérica correctiva
+
+La auditoría local de consistencia corrige carga serie, salidas traseras,
+polaridad, geometría, polos del paralelo, matriz BP6 concentrada y fase/retardo.
+Añade soluciones complejas OD/BP y preparación inmutable de barridos.
+Informes reproducibles: [`docs/audits/ACOUSTIC_AUDIT.md`](docs/audits/ACOUSTIC_AUDIT.md).
+
+**Alcance de las garantías:** los oráculos históricos certifican SPL, módulo
+Ze y excursión en sus geometrías y bandas. La fase eléctrica tiene ahora
+un diagnóstico separado (`validation::validate_impedance_phase`), sin una
+tolerancia inventada. Potencia, rendimiento, fase acústica y retardo muestran
+limitaciones cuantificadas: no se declara validación general de esas salidas.
+Los campos de potencia legados son estimaciones de campo, no balances físicos
+universales. Consulte [`REMAINING_LIMITATIONS.md`](docs/audits/REMAINING_LIMITATIONS.md).

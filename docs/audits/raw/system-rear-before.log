@@ -1,0 +1,22 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s
+     Running tests/acoustic_consistency.rs (target/debug/deps/acoustic_consistency-2cc6e7d72de6e3bf)
+
+running 1 test
+test system_horn_includes_external_rear_port ... FAILED
+
+failures:
+
+---- system_horn_includes_external_rear_port stdout ----
+
+thread 'system_horn_includes_external_rear_port' panicked at tests/acoustic_consistency.rs:358:43:
+assertion failed: (actual.spl_db - 20. * (total.norm() / s.air.p_ref).log10()).abs() < 1e-9
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    system_horn_includes_external_rear_port
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test acoustic_consistency`

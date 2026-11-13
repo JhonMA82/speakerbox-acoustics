@@ -84,7 +84,8 @@ DesignPoint (SPL, Ze, Xd, fase, retardo, potencia, puerto)
 - **SI** en el API público. Los `from_ui_units` aceptan cm², cm, L, g, mH, mm.
 - `spl_db` es presión de potencia a 1 m, dB re 20 µPa.
 - `xd_mm` es desplazamiento de **pico** (`√2`·RMS) en todas las topologías.
-- `phase_deg` es fase de velocidad volumétrica; la presión lejana añade +90°.
+- `phase_deg` es fase de presión reducida por j (en OD, suma total);
+  la presión física añade +90°.
 - `eg` puede ser negativo (invierte la polaridad); `rg` debe ser finito y no
   negativo.
 - `solid_angle` en estereorradianes (`4π`, `2π`, `π`, `π/2`).
@@ -170,3 +171,10 @@ Sin oráculo propio, la topología queda como **experimental** y no entra en v1.
   repositorio.
 - Cambios mínimos y reversibles; no reescriba módulos que ya están validados.
 - Los ejemplos deben compilar con `cargo check --all-targets`.
+
+## Auditoría física correctiva
+
+Consultar `docs/audits/ACOUSTIC_AUDIT.md` y sus cuatro informes asociados.
+SPL/Ze/Xd siguen pasando sus oráculos; potencia/rendimiento legados son
+estimaciones con limitaciones medidas, no un balance energético general.
+No cambiar calibración ni ampliar las garantías sin resolver ese modelo.

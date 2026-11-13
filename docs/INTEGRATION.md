@@ -468,3 +468,48 @@ worker o hilo de cálculo y devolver los `DesignPoint` a la UI.
 - `ROADMAP.md`: alcance v1 y topologías diferidas.
 - `tests/data/README.md`: oráculos y parámetros de los diseños validados.
 - `examples/quickstart.rs`: recorrido ejecutable por todas las topologías.
+
+## Integración después de la auditoría física
+
+`DesignPoint` se conserva como resumen compatible: el puerto BP es el máximo
+de velocidades y los ceros de Za en BP son marcadores legados. Para conservar
+la identidad de los puertos use `Design::try_topology_response_at` y
+`design::TopologyPoint`; para la impedancia opcional use
+`try_reference_impedance_at` (BP devuelve `None`).
+
+`Bandpass::try_solution_at` y `OffsetHorn::try_solution_at` conservan los
+fasores RMS, caudales por salida, presión reducida y corriente eléctrica.
+`reduced_pressure_pa` no incluye `spl_offset_db`; la presión física se obtiene
+multiplicando por j. La fase usa la referencia eléctrica sin el trayecto
+común al observador. En BP6 serie, el puerto trasero es **interior**.
+Las salidas externas solo se suman bajo la aproximación compacta descrita en
+ALGORITHMS.md; no hay posiciones ni direcciones de radiación configurables.
+
+Los campos `acoustic_network_power_w` y `electrical_input_power_w` de estas
+soluciones sirven para comprobar el balance de la **red**. Los campos legados
+`power_w`/`efficiency_pct` conservan estimaciones de campo calibradas que no
+representan un balance energético general. No dimensionar potencia térmica
+ni certificar rendimiento a partir de esos campos; consultar las métricas
+y limitaciones de la auditoría.
+
+Para interacción paramétrica use `let prepared=design.prepare()?` y consulte
+`prepared.try_response_at(f)`: la configuración se valida una sola vez y el
+préstamo inmutable impide cambiar cualquier parámetro mientras se usa. Descarte
+el préstamo, modifique el diseño y prepare de nuevo. No hay caché global.
+`try_sweep_log` utiliza esta ruta. Cada solución sigue verificándose.
+
+`phase::phase_trace` exige frecuencias estrictamente crecientes y devuelve
+`Option` para fase/retardo; `None` marca una cancelación o derivada no
+calculable. Los barridos legados conservan el orden del usuario y comparten
+la derivada entre frecuencias duplicadas; una cancelación da NaN, y
+`try_sweep_log` devuelve error si el resultado final no es interpretable.
+Una muestra aislada conserva el retardo legado 0 (no calculado). Se necesita
+muestreo suficiente para evitar saltos de más de 180° entre muestras.
+
+Cambios deliberados de comportamiento: se rechazan cilindros con extremos
+diferentes, Hypex fuera de su dominio y perfiles Custom no físicos; fuga
+`Some(0)` significa cortocircuito (para desactivarla use `None`). La fase de
+OD corresponde ahora a la salida total. Los helpers diagnósticos TH devuelven
+NaN ante singularidad/entrada estructural inválida en lugar de impedancia
+cero. `BankError` añade `InvalidDriver` y `CountOutOfRange`: actualizar matches
+exhaustivos. No cambian las estructuras públicas de punto existentes.

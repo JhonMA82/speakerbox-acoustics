@@ -1,26 +1,28 @@
    Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.83s
      Running tests/acoustic_consistency.rs (target/debug/deps/acoustic_consistency-2cc6e7d72de6e3bf)
 
-running 18 tests
-test ac001_shunts_share_the_series_horn_branch ... ok
-test ac005_parallel_poles_and_extreme_scales ... ok
+running 21 tests
 test ac004_negative_t_has_a_real_contraction_branch ... ok
+test ac001_shunts_share_the_series_horn_branch ... ok
 test ac004_rejects_unreproducible_geometry ... ok
+test ac001_series_load_and_energy_balance ... ok
+test ac003_bandpass_polarity_preserves_electrical_solution ... ok
+test ac005_parallel_poles_and_extreme_scales ... ok
+test ac006_bp6_series_low_frequency_lumped_limit ... ok
 test ac008_radiation_small_argument_has_no_cancellation ... ok
 test custom_profile_does_not_hide_invalid_area ... ok
 test hypex_contraction_with_positive_t_is_rejected_independently ... ok
-test invalid_bank_driver_is_rejected_at_conversion ... ok
+test group_delay_is_centered_on_nonuniform_frequency_grid ... ok
 test lossless_suspension_qts_is_qes ... ok
+test invalid_bank_driver_is_rejected_at_conversion ... ok
 test struve_h1_is_even_on_real_axis ... ok
+test transfer_matrix_accepts_open_termination_limit ... ok
 test zero_resistance_leak_is_a_physical_short ... ok
-test ac006_bp6_series_low_frequency_lumped_limit ... ok
-test tapped_polarity_preserves_efficiency ... ok
 test tapped_zero_drive_keeps_passive_electrical_impedance ... ok
+test tapped_polarity_preserves_efficiency ... ok
 test ac007_offset_phase_tracks_combined_output ... ok
 test ac002_offset_radiates_rear_port_and_passive_radiator ... ok
-test ac001_series_load_and_energy_balance ... ok
-test ac003_bandpass_polarity_preserves_electrical_solution ... ok
+test tapped_neck_stub_includes_every_segment_before_tap ... ok
 
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
-
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s

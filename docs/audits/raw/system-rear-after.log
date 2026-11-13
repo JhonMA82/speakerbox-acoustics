@@ -1,0 +1,8 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.59s
+     Running tests/acoustic_consistency.rs (target/debug/deps/acoustic_consistency-2cc6e7d72de6e3bf)
+
+running 1 test
+test system_horn_includes_external_rear_port ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s

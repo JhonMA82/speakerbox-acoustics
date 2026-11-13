@@ -7,4 +7,3 @@ test ac001_shunts_share_the_series_horn_branch ... ok
 test ac001_series_load_and_energy_balance ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.01s
-

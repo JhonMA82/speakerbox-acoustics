@@ -302,3 +302,18 @@ El alcance v1, las topologías diferidas y el orden sugerido están en
   fórmulas públicas de acústica y datos propios de validación.
 
 Licencia: MIT OR Apache-2.0.
+
+## Ampliación correctiva de la validación
+
+La comparación reproducible antes/después y sus datos están en
+[`audits/VALIDATION_REPORT.md`](audits/VALIDATION_REPORT.md). Se cuantifican
+fase eléctrica, fase acústica (con conversión +90°), retardo, potencia y
+rendimiento donde existen columnas reales de referencia. BP solo tiene
+oráculos separados de SPL/Ze/Xd; no se fabricaron las columnas faltantes.
+`validation::validate_impedance_phase` añade diagnóstico de fase eléctrica,
+separado de `validate` y sin tolerancia automática.
+
+Las métricas históricas TH/BP de Xd dividían la suma por TODOS los puntos,
+incluidos los excluidos por Xd<=0.02 mm. El informe nuevo divide por los
+puntos realmente comparados. Es una diferencia del denominador de reporte,
+no una regresión del solver ni un cambio en los archivos de referencia.

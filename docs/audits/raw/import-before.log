@@ -1,0 +1,22 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.88s
+     Running tests/acoustic_consistency.rs (target/debug/deps/acoustic_consistency-2cc6e7d72de6e3bf)
+
+running 1 test
+test malformed_owdr_inductance_is_not_replaced_by_zero ... FAILED
+
+failures:
+
+---- malformed_owdr_inductance_is_not_replaced_by_zero stdout ----
+
+thread 'malformed_owdr_inductance_is_not_replaced_by_zero' panicked at tests/acoustic_consistency.rs:350:2:
+assertion failed: speakerbox_acoustics::import_driver(text).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    malformed_owdr_inductance_is_not_replaced_by_zero
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test acoustic_consistency`

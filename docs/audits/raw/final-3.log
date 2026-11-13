@@ -1,0 +1,5 @@
+$ cargo clippy --workspace --all-targets -- -D warnings
+    Checking speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.97s
+
+EXIT=0; seconds=1.000

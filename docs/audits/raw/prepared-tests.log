@@ -1,0 +1,15 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.19s
+     Running tests/prepared_engine.rs (target/debug/deps/prepared_engine-75b6d221e18d0e46)
+
+running 8 tests
+test impedance_phase_diagnostic_uses_circular_error ... ok
+test group_delay_restores_input_order_and_handles_duplicates ... ok
+test parametric_change_requires_a_fresh_borrow_and_recalculates ... ok
+test passive_impedance_parallel_resonance_is_never_a_short ... ok
+test radiation_angle_does_not_change_baffled_piston_load ... ok
+test prepared_sweep_and_native_ports_preserve_fields ... ok
+test sealed_offset_and_complex_output_polarity_are_consistent ... ok
+test exact_constant_tube_matches_independent_rk4 ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s

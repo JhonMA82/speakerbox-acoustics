@@ -1,0 +1,17 @@
+$ cargo run --release --example perf_sweep
+    Finished `release` profile [optimized] target(s) in 0.01s
+     Running `target/release/examples/perf_sweep`
+speakerbox-acoustics perf_sweep (release); 20 Hz–200 Hz, barrido logarítmico
+
+caso                         puntos   total (ms)     µs/punto
+System bocina 4 tramos          500       14.254        28.51
+System bocina 4 tramos         2000       57.108        28.55
+TappedHorn 4 tramos             500       33.756        67.51
+TappedHorn 4 tramos            2000      113.263        56.63
+Bandpass BP6 serie              500        0.267         0.53
+Bandpass BP6 serie             2000        1.128         0.56
+100 cambios × 50 puntos        5000      140.204        28.04
+
+Tiempo total de los cambios de parámetro: 140.204 ms
+
+EXIT=0

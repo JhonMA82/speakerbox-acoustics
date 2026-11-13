@@ -7,4 +7,3 @@ test ac004_negative_t_has_a_real_contraction_branch ... ok
 test ac004_rejects_unreproducible_geometry ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
-

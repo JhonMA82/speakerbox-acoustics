@@ -48,7 +48,8 @@ cargo test --test production_accuracy -- --nocapture
 
 - API público en **SI**; los `from_ui_units` aceptan cm², cm, L, g, mH, mm.
 - `xd_mm` es desplazamiento de **pico** (`√2`·RMS) en todas las topologías.
-- `phase_deg` es fase de velocidad volumétrica; la presión añade +90°.
+- `phase_deg` es fase de presión reducida por j (en OD, suma total); la
+  presión física añade +90°.
 - `solid_angle` en estereorradianes (`4π`, `2π`, `π`, `π/2`).
 - `response_at` devuelve un punto neutro; `try_response_at` devuelve
   `SolveError`.
@@ -77,3 +78,10 @@ docs/              integración, algoritmos y guía detallada de agentes
 Cada cambio debe dejar `cargo test --workspace` en verde y no debe degradar las
 métricas de producción. Si una topología no tiene oráculo propio, queda como
 experimental y no entra en v1.
+
+## Auditoría física correctiva
+
+Consultar `docs/audits/ACOUSTIC_AUDIT.md` y sus cuatro informes asociados.
+SPL/Ze/Xd siguen pasando sus oráculos; potencia/rendimiento legados son
+estimaciones con limitaciones medidas, no un balance energético general.
+No cambiar calibración ni ampliar las garantías sin resolver ese modelo.

@@ -62,3 +62,17 @@ pública pueda cambiar.
 
 - Versión inicial publicada: motor acústico, topologías v1, bancos de drivers,
   importadores y validación de producción.
+
+## Auditoría correctiva (rama fix/acoustic-physical-consistency)
+
+- Corrige carga Rserie, radiación trasera OD y System+bocina, polaridad BP,
+  fase total OD, Hypex/cilindros, paralelo y matriz BP6 concentrada.
+- Corrige Qts sin pérdidas, impedancia TH con Eg=0, eficiencia al invertir
+  polaridad, cuello TH con toma avanzada y OWDR malformado.
+- Cilindro exacto, matrices reutilizadas y barridos preparados por préstamo.
+- APIs aditivas: soluciones complejas OD/BP, TopologyPoint, PreparedDesign,
+  phase_trace y diagnóstico de fase eléctrica.
+- Mayor rigor en geometrías; nuevas variantes BankError. Puntos públicos,
+  dependencias, calibración y oráculos conservados.
+- Potencia/rendimiento legados siguen siendo estimaciones de campo; límites
+  y desviaciones medidos en docs/audits.

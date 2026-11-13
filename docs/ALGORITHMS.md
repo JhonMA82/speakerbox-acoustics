@@ -41,11 +41,11 @@ Para una guía de onda de área `S(x)` y número de onda `k = 2πf/c`:
 d/dx ( S(x)·dp/dx ) + k²·S(x)·p = 0
 ```
 
-Con `U = S/(jωρ)·dp/dx` se obtiene el sistema de estado:
+Con `U = −S/(jωρ)·dp/dx` se obtiene el sistema de estado:
 
 ```text
-dp/dx = j·ω·ρ·U / S(x)
-dU/dx = j·ω·S(x)·p / (ρ·c²)
+dp/dx = −j·ω·ρ·U / S(x)
+dU/dx = −j·ω·S(x)·p / (ρ·c²)
 ```
 
 ### 2.2 Matriz de transferencia
@@ -69,8 +69,8 @@ Para un tubo cilíndrico la solución exacta es
 
 ```text
 a = d = cos(kL)
-b = +j·Z0·sin(kL)
-c = +j·sin(kL)/Z0,      Z0 = ρc/S
+b = −j·Z0·sin(kL)
+c = −j·sin(kL)/Z0,      Z0 = ρc/S
 ```
 
 y las pruebas comparan RK4 contra ella.
@@ -86,7 +86,8 @@ y las pruebas comparan RK4 contra ella.
 | Hiperbólico-exponencial | `S1·(cosh(x/xT) + T·sinh(x/xT))²` | `fc = c/(2π·xT)` |
 | Personalizado | `S(x)` definida por el usuario | — |
 
-`xT` se resuelve por bisección para que `S(L) = S2`. `T = 0` es catenoidal;
+`xT` se resuelve analíticamente con el dominio y la elección de raíz
+descritos en la sección de auditoría, para que `S(L) = S2`. `T = 0` es catenoidal;
 `T = 1/√2` reproduce el perfil de Le Cléac'h. Tractrix, Bessel y guía OS se
 pueden pasar como `Flare::Custom`.
 
@@ -108,9 +109,9 @@ X1 = 2·H1(x)/x
 `H1` se calcula con serie de potencias para `x < 25` y desarrollo asintótico
 truncado en el término mínimo para `x ≥ 25` (DLMF 11.6.1).
 
-Para un ángulo sólido `Ω` se aplica `Za(Ω) = (2π/Ω)·Za(2π)`, de modo que
-`Ω = 4π` (espacio libre) da la mitad, `Ω = 2π` la pantalla infinita, `Ω = π`
-el doble y `Ω = π/2` el cuádruple.
+La carga implementada conserva `Za(2π)` para cualquier `Ω`. Los solvers
+aplican un escalado de campo/potencia por separado; no es un modelo exacto
+de espacio libre ni de imágenes en esquinas. Ver límites de la auditoría.
 
 ### 2.5 Altavoz
 
@@ -572,3 +573,40 @@ métricas para cualquier par de ficheros oráculo.
   exports propios. El **BP6 serie** y el **BP6 paralelo** están validados con
   exports propios. **Multiple entry**, los TH con cámara de garganta/trasera y
   los TH de más de 4 tramos no tienen un ensamblado específico validado.
+
+## Auditoría de consistencia física (2026-11-12)
+
+Esta sección prevalece sobre las convenciones históricas anteriores:
+
+- Fasores RMS con `exp(jωt)`, eje geométrico de entrada a salida y U positiva
+  hacia la boca: `dp/dx=-jωρU/S`, `dU/dx=-jωSp/(ρc²)` sin pérdidas.
+  En `[p2,U2]=M[p1,U1]`, el cilindro tiene B y C **negativos** imaginarios.
+  El puerto concentrado tiene A=D=1, B=-jωρL/S, C=0.
+- El cilindro sin pérdidas (incluido cualquier perfil analítico con S1=S2)
+  usa ahora la solución exacta. Custom y tramos con pérdidas conservan RK4.
+- Cámara de garganta y fuga derivan del nodo del diafragma; la rama de
+  bocina contiene `Rserie+Zhorn`. Su caudal es `p_nodo/(Rserie+Zhorn)`.
+- `phase_deg` conserva la referencia reducida: fase de presión dividida por
+  j. La presión física añade +90° comunes. Offset usa la **suma total**, no
+  solo U de boca. No se añade retardo de propagación al observador a 1 m.
+- Las sumas de presión de varias salidas son una aproximación compacta,
+  a igual distancia y sin fase espacial ni directividad angular. No se
+  extrapolan a cajas grandes ni a mapas polares. La potencia estimada por
+  estas sumas no es una integral espacial de intensidad.
+- La carga de radiación es la de un pistón en pantalla infinita para todos
+  los Ω admitidos. Ω cambia la estimación de campo, no esa carga. La
+  calibración no la convierte en solución exacta de 4π o de una esquina.
+- En Hypex, |T|<1: T>=0 solo permite expansión. Con T<0 la contracción
+  requiere S2>=S1(1-T²); se elige la primera raíz (sin cintura oculta).
+  S1=S2 se interpreta como perfil constante, xT infinito. Cilindro y tramo
+  nulo requieren S1=S2. Custom no se recorta: debe ser positivo y coincidir
+  con los extremos; se comprueba al validar y durante cada evaluación RK4.
+- Un polo ideal del paralelo se representa por `(∞,0)`; `try_parallel`
+  devuelve error cuando no existe resultado finito. No se convierte en cero.
+- El retardo se estima con una derivada cuadrática local sobre frecuencias
+  no uniformes; el desenrollado se corta ante cancelaciones exactas.
+
+Las métricas ampliadas revelan limitaciones de potencia/rendimiento que las
+pruebas históricas de SPL/Ze/Xd no detectan. Ver
+[`audits/VALIDATION_REPORT.md`](audits/VALIDATION_REPORT.md) y
+[`audits/REMAINING_LIMITATIONS.md`](audits/REMAINING_LIMITATIONS.md).
