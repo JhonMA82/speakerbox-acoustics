@@ -198,3 +198,6 @@ pub mod phase;
 
 /// Potencias activas de red y alcance de la interpretación radiativa.
 pub mod energy;
+
+/// Alineamiento sellado analítico y TL uniforme experimental.
+pub mod reference_design;

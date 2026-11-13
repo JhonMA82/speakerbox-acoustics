@@ -570,7 +570,7 @@ impl TappedHorn {
             zm,
         ));
         for (i, seg) in self.segments.iter().enumerate() {
-            if seg.loss == 0.0 {
+            if !seg.has_distributed_losses() {
                 continue;
             }
             let m = seg.matrix(&self.air, f);

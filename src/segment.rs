@@ -156,6 +156,7 @@ pub struct Segment {
     xt: f64,
     /// Pérdidas de pared (factor adimensional; 0 = sin pérdidas).
     pub loss: f64,
+    flow_resistivity: f64,
 }
 
 impl Segment {
@@ -172,9 +173,23 @@ impl Segment {
             s2,
             xt: 0.0,
             loss: 0.0,
+            flow_resistivity: 0.0,
         };
         seg.xt = seg.solve_xt();
         seg
+    }
+
+    /// Resistencia distribuida serie Rf (Pa·s/m²), sin conversión desde densidad.
+    /// Modelo lineal de Darcy homogéneo, no un ajuste universal de fibra.
+    pub fn with_flow_resistivity(mut self, rf: f64) -> Self {
+        self.flow_resistivity = rf;
+        self
+    }
+    pub fn flow_resistivity(&self) -> f64 {
+        self.flow_resistivity
+    }
+    pub fn has_distributed_losses(&self) -> bool {
+        self.loss != 0.0 || self.flow_resistivity != 0.0
     }
 
     /// Comprueba la geometría del segmento.
@@ -226,6 +241,7 @@ impl Segment {
             }
         }
         require_non_negative(self.loss, "segment.loss")?;
+        require_non_negative(self.flow_resistivity, "segment.flow_resistivity")?;
         Ok(())
     }
 
@@ -387,7 +403,7 @@ impl Segment {
         // Convenio físico: U positiva hacia el interior del segmento. Con
         // este signo, un tubo abierto presenta reactancia másica (+) a baja
         // frecuencia, como en la aplicación original.
-        let dp = Complex64::new(0.0, -w * rho) * u / s;
+        let dp = Complex64::new(-self.flow_resistivity, -w * rho) * u / s;
         // Pérdida de pared como conductancia en derivación: añade una parte
         // real que amortigua las resonancias de la bocina.
         let du = Complex64::new(-self.loss * w * s / (rho * c * c), -w * s / (rho * c * c)) * p;
@@ -406,14 +422,15 @@ impl Segment {
         crate::error::check_frequency(f)?;
         self.validate()?;
         air.validate()?;
-        if self.loss == 0.0 || self.length == 0.0 {
+        if !self.has_distributed_losses() || self.length == 0.0 {
             return Ok(0.0);
         }
         let w = omega(f);
         let steps = ((air.wave_number(f) * self.length / 0.03).ceil() as usize).clamp(192, 60_000);
         let dx = self.length / steps as f64;
-        let q = |x: f64, p: Complex64| {
+        let q = |x: f64, p: Complex64, u: Complex64| {
             self.loss * w * self.area(x) / (air.rho * air.c * air.c) * p.norm_sqr()
+                + self.flow_resistivity / self.area(x) * u.norm_sqr()
         };
         let mut loss = 0.0;
         for i in 0..steps {
@@ -429,7 +446,10 @@ impl Segment {
             let u4 = u + dx * g;
             let (h, j) = self.state_deriv(x + dx, p4, u4, w, air.rho, air.c);
             loss += dx / 6.0
-                * (q(x, p) + 2.0 * q(x + dx / 2.0, p2) + 2.0 * q(x + dx / 2.0, p3) + q(x + dx, p4));
+                * (q(x, p, u)
+                    + 2.0 * q(x + dx / 2.0, p2, u2)
+                    + 2.0 * q(x + dx / 2.0, p3, u3)
+                    + q(x + dx, p4, u4));
             p += dx / 6.0 * (a + 2.0 * c + 2.0 * e + h);
             u += dx / 6.0 * (b + 2.0 * d + 2.0 * g + j);
         }
@@ -447,7 +467,10 @@ impl Segment {
         }
         // Perfil constante sin pérdidas: exponencial de estado exacta.
         // Se excluye Custom: sus extremos iguales no garantizan área constante.
-        if self.s1 == self.s2 && self.loss == 0.0 && !matches!(self.flare, Flare::Custom(_)) {
+        if self.s1 == self.s2
+            && !self.has_distributed_losses()
+            && !matches!(self.flare, Flare::Custom(_))
+        {
             let kl = air.wave_number(freq_hz) * self.length;
             let z0 = air.rho * air.c / self.s1;
             return TransferMatrix {

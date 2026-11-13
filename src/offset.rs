@@ -459,7 +459,7 @@ impl OffsetHorn {
                 quality = Q::IncompleteRadiationModel;
             }
         }
-        if self.segments.iter().any(|seg| seg.loss > 0.0) {
+        if self.segments.iter().any(|seg| seg.has_distributed_losses()) {
             let matrices: Vec<_> = self
                 .segments
                 .iter()
