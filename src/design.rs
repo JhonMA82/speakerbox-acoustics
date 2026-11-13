@@ -89,6 +89,7 @@ pub enum Design {
     OffsetHorn(OffsetHorn),
     /// Recinto bandpass de 4º o 6º orden.
     Bandpass(Bandpass),
+    TransmissionLine(crate::TransmissionLine),
 }
 
 /// Respuesta nativa para consumidores que necesitan campos por topología.
@@ -98,6 +99,7 @@ pub enum TopologyPoint {
     TappedHorn(TappedPoint),
     OffsetHorn(OffsetPoint),
     Bandpass(BandpassPoint),
+    TransmissionLine(crate::LinePoint),
 }
 
 /// Configuración validada prestada; el solver sigue validando cada resultado.
@@ -255,6 +257,7 @@ impl Design {
 
     fn response_validated(&self, freq_hz: f64) -> Result<DesignPoint, SolveError> {
         let point = match self {
+            Design::TransmissionLine(tl) => tl.try_response_at(freq_hz)?.summary,
             Design::System(sys) => from_system(sys.response_validated(freq_hz)?),
             Design::TappedHorn(th) => {
                 let p = th.response_validated(freq_hz)?;
@@ -281,6 +284,7 @@ impl Design {
     /// Respuesta nativa sin reducir los puertos a una velocidad máxima.
     pub fn try_topology_response_at(&self, f: f64) -> Result<TopologyPoint, SolveError> {
         match self {
+            Self::TransmissionLine(s) => Ok(TopologyPoint::TransmissionLine(s.try_response_at(f)?)),
             Self::System(s) => Ok(TopologyPoint::System(s.try_response_at(f)?)),
             Self::TappedHorn(s) => Ok(TopologyPoint::TappedHorn(s.try_response_at(f)?)),
             Self::OffsetHorn(s) => Ok(TopologyPoint::OffsetHorn(s.try_response_at(f)?)),
@@ -313,6 +317,7 @@ impl Design {
         }
         let p = self.try_response_at(f)?;
         let pref = match self {
+            Self::TransmissionLine(s) => s.air.p_ref,
             Self::System(s) => s.air.p_ref,
             Self::TappedHorn(s) => s.air.p_ref,
             Self::OffsetHorn(s) => s.air.p_ref,
@@ -371,6 +376,7 @@ impl Design {
     /// Balance científico sin deducir potencia de SPL ni descartar su calidad.
     pub fn try_energy_at(&self, f: f64) -> Result<crate::energy::EnergyReport, SolveError> {
         match self {
+            Self::TransmissionLine(s) => s.try_energy_at(f),
             Self::System(s) => s.try_energy_at(f),
             Self::TappedHorn(s) => s.try_energy_at(f),
             Self::OffsetHorn(s) => s.try_energy_at(f),
@@ -381,6 +387,7 @@ impl Design {
     /// Comprueba la configuración de la topología antes de calcular.
     pub fn validate(&self) -> Result<(), SolveError> {
         match self {
+            Design::TransmissionLine(s) => s.validate(),
             Design::System(sys) => sys.validate(),
             Design::TappedHorn(th) => th.validate(),
             Design::OffsetHorn(od) => od.validate(),
@@ -688,3 +695,5 @@ mod tests {
         }
     }
 }
+
+impl From<crate::TransmissionLine> for Design { fn from(t:crate::TransmissionLine)->Self {Self::TransmissionLine(t)} }
