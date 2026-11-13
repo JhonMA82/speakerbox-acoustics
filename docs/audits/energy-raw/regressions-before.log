@@ -1,0 +1,45 @@
+   Compiling speakerbox-acoustics v0.2.0 (/workspace/scratch/87410607ed70/speakerbox-acoustics)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.48s
+     Running tests/energy_regressions.rs (target/debug/deps/energy_regressions-f37a165fc49defb3)
+
+running 7 tests
+
+thread 'ec002_bandpass_pipe_power_uses_piston_termination' panicked at tests/energy_regressions.rs:8:22:
+0.0000818882539818928 != 0.0000818853553995265
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'ec002_direct_power_does_not_depend_on_observation_angle' panicked at tests/energy_regressions.rs:8:22:
+0.0014373754001643325 != 0.002874750800328665
+test ec002_bandpass_pipe_power_uses_piston_termination ... FAILED
+test ec002_direct_power_does_not_depend_on_observation_angle ... FAILED
+test ec002_source_and_driver_terminal_efficiency_are_not_equivalent ... ok
+
+thread 'ec001_piston_power_uses_scaled_effective_terminal_load' panicked at tests/energy_regressions.rs:8:22:
+0.0006042151674314284 != 0.0006039756730818466
+
+thread 'ec001_matched_load_alone_does_not_define_spl' panicked at tests/energy_regressions.rs:10:166:
+assertion failed: s.try_response_at(50.).is_err()
+test ec001_piston_power_uses_scaled_effective_terminal_load ... FAILED
+test ec001_matched_load_alone_does_not_define_spl ... FAILED
+
+thread 'ec002_offset_power_is_sum_of_actual_load_absorption' panicked at tests/energy_regressions.rs:8:22:
+0.009363399881931682 != 0.0015529867665023157
+test ec002_offset_power_is_sum_of_actual_load_absorption ... FAILED
+
+thread 'ec002_tapped_power_is_terminal_flux_not_solid_angle_gain' panicked at tests/energy_regressions.rs:8:22:
+0.000028215578733714445 != 0.000007053894683428607
+test ec002_tapped_power_is_terminal_flux_not_solid_angle_gain ... FAILED
+
+failures:
+
+failures:
+    ec001_matched_load_alone_does_not_define_spl
+    ec001_piston_power_uses_scaled_effective_terminal_load
+    ec002_bandpass_pipe_power_uses_piston_termination
+    ec002_direct_power_does_not_depend_on_observation_angle
+    ec002_offset_power_is_sum_of_actual_load_absorption
+    ec002_tapped_power_is_terminal_flux_not_solid_angle_gain
+
+test result: FAILED. 1 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test energy_regressions`

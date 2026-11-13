@@ -1,0 +1,66 @@
+$ cargo test --test od_production --test th_production --test bp_production --test system_production --test production_accuracy -- --nocapture
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running tests/bp_production.rs (target/debug/deps/bp_production-af0e0073b94c93c3)
+
+running 3 tests
+BP4-A: SPL 0.21/0.86 dB | Ze 0.2/0.8 % | Xd 0.4/2.0 %
+BP6P-A: SPL 0.22/0.82 dB | Ze 0.2/0.7 % | Xd 0.5/2.5 %
+test bp4_a_meets_production_tolerances ... ok
+test bp6p_a_meets_production_tolerances ... ok
+BP6S-A: SPL 0.26/1.50 dB | Ze 1.4/6.0 % | Xd 3.7/33.0 %
+test bp6s_a_meets_production_tolerances ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/od_production.rs (target/debug/deps/od_production-1728957e7c013ee6)
+
+running 3 tests
+OD-A: SPL 0.85/1.59 dB | Ze 4.7/11.4 % | Xd 4.0/16.4 %
+test od_a_meets_production_tolerances ... ok
+OD1-B: SPL 0.85/1.77 dB | Ze 4.7/12.0 % | Xd 4.1/17.2 %
+test od1_b_meets_production_tolerances ... ok
+OD2-C: SPL 0.85/1.61 dB | Ze 4.8/11.7 % | Xd 4.3/18.9 %
+test od2_c_meets_production_tolerances ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/production_accuracy.rs (target/debug/deps/production_accuracy-5583c17ae4361113)
+
+running 4 tests
+Validación del software de referencia 60.70: N=44 SPL rms=1.86 dB max=3.15 dB | Ze rel=7.2% max=23.7% | Xd rel=9.9% max=28.6%
+test default_record_meets_production_tolerances ... ok
+Sin calibrar: SPL rms=4.90 dB ; calibrado: 1.86 dB
+test calibration_reduces_error_versus_uncalibrated ... ok
+Diseño 3: N=533 SPL rms=1.93 dB max=3.17 dB | Ze rel=6.2% max=23.2% | Xd rel=7.8% max=25.1%
+test third_design_meets_production_tolerances ... ok
+Diseño 2: N=533 SPL rms=1.94 dB max=3.23 dB | Ze rel=6.0% max=23.9% | Xd rel=7.1% max=23.6%
+test second_design_meets_production_tolerances ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.29s
+
+     Running tests/system_production.rs (target/debug/deps/system_production-a98db790a785e631)
+
+running 3 tests
+PR-A: SPL 0.38/0.97 dB | Ze 2.5/9.3 % | Xd 1.0/3.6 %
+VENTED-A: SPL 0.06/0.20 dB | Ze 0.7/3.1 % | Xd 0.4/2.6 %
+test passive_radiator_box_meets_production_tolerances ... ok
+test vented_box_meets_production_tolerances ... ok
+SEALED-A: SPL 0.00/0.00 dB | Ze 0.0/0.0 % | Xd 0.0/0.0 %
+test sealed_box_meets_production_tolerances ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/th_production.rs (target/debug/deps/th_production-adcec15ac109245b)
+
+running 3 tests
+TH1: SPL 0.53/1.59 dB | Ze 7.0/29.9 % | Xd 4.3/18.6 %
+test th1_meets_production_tolerances ... ok
+TH1-S2S3: SPL 0.55/2.69 dB | Ze 6.7/15.9 % | Xd 3.5/15.8 %
+test th1_s2s3_meets_production_tolerances ... ok
+TH2: SPL 0.52/1.63 dB | Ze 7.1/30.9 % | Xd 4.5/19.0 %
+test th2_meets_production_tolerances ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.61s
+
+
+EXIT=0 elapsed=3.196
