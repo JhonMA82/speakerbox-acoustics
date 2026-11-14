@@ -99,7 +99,9 @@ escala como N^(3/2), no como N; no representa conos separados en campo libre.
 DVC presupone el equivalente eléctrico definido en la API; no conoce la
 inductancia mutua entre bobinas. Isobárico presupone acoplamiento rígido, sin
 volumen ni pérdidas en la cámara entre conos. Push-pull es solo lineal.
-No hay oráculos permanentes multi-driver.
+No hay oráculos permanentes multi-driver. La suma multivía (`sum_at`) está
+verificada contra su contrato y casos analíticos; la validación con mediciones
+requiere el dataset descrito en `MULTIWAY_PRESSURE_CONTRACT.md` §8.
 
 Parámetros preexistentes con alcance restringido: rear_ql de System solo se
 aplica cuando hay puerto con sintonía; BP4 ignora el routing trasero. No se

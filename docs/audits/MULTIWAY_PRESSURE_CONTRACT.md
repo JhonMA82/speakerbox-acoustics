@@ -111,3 +111,56 @@ off-axis, sala, ni suma de potencias (esto es presión coherente, no energía).
 - No se valida contra mediciones multivía: no existen oráculos propios.
 - No se modela el trayecto acústico ni la fase del aire a 1 m.
 - No se promete directividad, off-axis, sala ni arrays.
+
+## 8. Validación con mediciones reales (pendiente)
+
+El repositorio **no contiene ninguna medición multivía**. Los datos de
+`tests/data/` son exports de Hornresp de un solo diseño y
+`docs/audits/REMAINING_LIMITATIONS.md` ya declara que no hay oráculos
+permanentes multi-driver. Sin ese dataset, la suma está verificada contra el
+contrato y sus casos analíticos, no contra una medición del sistema completo.
+
+Esta sección fija qué hace falta para cerrar esa validación sin inventar
+resultados.
+
+### Dataset mínimo
+
+Un directorio por configuración, con:
+
+| Fichero | Contenido |
+|---|---|
+| `woofer.frd` | SPL (dB re 20 µPa) y fase (grados) del grave solo |
+| `tweeter.frd` | SPL y fase del agudo solo |
+| `system.frd` | SPL y fase del sistema completo, con el crossover/DSP real |
+| `meta.txt` | `distance_m`, `voltage_rms`, `polarity`, `gain`, `delay_s`, `time_reference`, `note` |
+
+Requisitos de medida:
+
+- mismos micrófono, distancia, eje y nivel de excitación (2.83 V RMS en cada
+  terminal) para las tres capturas;
+- misma referencia temporal y misma cadena de conversión;
+- configuración quasi-anecoica con ventana temporal, sin recortes;
+- fase exportada en grados, sin desenrollar a mano;
+- el sistema completo medido con la polaridad, ganancia y retardo declarados
+  en `meta.txt`.
+
+### Protocolo
+
+1. `speakerbox_measure::parse_frd` convierte cada FRD a presión compleja.
+2. `sum_at` predice el sistema con los mismos `polarity`, `gain` y `delay_s`.
+3. Comparar predicción y `system.frd` en la malla medida:
+   - magnitud: RMS y máximo en dB;
+   - fase: diferencia circular en grados, solo donde la magnitud medida esté
+     a menos de 12 dB de su máximo.
+4. Criterio de pase: RMS ≤ 1.5 dB y máximo ≤ 3 dB en magnitud; RMS ≤ 15° y
+   máximo ≤ 30° en fase, excluyendo puntos a menos de 12 dB de un nulo.
+5. Si falla, se documenta la discrepancia. **No se ajusta el modelo para
+   hacerla pasar** ni se cambia la calibración sin revalidar los oráculos
+   existentes.
+
+### Estado
+
+- Suma analítica: implementada y cubierta por `src/multiway.rs` y
+  `tests/multiway.rs`.
+- Medición multivía: **pendiente de dataset**. Sin él no se puede afirmar
+  «validado».
