@@ -54,6 +54,7 @@ pública pueda cambiar.
   restringido contra magnitud en dB.
 - 13 pruebas nuevas; la escalera sintetizada se contrasta con la función de
   transferencia analítica, no con tablas heredadas.
+- RMSE ponderado por `Σw` y rechazo de objetivos con todos los pesos a cero.
 
 ## [0.2.0] — 2026-11-09
 

@@ -223,7 +223,8 @@ Rama `feat/speakerworkshop-crossover`, apilada sobre la Fase C.
 - **Zobel**: `R = Re`, `C = Le/Re²`, con `Le = 0` como red vacía.
 - **Optimizador**: LM en log-parámetros, residual `√w·(20log10|H| − objetivo)`,
   límites por variable, Jacobiano por diferencias centrales, informe con
-  coste, iteraciones, RMSE, error máximo y avisos.
+  coste, iteraciones, RMSE **ponderado** (`Σw·e²/Σw`), error máximo y avisos.
+  Un objetivo sin ningún peso positivo se rechaza.
 - **Multivía**: fuera de alcance. No se simula un conjunto sin referencia de
   presión compleja, polaridad, retardo y nivel.
 

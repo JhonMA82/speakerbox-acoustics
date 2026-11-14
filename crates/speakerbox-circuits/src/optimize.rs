@@ -75,6 +75,11 @@ impl OptimizationTarget {
                 "los pesos deben estar vacíos o tener el tamaño del objetivo",
             ));
         }
+        if !weights.is_empty() && weights.iter().sum::<f64>() <= 0.0 {
+            return Err(CircuitError::InvalidValue(
+                "los pesos no pueden ser todos cero",
+            ));
+        }
         for (index, freq) in freq_hz.iter().enumerate() {
             if !freq.is_finite() || *freq <= 0.0 {
                 return Err(CircuitError::InvalidFrequency(*freq));
@@ -356,6 +361,7 @@ impl Evaluation<'_> {
         let x: Vec<f64> = values.iter().map(|value| value.ln()).collect();
         let circuit = self.circuit_with(&x)?;
         let mut squared = 0.0_f64;
+        let mut sum_weights = 0.0_f64;
         let mut max_error_db = 0.0_f64;
         for (index, freq) in self.target.freq_hz.iter().enumerate() {
             let predicted = circuit
@@ -364,13 +370,16 @@ impl Evaluation<'_> {
             let error = magnitude_db(predicted) - self.target.magnitude_db[index];
             let weight = self.target.weights.get(index).copied().unwrap_or(1.0);
             squared += weight * error * error;
+            sum_weights += weight;
             if weight > 0.0 {
                 max_error_db = max_error_db.max(error.abs());
             }
         }
-        let count = self.target.freq_hz.len() as f64;
+        // RMSE ponderado: Σw·e² / Σw. Con pesos uniformes coincide con el
+        // promedio simple; escalar todos los pesos no cambia el valor.
+        let denominator = if sum_weights > 0.0 { sum_weights } else { 1.0 };
         Ok(Statistics {
-            rmse_db: (squared / count).sqrt(),
+            rmse_db: (squared / denominator).sqrt(),
             max_error_db,
         })
     }
@@ -630,6 +639,43 @@ mod tests {
                 assert!((a - b).abs() <= 1e-2 * a.abs().max(1.0), "{a} vs {b}");
             }
         }
+    }
+
+    #[test]
+    fn zero_weights_and_weight_scaling_are_handled() {
+        let (circuit, variables, target) = ladder_at(1000.0);
+        assert!(OptimizationTarget::new(
+            target.freq_hz.clone(),
+            target.magnitude_db.clone(),
+            vec![0.0; target.freq_hz.len()]
+        )
+        .is_err());
+
+        let scaled = OptimizationTarget::new(
+            target.freq_hz.clone(),
+            target.magnitude_db.clone(),
+            vec![0.25; target.freq_hz.len()],
+        )
+        .unwrap();
+        let base = optimize(
+            &circuit,
+            &variables,
+            &target,
+            NodeId(3),
+            NodeId(1),
+            &OptimizationOptions::default(),
+        )
+        .unwrap();
+        let weighted = optimize(
+            &circuit,
+            &variables,
+            &scaled,
+            NodeId(3),
+            NodeId(1),
+            &OptimizationOptions::default(),
+        )
+        .unwrap();
+        assert!((base.rmse_db - weighted.rmse_db).abs() < 1e-9);
     }
 
     #[test]
