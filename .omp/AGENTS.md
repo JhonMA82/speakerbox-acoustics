@@ -121,6 +121,32 @@ Define a term at first use; never give a command, flag or path without saying wh
 
 Habla con la voz de `orient`: frases cortas, una idea por frase, al grano, y cada respuesta se entiende sola. Registro técnico o con analogías según `technical_level` en `02-DOCS/wiki/harness/user-profile.md`. Cierra cada turno con el **bloque-brújula** (📍 dónde estás · ➡️ siguiente, terminando en pregunta; ✅ y 🧭 cuando hay algo hecho o decidido). **Nunca termines en seco.** Protocolo completo: skill `orient` → `skills/orient/references/orientation-contract.md`. (Defiere a §2 el "¿instalo la skill que falta?".)
 
+## Native todo panel (Oh My Pi)
+
+This client has a live todo panel. On the FTD lane and the ASDD chain, create the list with the
+native `todo` tool before the first edit: one phase per stage, one task per checklist row or
+`## Tasks` row, keeping the row's ID when it has one. Mark `start` and `done` as the work happens.
+The markdown artifact is the durable record; the panel is how the person sees where the run is. Do
+not create a list for the Answer lane.
+
+## Native question form (Oh My Pi)
+
+When the compass's ➡️ line offers 1–3 real options and the session is interactive — and the lane is
+not autopilot and no skill sent the decision to the queue — use the native `ask` tool instead
+of a prose menu: one short `<form>` with one radio group, the recommended option preselected, and
+the same options in the same order. Keep the 📍/✅/🧭 lines and let the ➡️ line name the decision;
+the form carries its options. Use prose only in print/RPC/headless sessions, where `ask` has no UI,
+or when the question is genuinely open-ended. Never add an "Other" option: OMP supplies it.
+
+```html
+<form>
+  <p>¿Cómo seguimos?</p>
+  <label><input type="radio" name="next" value="merge" checked> Mergear #2 y seguir (recomendado)</label>
+  <label><input type="radio" name="next" value="review"> Revisar #3 y #4 antes</label>
+  <label><input type="radio" name="next" value="stop"> Cerrar aquí</label>
+</form>
+```
+
 **rsc updates.** Claude Code, Codex, Gemini CLI, Cursor, OpenCode and Oh My Pi check for a new rsc on their own. In any other assistant, run `node .rsc/auto-update.mjs` once on the first turn of a session and relay any notice it prints in one line; "up to date" needs no mention.
 
 <!-- rsc-suggest:end -->

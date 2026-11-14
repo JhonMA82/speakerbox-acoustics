@@ -50,7 +50,7 @@
     "rust-reviewer"
   ],
   "ownSkills": [],
-  "catalogVersion": "4.1.1",
+  "catalogVersion": "4.2.0",
   "tier": null,
   "optOuts": [
     "trunk-guard"
