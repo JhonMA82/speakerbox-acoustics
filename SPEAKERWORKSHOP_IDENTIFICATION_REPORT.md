@@ -28,7 +28,7 @@
 
 | Verificación | Resultado |
 |---|---|
-| `cargo test -p speakerbox-measure` | 24 pasan, 0 fallan |
+| `cargo test -p speakerbox-measure` | 26 pasan, 0 fallan |
 | `cargo test --workspace` | 334 pasan, 0 fallan |
 | `cargo clippy --workspace --all-targets -- -D warnings` | limpio |
 | `cargo fmt --all --check` | limpio |
@@ -45,6 +45,9 @@ Recuperación con el fixture independiente (24 puntos, 5 Hz–20 kHz):
   máximo `< 10 %`.
 - Determinismo: dos ejecuciones idénticas devuelven exactamente el mismo
   `FitReport`.
+- Serializadores FRD/ZMA: rechazan magnitudes nulas o no representables en vez
+  de escribir texto que su propio parser rechazaría.
+- Ajuste: rechaza curvas con `Re(Z) <= 0`, que no son impedancias.
 
 ## 4. Diferencias con el legacy
 

@@ -94,29 +94,50 @@ pub fn parse_zma(text: &str) -> Result<ParsedCurve, Vec<CurveParseError>> {
 }
 
 /// Serializa una curva de impedancia como ZMA.
-#[must_use]
-pub fn write_zma(curve: &ComplexCurve) -> String {
+///
+/// # Errores
+///
+/// [`crate::MeasureError::InvalidParameter`] si algún punto tiene magnitud
+/// nula: el parser rechaza un ZMA con `|Z| = 0` y el serializador no debe
+/// producir texto que no pueda releerse.
+pub fn write_zma(curve: &ComplexCurve) -> crate::MeasureResult<String> {
     let mut out = String::from("* speakerbox-measure ZMA: frequency Hz, |Z| ohm, phase deg\n");
     for (freq, value) in curve.freq_hz().iter().zip(curve.values()) {
+        let magnitude = value.norm();
+        if magnitude <= 0.0 || !magnitude.is_finite() {
+            return Err(crate::MeasureError::InvalidParameter(
+                "la curva contiene una impedancia nula o no finita",
+            ));
+        }
         out.push_str(&format!(
             "{} {} {}\n",
             freq,
-            value.norm(),
+            magnitude,
             value.arg().to_degrees()
         ));
     }
-    out
+    Ok(out)
 }
 
 /// Serializa una curva de respuesta como FRD (dB re 1).
-#[must_use]
-pub fn write_frd(curve: &ComplexCurve) -> String {
+///
+/// # Errores
+///
+/// [`crate::MeasureError::InvalidParameter`] si la magnitud no se puede
+/// representar en dB y volver a leerse como un valor finito.
+pub fn write_frd(curve: &ComplexCurve) -> crate::MeasureResult<String> {
     let mut out = String::from("* speakerbox-measure FRD: frequency Hz, magnitude dB, phase deg\n");
     for (freq, value) in curve.freq_hz().iter().zip(curve.values()) {
-        let db = 20.0 * value.norm().log10();
+        let magnitude = value.norm();
+        let db = 20.0 * magnitude.log10();
+        if magnitude <= 0.0 || !db.is_finite() || !10.0_f64.powf(db / 20.0).is_finite() {
+            return Err(crate::MeasureError::InvalidParameter(
+                "la curva contiene una magnitud no serializable",
+            ));
+        }
         out.push_str(&format!("{} {} {}\n", freq, db, value.arg().to_degrees()));
     }
-    out
+    Ok(out)
 }
 
 fn from_db_deg(db: f64, phase_deg: f64) -> Complex64 {
@@ -227,17 +248,33 @@ mod tests {
     fn round_trips_zma_and_frd() {
         let zma = "100 8.0 0\n200 12.0 45\n1000 16.0 -30\n";
         let parsed = parse_zma(zma).unwrap();
-        let reparsed = parse_zma(&write_zma(&parsed.curve)).unwrap();
+        let reparsed = parse_zma(&write_zma(&parsed.curve).unwrap()).unwrap();
         for (a, b) in parsed.curve.values().iter().zip(reparsed.curve.values()) {
             assert!((a - b).norm() < 1e-12);
         }
 
         let frd = "* respuesta\n100 -6.0 10\n200 -3.0 -20\n";
         let parsed = parse_frd(frd).unwrap();
-        let reparsed = parse_frd(&write_frd(&parsed.curve)).unwrap();
+        let reparsed = parse_frd(&write_frd(&parsed.curve).unwrap()).unwrap();
         for (a, b) in parsed.curve.values().iter().zip(reparsed.curve.values()) {
             assert!((a - b).norm() < 1e-12);
         }
+    }
+
+    #[test]
+    fn refuses_to_serialize_values_the_parser_would_reject() {
+        let zero = ComplexCurve::new(
+            vec![100.0, 1000.0],
+            vec![Complex64::new(8.0, 0.0), Complex64::new(0.0, 0.0)],
+        )
+        .unwrap();
+        assert!(write_zma(&zero).is_err());
+        let huge = ComplexCurve::new(
+            vec![100.0, 1000.0],
+            vec![Complex64::new(1.0, 0.0), Complex64::new(f64::MAX, 0.0)],
+        )
+        .unwrap();
+        assert!(write_frd(&huge).is_err());
     }
 
     #[test]

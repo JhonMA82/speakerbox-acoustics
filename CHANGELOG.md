@@ -40,6 +40,8 @@ pública pueda cambiar.
   caja sellada.
 - 24 pruebas nuevas, incluido un fixture ZMA generado con una implementación
   independiente. Sin acoplamiento con `Driver` ni con los solvers acústicos.
+- Serializadores FRD/ZMA con `Result` y rechazo de valores no releíbles; el
+  ajuste exige `Re(Z) > 0` en todos los puntos.
 
 ## [0.2.0] — 2026-11-09
 

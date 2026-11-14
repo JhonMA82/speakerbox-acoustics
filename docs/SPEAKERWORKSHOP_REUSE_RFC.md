@@ -180,7 +180,11 @@ de `num-complex`. El crate eléctrico no depende de él; el acústico tampoco.
 
 - **FRD/ZMA**: tres columnas (Hz, magnitud, fase en grados). FRD lleva dB y se
   convierte a amplitud compleja; ZMA lleva ohmios. No se asume calibración.
-  Errores por línea; sin extrapolación.
+  Errores por línea; sin extrapolación. Los serializadores devuelven `Result` y
+  rechazan puntos que el parser no podría releer (magnitud nula o no
+  representable).
+- **Ajuste**: exige `Re(Z) > 0` en todos los puntos; una curva de respuesta no
+  es una impedancia.
 - **Circuito equivalente**: `R1∥L1a + Re+jωL1b + R2∥L2∥C2`, siete parámetros
   positivos. `l1b` admite cero.
 - **Ajuste**: Levenberg–Marquardt sobre `ln(p)`, residual complejo relativo

@@ -267,6 +267,11 @@ fn prepare(curve: &ComplexCurve) -> MeasureResult<(Vec<f64>, Vec<Complex64>)> {
                 "la impedancia medida debe ser finita y no nula",
             ));
         }
+        if value.re <= 0.0 {
+            return Err(MeasureError::InvalidParameter(
+                "la impedancia medida debe ser pasiva: Re(Z) > 0",
+            ));
+        }
         freqs.push(*freq);
         values.push(*value);
     }
@@ -569,6 +574,25 @@ mod tests {
         assert_eq!(
             fit_equivalent(&curve, &options).unwrap(),
             fit_equivalent(&curve, &options).unwrap()
+        );
+    }
+
+    #[test]
+    fn non_passive_curves_are_rejected() {
+        let curve = ComplexCurve::new(
+            vec![100.0, 200.0, 400.0, 800.0, 1600.0],
+            vec![
+                Complex64::new(-8.0, 1.0),
+                Complex64::new(8.0, 1.0),
+                Complex64::new(8.0, 1.0),
+                Complex64::new(8.0, 1.0),
+                Complex64::new(8.0, 1.0),
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            fit_equivalent(&curve, &FitOptions::default()).unwrap_err(),
+            MeasureError::InvalidParameter("la impedancia medida debe ser pasiva: Re(Z) > 0")
         );
     }
 
