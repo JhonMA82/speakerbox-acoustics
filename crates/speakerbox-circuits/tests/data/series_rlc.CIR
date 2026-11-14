@@ -1,0 +1,7 @@
+* Series RLC fixture used by the integration tests.
+* Reproduces the topology published by the portability audit:
+* R = 10 ohm, L = 1 mH, C = 5 uF, ideal 1 V source at nodes 1-2-3-0.
+V1 1 0 1
+R1 1 2 10
+L1 2 3 1m 0
+C1 3 0 5u

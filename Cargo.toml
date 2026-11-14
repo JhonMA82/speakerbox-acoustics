@@ -1,3 +1,7 @@
+[workspace]
+members = ["crates/speakerbox-circuits"]
+resolver = "2"
+
 [package]
 name = "speakerbox-acoustics"
 version = "0.2.0"

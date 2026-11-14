@@ -16,6 +16,21 @@ pública pueda cambiar.
 - Migración de literales Driver y matches exhaustivos documentada en README.
 - Sin cambios de calibración ni de los oráculos originales.
 
+### Workspace y circuitos (Fase A + B)
+
+- El repositorio pasa a `Cargo Workspace`; el paquete `speakerbox-acoustics`
+  conserva su API y sus oráculos.
+- Nuevo crate `crates/speakerbox-circuits`: modelo nodal (R, L con DCR, C,
+  fuentes ideales, cargas constantes o medidas), solver MNA complejo con
+  pivoteo parcial, detección de singularidad y verificación de residual,
+  `Zin`, transferencia entre nodos, barridos y parser/serializador `.CIR`.
+- 66 pruebas nuevas entre unitarias, integración, fixture RLC y contratos de
+  error. Sin cambios en los solvers acústicos.
+- Endurecimiento de entrada tras revisión: cota de 512 incógnitas comprobada
+  antes de asignar, cargas medidas pasivas en todos sus puntos, división
+  compleja estable, round-trip `.CIR` con valores negativos, mensajes de error
+  saneados y acumulación de todos los errores de parseo.
+
 ## [0.2.0] — 2026-11-09
 
 ### Añadido
