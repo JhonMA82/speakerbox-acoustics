@@ -162,5 +162,11 @@ Requisitos de medida:
 
 - Suma analítica: implementada y cubierta por `src/multiway.rs` y
   `tests/multiway.rs`.
+- Comprobación **aritmética** con dos oráculos reales de un solo driver
+  (OD1/OD2, export de Hornresp): `tests/multiway_oracles.rs`. Verifica la
+  identidad exacta de composición con ganancia, polaridad y retardo, y que la
+  suma no se desvía más que la suma de los errores individuales del modelo
+  frente a su oráculo. **No es una validación multivía**: los diseños no se
+  midieron juntos.
 - Medición multivía: **pendiente de dataset**. Sin él no se puede afirmar
   «validado».
