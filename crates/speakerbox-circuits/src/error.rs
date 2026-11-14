@@ -30,6 +30,8 @@ pub enum CircuitError {
     InvalidSource { index: usize, field: &'static str },
     /// Un componente no se puede evaluar a esta frecuencia.
     UnusableComponent { index: usize, freq_hz: f64 },
+    /// No existe un componente con ese índice.
+    UnknownComponent { index: usize },
     /// Una curva compleja necesita al menos dos puntos.
     CurveTooShort,
     /// Las frecuencias de una curva no son finitas o no crecen.
@@ -51,8 +53,11 @@ pub enum CircuitError {
     ZeroReference { freq_hz: f64, node: NodeId },
     /// Un valor no se puede representar en el formato de netlist.
     NotSerializable { index: usize, reason: &'static str },
-    /// La operación pedida excede una capacidad declarada.
+    /// La operación pedida excede una capacidad declarada o no está
+    /// implementada para esta configuración.
     Unsupported(&'static str),
+    /// Un parámetro de diseño no es finito o no cumple su rango.
+    InvalidValue(&'static str),
 }
 
 impl fmt::Display for CircuitError {
@@ -80,6 +85,9 @@ impl fmt::Display for CircuitError {
                 f,
                 "componente {index} no evaluable a {freq_hz} Hz (impedancia nula o no finita)"
             ),
+            CircuitError::UnknownComponent { index } => {
+                write!(f, "no existe el componente {index}")
+            }
             CircuitError::CurveTooShort => {
                 write!(f, "una curva compleja necesita al menos dos puntos")
             }
@@ -115,6 +123,9 @@ impl fmt::Display for CircuitError {
             }
             CircuitError::Unsupported(reason) => {
                 write!(f, "operación no soportada: {reason}")
+            }
+            CircuitError::InvalidValue(field) => {
+                write!(f, "valor de diseño inválido: {field}")
             }
         }
     }

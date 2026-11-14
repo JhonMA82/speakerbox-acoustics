@@ -294,6 +294,7 @@ validación. No hay caché ni paralelismo.
 | [`docs/SPEAKERWORKSHOP_REUSE_RFC.md`](docs/SPEAKERWORKSHOP_REUSE_RFC.md) | Fronteras y contratos del crate eléctrico |
 | [`SPEAKERWORKSHOP_INTEGRATION_REPORT.md`](SPEAKERWORKSHOP_INTEGRATION_REPORT.md) | Informe de la Fase A + B, límites y evidencias |
 | [`SPEAKERWORKSHOP_IDENTIFICATION_REPORT.md`](SPEAKERWORKSHOP_IDENTIFICATION_REPORT.md) | Fase C: curvas FRD/ZMA e identificación |
+| [`SPEAKERWORKSHOP_CROSSOVER_REPORT.md`](SPEAKERWORKSHOP_CROSSOVER_REPORT.md) | Fase D: crossover y optimización |
 | [`AGENTS.md`](AGENTS.md) / [`docs/AGENTS.md`](docs/AGENTS.md) | Guía para agentes y extensión |
 | [`ROADMAP.md`](ROADMAP.md) | Alcance v1 y topologías diferidas |
 | [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
@@ -314,7 +315,7 @@ tests/      engine, bandpass, tapped, production_accuracy, driver_bank,
 docs/       INTEGRATION, ALGORITHMS, VALIDATION, RECORD_FORMAT, AGENTS
 tests/data/ registros y oráculos propios
 crates/
-  speakerbox-circuits/  red eléctrica pasiva: MNA, Zin, .CIR
+  speakerbox-circuits/  red pasiva: MNA, Zin, .CIR, crossover, optimizador
   speakerbox-measure/   curvas FRD/ZMA e identificación de impedancia
 ```
 
