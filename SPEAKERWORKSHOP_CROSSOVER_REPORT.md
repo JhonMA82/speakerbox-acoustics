@@ -34,7 +34,7 @@
 
 | Verificación | Resultado |
 |---|---|
-| `cargo test -p speakerbox-circuits` | 82 pasan, 0 fallan |
+| `cargo test -p speakerbox-circuits` | 95 pasan, 0 fallan |
 | `cargo test --workspace` | 350 pasan, 0 fallan (31 suites) |
 | `cargo clippy --workspace --all-targets -- -D warnings` | limpio |
 | `cargo fmt --all --check` | limpio |
@@ -53,6 +53,10 @@ Precisión observada:
   dispersión sin compensar.
 - Optimizador: RMSE `< 0.05 dB` recuperando una red detunada un 15 %, con
   coste final menor que el inicial.
+- Un objetivo construido con campos públicos incoherentes se rechaza con
+  error tipado, no con pánico; las sondas del Jacobiano respetan los límites.
+- Relaciones `f/fc` enormes devuelven el límite asintótico (`0` en LP, `1` en
+  HP), no `NaN`.
 - Ejemplo `crossover_sweep` (2000 Hz, orden 2): red y analítica coinciden a
   seis decimales en todos los puntos, con `−3.010300 dB` y `−90.00°` en el
   corte.

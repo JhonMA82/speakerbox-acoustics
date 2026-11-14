@@ -30,7 +30,7 @@
 use crate::error::{CircuitError, CircuitResult};
 use crate::model::{Circuit, Component, NodeId, VoltageSource};
 use num_complex::Complex64;
-use std::f64::consts::{PI, TAU};
+use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
 /// Familia de la respuesta de transferencia.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,7 +79,7 @@ impl FilterResponse {
     ///
     /// # Errores
     ///
-    /// [`CircuitError::InvalidValue`] o [`CircuitError::InvalidFrequency`].
+    /// [`CircuitError::InvalidValue`] para familia, orden o corte inválidos.
     pub fn new(
         family: FilterFamily,
         kind: FilterKind,
@@ -164,8 +164,8 @@ pub struct Ladder {
 /// # Errores
 ///
 /// - [`CircuitError::Unsupported`] para familias sin síntesis pasiva.
-/// - [`CircuitError::InvalidValue`] para orden o impedancia fuera de rango.
-/// - [`CircuitError::InvalidFrequency`] para un corte no positivo.
+/// - [`CircuitError::InvalidValue`] para orden, corte o impedancia fuera de
+///   rango.
 pub fn synthesize(spec: &FilterSpec) -> CircuitResult<Ladder> {
     if spec.family != FilterFamily::Butterworth {
         return Err(CircuitError::Unsupported(
@@ -369,6 +369,16 @@ impl Zobel {
 }
 
 fn butterworth(kind: FilterKind, order: usize, ratio: f64) -> Complex64 {
+    // Para relaciones enormes el producto de polos desborda y produce inf-inf.
+    // El límite es exacto: LP ~ s^-n, HP ~ 1.
+    if !ratio.is_finite() || ratio > 1e70 {
+        return match kind {
+            FilterKind::LowPass => {
+                Complex64::from_polar(ratio.powf(-(order as f64)), -(order as f64) * FRAC_PI_2)
+            }
+            FilterKind::HighPass => Complex64::new(1.0, 0.0),
+        };
+    }
     let s = Complex64::new(0.0, ratio);
     let mut denominator = Complex64::new(1.0, 0.0);
     for k in 1..=order {
@@ -478,6 +488,19 @@ mod tests {
             assert!((lr.transfer(freq).unwrap() - expected).norm() < 1e-15);
         }
         assert!((lr.transfer(1000.0).unwrap().norm() - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn extreme_ratios_return_the_limit_not_nan() {
+        let low =
+            FilterResponse::new(FilterFamily::Butterworth, FilterKind::LowPass, 2, 1.0).unwrap();
+        let high =
+            FilterResponse::new(FilterFamily::Butterworth, FilterKind::HighPass, 2, 1.0).unwrap();
+        let low_value = low.transfer(1e300).unwrap();
+        let high_value = high.transfer(1e300).unwrap();
+        assert!(low_value.norm() < 1e-100 && low_value.im.is_finite());
+        assert!((high_value.norm() - 1.0).abs() < 1e-12);
+        assert!(high_value.im.is_finite());
     }
 
     #[test]

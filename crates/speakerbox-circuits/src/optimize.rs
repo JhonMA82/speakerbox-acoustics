@@ -65,36 +65,53 @@ impl OptimizationTarget {
         magnitude_db: Vec<f64>,
         weights: Vec<f64>,
     ) -> CircuitResult<Self> {
-        if freq_hz.len() < 2 || freq_hz.len() != magnitude_db.len() {
+        let target = Self {
+            freq_hz,
+            magnitude_db,
+            weights,
+        };
+        target.validate()?;
+        Ok(target)
+    }
+
+    /// Revalida el objetivo. Los campos son públicos, así que `new` se puede
+    /// evitar; `optimize` llama a esta función antes de indexar nada.
+    ///
+    /// # Errores
+    ///
+    /// [`CircuitError::InvalidValue`] o [`CircuitError::InvalidFrequency`].
+    pub fn validate(&self) -> CircuitResult<()> {
+        if self.freq_hz.len() < 2 || self.freq_hz.len() != self.magnitude_db.len() {
             return Err(CircuitError::InvalidValue(
                 "el objetivo necesita al menos dos puntos y magnitudes del mismo tamaño",
             ));
         }
-        if !weights.is_empty() && weights.len() != freq_hz.len() {
+        if !self.weights.is_empty() && self.weights.len() != self.freq_hz.len() {
             return Err(CircuitError::InvalidValue(
                 "los pesos deben estar vacíos o tener el tamaño del objetivo",
             ));
         }
-        if !weights.is_empty() && weights.iter().sum::<f64>() <= 0.0 {
+        if !self.weights.is_empty() && self.weights.iter().sum::<f64>() <= 0.0 {
             return Err(CircuitError::InvalidValue(
                 "los pesos no pueden ser todos cero",
             ));
         }
-        for (index, freq) in freq_hz.iter().enumerate() {
+        for (index, freq) in self.freq_hz.iter().enumerate() {
             if !freq.is_finite() || *freq <= 0.0 {
                 return Err(CircuitError::InvalidFrequency(*freq));
             }
-            if index > 0 && *freq <= freq_hz[index - 1] {
+            if index > 0 && *freq <= self.freq_hz[index - 1] {
                 return Err(CircuitError::InvalidValue(
                     "las frecuencias del objetivo deben crecer",
                 ));
             }
-            if !magnitude_db[index].is_finite() {
+            let magnitude_db = self.magnitude_db[index];
+            if !magnitude_db.is_finite() {
                 return Err(CircuitError::InvalidValue(
                     "las magnitudes objetivo deben ser finitas",
                 ));
             }
-            if let Some(weight) = weights.get(index) {
+            if let Some(weight) = self.weights.get(index) {
                 if !weight.is_finite() || *weight < 0.0 {
                     return Err(CircuitError::InvalidValue(
                         "los pesos deben ser finitos y no negativos",
@@ -102,11 +119,7 @@ impl OptimizationTarget {
                 }
             }
         }
-        Ok(Self {
-            freq_hz,
-            magnitude_db,
-            weights,
-        })
+        Ok(())
     }
 }
 
@@ -181,7 +194,15 @@ pub fn optimize(
     if variables.is_empty() {
         return Err(CircuitError::InvalidValue("no hay variables que optimizar"));
     }
-    let initial_values = read_values(circuit, variables)?;
+    target.validate()?;
+    let mut initial_values = read_values(circuit, variables)?;
+    // Una bobina ideal tiene DCR = 0 y ln(0) no existe: la variable arranca en
+    // su mínimo declarado, que es el valor positivo más pequeño admisible.
+    for (index, variable) in variables.iter().enumerate() {
+        if initial_values[index] == 0.0 && variable.field == VariableField::Dcr {
+            initial_values[index] = variable.min;
+        }
+    }
     let mut x: Vec<f64> = initial_values.iter().map(|value| value.ln()).collect();
     let bounds: Vec<(f64, f64)> = variables
         .iter()
@@ -220,9 +241,9 @@ pub fn optimize(
     let initial_cost = cost;
     let mut lambda = 1e-3;
     let mut iterations = 0;
-    let mut converged = false;
+    let mut converged = cost <= options.tolerance;
 
-    while iterations < options.max_iterations {
+    while !converged && iterations < options.max_iterations {
         iterations += 1;
         let residual = match evaluation.residual(&x) {
             Some(residual) => residual,
@@ -338,16 +359,28 @@ impl Evaluation<'_> {
 
     fn jacobian(&self, x: &[f64], step: f64) -> Option<Vec<Vec<f64>>> {
         let n = x.len();
-        let mut columns = vec![Vec::new(); n];
+        let rows = self.target.freq_hz.len();
+        let mut columns = vec![vec![0.0_f64; rows]; n];
         for index in 0..n {
             let mut plus = x.to_vec();
             let mut minus = x.to_vec();
             plus[index] += step;
             minus[index] -= step;
+            let (low, high) = (
+                self.variables[index].min.ln(),
+                self.variables[index].max.ln(),
+            );
+            plus[index] = plus[index].clamp(low, high);
+            minus[index] = minus[index].clamp(low, high);
+            let span = plus[index] - minus[index];
+            if span == 0.0 {
+                continue;
+            }
             let up = self.residual(&plus)?;
             let down = self.residual(&minus)?;
-            let span = plus[index] - minus[index];
-            columns[index] = up.iter().zip(&down).map(|(a, b)| (a - b) / span).collect();
+            for (row, (a, b)) in up.iter().zip(&down).enumerate() {
+                columns[index][row] = (a - b) / span;
+            }
         }
         let rows = columns.first().map_or(0, Vec::len);
         Some(
@@ -676,6 +709,99 @@ mod tests {
         )
         .unwrap();
         assert!((base.rmse_db - weighted.rmse_db).abs() < 1e-9);
+    }
+
+    #[test]
+    fn hand_built_targets_are_revalidated_not_indexed_blindly() {
+        let (circuit, variables, _) = ladder_at(1000.0);
+        let target = OptimizationTarget {
+            freq_hz: vec![100.0, 1000.0],
+            magnitude_db: vec![-6.0],
+            weights: Vec::new(),
+        };
+        assert!(optimize(
+            &circuit,
+            &variables,
+            &target,
+            NodeId(3),
+            NodeId(1),
+            &OptimizationOptions::default()
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn dcr_can_start_from_an_ideal_inductor() {
+        let reference = synthesize(&ladder_spec()).unwrap();
+        let freqs: Vec<f64> = (0..20)
+            .map(|index| 100.0 * 100.0_f64.powf(index as f64 / 19.0))
+            .collect();
+        let goals: Vec<f64> = freqs
+            .iter()
+            .map(|freq| {
+                let transfer = reference
+                    .circuit
+                    .voltage_transfer(*freq, reference.output_node, reference.source_node)
+                    .unwrap();
+                magnitude_db(transfer)
+            })
+            .collect();
+        let target = OptimizationTarget::new(freqs, goals, Vec::new()).unwrap();
+        let variables = vec![DesignVariable {
+            component: 1,
+            field: VariableField::Dcr,
+            min: 1e-9,
+            max: 1.0,
+        }];
+        let report = optimize(
+            &reference.circuit,
+            &variables,
+            &target,
+            reference.output_node,
+            reference.source_node,
+            &OptimizationOptions::default(),
+        )
+        .unwrap();
+        assert!(report.values[0] > 0.0);
+        assert!(report.final_cost < 1e-6, "coste={}", report.final_cost);
+    }
+
+    #[test]
+    fn jacobian_probes_respect_the_declared_bounds() {
+        let reference = synthesize(&ladder_spec()).unwrap();
+        let variables = vec![DesignVariable {
+            component: 1,
+            field: VariableField::Inductance,
+            min: 1.0e-3,
+            max: 2.0e-3,
+        }];
+        let target =
+            OptimizationTarget::new(vec![100.0, 1000.0], vec![-1.0, -10.0], Vec::new()).unwrap();
+        let evaluation = Evaluation {
+            circuit: &reference.circuit,
+            variables: &variables,
+            target: &target,
+            output: reference.output_node,
+            reference: reference.source_node,
+        };
+        // Semilla exactamente en el mínimo: la sonda inferior sale del rango y
+        // debe recortarse, no invalidar el Jacobiano.
+        let x = vec![variables[0].min.ln()];
+        let jacobian = evaluation.jacobian(&x, 1e-3).unwrap();
+        assert!(jacobian
+            .iter()
+            .flat_map(|row| row.iter())
+            .all(|value| value.is_finite()));
+    }
+
+    fn ladder_spec() -> FilterSpec {
+        FilterSpec {
+            family: FilterFamily::Butterworth,
+            kind: FilterKind::LowPass,
+            order: 2,
+            cutoff_hz: 1000.0,
+            impedance_ohm: 8.0,
+        }
     }
 
     #[test]

@@ -224,7 +224,10 @@ Rama `feat/speakerworkshop-crossover`, apilada sobre la Fase C.
 - **Optimizador**: LM en log-parámetros, residual `√w·(20log10|H| − objetivo)`,
   límites por variable, Jacobiano por diferencias centrales, informe con
   coste, iteraciones, RMSE **ponderado** (`Σw·e²/Σw`), error máximo y avisos.
-  Un objetivo sin ningún peso positivo se rechaza.
+  Un objetivo sin ningún peso positivo se rechaza, y `optimize` revalida el
+  objetivo antes de usarlo porque sus campos son públicos. Las sondas del
+  Jacobiano se recortan a los límites de cada variable. Un DCR inicial de una
+  bobina ideal (0) arranca en el mínimo declarado.
 - **Multivía**: fuera de alcance. No se simula un conjunto sin referencia de
   presión compleja, polaridad, retardo y nivel.
 
