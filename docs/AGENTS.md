@@ -41,6 +41,7 @@ puntual. Ver `ROADMAP.md` para lo diferido.
 | `docs/ALGORITHMS.md` | ecuaciones y calibración |
 | `docs/VALIDATION.md` | tablas detalladas de producción |
 | `docs/RECORD_FORMAT.md` | formato del registro de 734 bytes |
+| `docs/audits/MULTIWAY_PRESSURE_CONTRACT.md` | contrato propuesto para sumar presiones multivía |
 | `crates/speakerbox-circuits/` | MNA, `.CIR`, prototipos de filtro, L-pad, Zobel y optimizador |
 | `crates/speakerbox-measure/` | curvas FRD/ZMA, circuito equivalente y ajuste restringido |
 | `ROADMAP.md` | alcance v1 y topologías diferidas |

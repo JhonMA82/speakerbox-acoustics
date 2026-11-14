@@ -291,6 +291,7 @@ validación. No hay caché ni paralelismo.
 | [`docs/ALGORITHMS.md`](docs/ALGORITHMS.md) | Ecuaciones y calibración |
 | [`docs/VALIDATION.md`](docs/VALIDATION.md) | Métricas detalladas de producción |
 | [`docs/RECORD_FORMAT.md`](docs/RECORD_FORMAT.md) | Formato del registro de 734 bytes |
+| [`docs/audits/MULTIWAY_PRESSURE_CONTRACT.md`](docs/audits/MULTIWAY_PRESSURE_CONTRACT.md) | Contrato de presión compleja para multivía (propuesta) |
 | [`docs/SPEAKERWORKSHOP_REUSE_RFC.md`](docs/SPEAKERWORKSHOP_REUSE_RFC.md) | Fronteras y contratos del crate eléctrico |
 | [`SPEAKERWORKSHOP_INTEGRATION_REPORT.md`](SPEAKERWORKSHOP_INTEGRATION_REPORT.md) | Informe de la Fase A + B, límites y evidencias |
 | [`SPEAKERWORKSHOP_IDENTIFICATION_REPORT.md`](SPEAKERWORKSHOP_IDENTIFICATION_REPORT.md) | Fase C: curvas FRD/ZMA e identificación |
