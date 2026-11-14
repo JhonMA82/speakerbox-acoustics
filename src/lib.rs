@@ -81,6 +81,38 @@
 //! Soporta paralelo, serie, serie-paralelo, isobaric por pares, push-pull y
 //! DVC paralelo/serie. Bessel y DVC Separate requieren capas adicionales.
 //!
+//! ## Multivía
+//!
+//! [`sum_at`] y [`sum_sweep`] suman presiones complejas de varias vías con la
+//! referencia de 2.83 V RMS, polaridad, ganancia y retardo explícitos. Es una
+//! presión coherente, no una suma de potencias, y presupone fuentes compactas
+//! a la misma distancia. El contrato completo está en
+//! [`docs/audits/MULTIWAY_PRESSURE_CONTRACT.md`](../../docs/audits/MULTIWAY_PRESSURE_CONTRACT.md).
+//!
+//! ```rust
+//! use speakerbox_acoustics::{
+//!     sum_at, Air, Chamber, Design, Driver, MultiwayChannel, System,
+//! };
+//!
+//! let driver = Driver::from_ui_units(350.0, 4.0e-4, 20.0, 6.0, 18.0, 4.0, 1.0, 1);
+//! let mut woofer = System::new(Air::default(), driver);
+//! woofer.rear_chamber = Some(Chamber::new(20.0e-3));
+//! let mut tweeter = System::new(Air::default(), driver);
+//! tweeter.rear_chamber = Some(Chamber::new(2.0e-3));
+//! let low = Design::System(woofer);
+//! let high = Design::System(tweeter);
+//!
+//! let total = sum_at(
+//!     &[
+//!         MultiwayChannel::new(&low),
+//!         MultiwayChannel::new(&high).with_gain(0.5).with_delay_s(1.0e-4),
+//!     ],
+//!     1000.0,
+//! )
+//! .unwrap();
+//! assert!(total.spl_db.unwrap().is_finite());
+//! ```
+//!
 //! ## Versión y estabilidad
 //!
 //! Versión `0.2.0`, **pre-1.0**: la API pública puede cambiar entre versiones
@@ -156,6 +188,9 @@ pub use driver_import::{
 };
 pub use element::{Chamber, EndCorrection, Lining, PassiveRadiator, Port};
 pub use error::SolveError;
+pub use multiway::{
+    sum_at, sum_sweep, MultiwayChannel, MultiwayObservation, MULTIWAY_REFERENCE_VOLTS,
+};
 pub use offset::{OffsetHorn, OffsetPoint};
 pub use radiation::piston_radiation_impedance;
 pub use record::LegacyRecord;
@@ -208,5 +243,6 @@ pub use transmission_line::{Fold, LinePoint, LineTermination, TransmissionLine};
 pub mod optimization;
 
 pub mod measured_data;
+pub mod multiway;
 
 pub mod alignments;

@@ -32,6 +32,7 @@ puntual. Ver `ROADMAP.md` para lo diferido.
 | `src/offset.rs` | stub/path de OD/OD1/OD2 y radiador trasero directo |
 | `src/bandpass.rs` | BP4/BP6P/BP6S |
 | `src/design.rs` | fachada `Design`/`DesignPoint` para la UI |
+| `src/multiway.rs` | suma coherente de presiones multivía (2.83 V RMS) |
 | `src/calibration.rs` | calibración empírica `validated_60_70` |
 | `src/record.rs` | lector del registro binario de 734 bytes |
 | `src/validation.rs` | `OraclePoint`, `validate`, tolerancias |

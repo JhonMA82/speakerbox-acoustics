@@ -1,6 +1,6 @@
 # Contrato de presión compleja para multivía
 
-**Estado:** propuesta normativa. Sin implementación en esta PR.
+**Estado:** normativa. Tensión de referencia **2.83 V RMS aprobada** e implementada en `src/multiway.rs`.
 **Fecha:** 2026-11-14
 **Alcance:** define qué puede sumarse, con qué referencia y qué sigue siendo
 una aproximación declarada. No añade código, ni cambia la API existente.
@@ -65,15 +65,16 @@ misma referencia eléctrica. El SPL se obtiene como
 
 | Decisión | Opciones | Recomendación |
 |---|---|---|
-| Tensión de referencia | 2.83 V RMS (1 W en 8 Ω), 1 V RMS, normalizada a `eg = 1` | **2.83 V RMS**: estándar de comparación de sensibilidad y coincide con la práctica de medición |
-| Distancia | 1 m, otra | **1 m**, la única que el modelo define |
-| Eje | on-axis, off-axis | **on-axis**; off-axis requiere directividad, que no se modela |
-| Retardo del trayecto | incluido, excluido | **excluido** y documentado: común a las vías |
-| Interpolación | log-frecuencia compleja, lineal, ninguna | **log-frecuencia compleja** entre puntos; sin extrapolación |
-| Datos ausentes | suma parcial, `None` | **`None`**: si una vía no tiene presión definida, no hay total |
+| Tensión de referencia | 2.83 V RMS (1 W en 8 Ω), 1 V RMS, normalizada a `eg = 1` | **Aprobado: 2.83 V RMS**; `sum_at` normaliza cada vía por `2.83/|eg|` |
+| Distancia | 1 m, otra | **Adoptado: 1 m**, la única que el modelo define |
+| Eje | on-axis, off-axis | **Adoptado: on-axis**; off-axis requiere directividad, que no se modela |
+| Retardo del trayecto | incluido, excluido | **Adoptado: excluido**; es común a las vías |
+| Interpolación | log-frecuencia compleja, lineal, ninguna | **Diferida al llamador**: la API es por frecuencia y no extrapola |
+| Datos ausentes | suma parcial, `None` | **Adoptado: `None`**; nunca una suma parcial |
 
-Ninguna de estas decisiones se adopta en esta PR. El código actual sigue
-devolviendo presiones individuales.
+La referencia está aprobada y las demás filas quedan adoptadas por la
+implementación. `sum_at` y `sum_sweep` son la API; las pruebas de §6 son
+`src/multiway.rs` y `tests/multiway.rs`.
 
 ## 5. Cuándo la suma es válida
 

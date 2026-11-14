@@ -16,6 +16,12 @@ pública pueda cambiar.
 - Migración de literales Driver y matches exhaustivos documentada en README.
 - Sin cambios de calibración ni de los oráculos originales.
 
+### Multivía
+
+- `sum_at`/`sum_sweep`: suma coherente de presiones complejas con referencia
+  de 2.83 V RMS, polaridad, ganancia y retardo explícitos; total `None` si
+  falta una vía. Contrato en `docs/audits/MULTIWAY_PRESSURE_CONTRACT.md`.
+
 ### Workspace y circuitos (Fase A + B)
 
 - El repositorio pasa a `Cargo Workspace`; el paquete `speakerbox-acoustics`
