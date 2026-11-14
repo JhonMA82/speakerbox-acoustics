@@ -31,6 +31,16 @@ pública pueda cambiar.
   compleja estable, round-trip `.CIR` con valores negativos, mensajes de error
   saneados y acumulación de todos los errores de parseo.
 
+### Identificación de impedancia (Fase C)
+
+- Nuevo crate `crates/speakerbox-measure`: lectura y escritura FRD/ZMA con
+  fase en grados, circuito equivalente de siete parámetros en SI, ajuste
+  Levenberg–Marquardt restringido con residual complejo, `FitReport` con
+  avisos, T/S parciales (`Fs/Qms/Qes/Qts`) y experimentos de masa añadida y
+  caja sellada.
+- 24 pruebas nuevas, incluido un fixture ZMA generado con una implementación
+  independiente. Sin acoplamiento con `Driver` ni con los solvers acústicos.
+
 ## [0.2.0] — 2026-11-09
 
 ### Añadido

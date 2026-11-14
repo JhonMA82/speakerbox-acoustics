@@ -293,6 +293,7 @@ validación. No hay caché ni paralelismo.
 | [`docs/RECORD_FORMAT.md`](docs/RECORD_FORMAT.md) | Formato del registro de 734 bytes |
 | [`docs/SPEAKERWORKSHOP_REUSE_RFC.md`](docs/SPEAKERWORKSHOP_REUSE_RFC.md) | Fronteras y contratos del crate eléctrico |
 | [`SPEAKERWORKSHOP_INTEGRATION_REPORT.md`](SPEAKERWORKSHOP_INTEGRATION_REPORT.md) | Informe de la Fase A + B, límites y evidencias |
+| [`SPEAKERWORKSHOP_IDENTIFICATION_REPORT.md`](SPEAKERWORKSHOP_IDENTIFICATION_REPORT.md) | Fase C: curvas FRD/ZMA e identificación |
 | [`AGENTS.md`](AGENTS.md) / [`docs/AGENTS.md`](docs/AGENTS.md) | Guía para agentes y extensión |
 | [`ROADMAP.md`](ROADMAP.md) | Alcance v1 y topologías diferidas |
 | [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
@@ -314,6 +315,7 @@ docs/       INTEGRATION, ALGORITHMS, VALIDATION, RECORD_FORMAT, AGENTS
 tests/data/ registros y oráculos propios
 crates/
   speakerbox-circuits/  red eléctrica pasiva: MNA, Zin, .CIR
+  speakerbox-measure/   curvas FRD/ZMA e identificación de impedancia
 ```
 
 El repositorio es un `Cargo Workspace`. El paquete raíz sigue siendo

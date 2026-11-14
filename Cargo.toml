@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/speakerbox-circuits"]
+members = ["crates/speakerbox-circuits", "crates/speakerbox-measure"]
 resolver = "2"
 
 [package]

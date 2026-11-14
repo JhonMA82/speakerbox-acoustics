@@ -164,3 +164,40 @@ Sin `panic!`, `unwrap` ni `expect` en rutas de entrada pública.
 - `cargo +1.75.0 check --workspace --all-targets` compila.
 - Fixture RLC con `f0` analítica y `Zin(f0) ≈ 10 Ω`.
 - Suite de entradas inválidas: sin pánicos, errores tipados.
+
+## 9. Extensión Fase C — identificación (PR separada)
+
+Esta fase llega en una rama propia (`feat/speakerworkshop-identification`)
+apilada sobre la anterior, porque las instrucciones prohíben mezclar la
+identificación de drivers con el solver eléctrico.
+
+### Crate
+
+`crates/speakerbox-measure`, que depende de `speakerbox-circuits` (curvas) y
+de `num-complex`. El crate eléctrico no depende de él; el acústico tampoco.
+
+### Contratos
+
+- **FRD/ZMA**: tres columnas (Hz, magnitud, fase en grados). FRD lleva dB y se
+  convierte a amplitud compleja; ZMA lleva ohmios. No se asume calibración.
+  Errores por línea; sin extrapolación.
+- **Circuito equivalente**: `R1∥L1a + Re+jωL1b + R2∥L2∥C2`, siete parámetros
+  positivos. `l1b` admite cero.
+- **Ajuste**: Levenberg–Marquardt sobre `ln(p)`, residual complejo relativo
+  `(Z_modelo−Z_medida)/|Z_medida|`, Jacobiano por diferencias centrales,
+  límites físicos por parámetro, `FitReport` con coste inicial/final,
+  iteraciones, convergencia, RMSE de módulo y fase circular, y avisos
+  (`NoResonance`, `PoorFit`, `ParameterAtBound`).
+- **T/S parciales**: `Fs=1/(2π√(L2C2))`, `Qms=R2√(C2/L2)`,
+  `Qes=Qms·Re/R2`, `Qts=Qms·Qes/(Qms+Qes)`. `Qes` es convención del circuito,
+  no medida independiente.
+- **Experimentos**: masa añadida → `Mms` y `Cms`; caja sellada → `Vas`. No se
+  deduce `Bl`, `Sd` ni nada que el experimento no determine.
+- **Sin acoplamiento**: no se convierte el resultado a `Driver` ni se toca
+  `src/driver.rs`.
+
+### Criterios
+
+Los mismos de §8, más: recuperación de parámetros conocidos con datos
+sintéticos, aviso ante curvas planas o sin resonancia, y rechazo de
+experimentos incoherentes (`Fs_cargada ≥ Fs_libre`, `Fs_caja ≤ Fs_libre`).

@@ -1,0 +1,18 @@
+[package]
+name = "speakerbox-measure"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Lectura de curvas FRD/ZMA e identificación del circuito equivalente de un altavoz"
+repository = "https://github.com/JhonMA82/speakerbox-acoustics"
+license = "MIT OR Apache-2.0"
+keywords = ["acoustics", "impedance", "loudspeaker", "curve", "identification"]
+categories = ["multimedia::audio", "science"]
+
+[dependencies]
+num-complex = "0.4"
+speakerbox-circuits = { path = "../speakerbox-circuits", version = "0.1.0" }
+
+[lib]
+name = "speakerbox_measure"
+path = "src/lib.rs"
