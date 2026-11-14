@@ -124,8 +124,14 @@ pub fn sum_at(
         if !eg.is_finite() || eg == 0.0 {
             return Err(SolveError::InvalidParameter("eg"));
         }
-        if !air.p_ref.is_finite() || air.p_ref <= 0.0 {
-            return Err(SolveError::InvalidParameter("air.p_ref"));
+        if !air.p_ref.is_finite()
+            || air.p_ref <= 0.0
+            || !air.rho.is_finite()
+            || air.rho <= 0.0
+            || !air.c.is_finite()
+            || air.c <= 0.0
+        {
+            return Err(SolveError::InvalidParameter("air"));
         }
         let signature = (air.p_ref, air.rho, air.c);
         match reference {
