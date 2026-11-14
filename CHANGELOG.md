@@ -24,6 +24,9 @@ pública pueda cambiar.
 - Comprobación aritmética con dos oráculos reales de un solo driver
   (`tests/multiway_oracles.rs`), etiquetada como tal; no sustituye a una
   medición multivía.
+- Validador de dataset multivía (`speakerbox-measure`): carga FRD y `meta.txt`,
+  aplica las tolerancias del contrato y sale con código 1 si falla. Listo para
+  ejecutarse cuando existan mediciones.
 
 ### Workspace y circuitos (Fase A + B)
 

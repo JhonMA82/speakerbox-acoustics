@@ -147,14 +147,19 @@ Requisitos de medida:
 ### Protocolo
 
 1. `speakerbox_measure::parse_frd` convierte cada FRD a presión compleja.
-2. `sum_at` predice el sistema con los mismos `polarity`, `gain` y `delay_s`.
-3. Comparar predicción y `system.frd` en la malla medida:
+2. El validador suma las dos curvas medidas con los mismos `polarity`, `gain`
+   y `delay_s`, y compara con `system.frd`. Esto valida la **hipótesis de suma
+   coherente y la cadena de medida**.
+3. Para validar además el simulador (`sum_at`), el dataset debe incluir la
+   configuración de cada vía (`Design`); sin ella no se compara el modelo, solo
+   la suma de las curvas.
+4. Comparar en la malla medida:
    - magnitud: RMS y máximo en dB;
    - fase: diferencia circular en grados, solo donde la magnitud medida esté
      a menos de 12 dB de su máximo.
-4. Criterio de pase: RMS ≤ 1.5 dB y máximo ≤ 3 dB en magnitud; RMS ≤ 15° y
+5. Criterio de pase: RMS ≤ 1.5 dB y máximo ≤ 3 dB en magnitud; RMS ≤ 15° y
    máximo ≤ 30° en fase, excluyendo puntos a menos de 12 dB de un nulo.
-5. Si falla, se documenta la discrepancia. **No se ajusta el modelo para
+6. Si falla, se documenta la discrepancia. **No se ajusta el modelo para
    hacerla pasar** ni se cambia la calibración sin revalidar los oráculos
    existentes.
 
@@ -168,5 +173,9 @@ Requisitos de medida:
   suma no se desvía más que la suma de los errores individuales del modelo
   frente a su oráculo. **No es una validación multivía**: los diseños no se
   midieron juntos.
+- Validador listo: `cargo run -p speakerbox-measure --example validate_multiway -- <directorio>`
+  carga el dataset, aplica el protocolo y sale con código 1 si falla.
+  Implementado en `crates/speakerbox-measure/src/validate.rs`, con pruebas
+  sintéticas del camino de pase y de fallo.
 - Medición multivía: **pendiente de dataset**. Sin él no se puede afirmar
   «validado».
