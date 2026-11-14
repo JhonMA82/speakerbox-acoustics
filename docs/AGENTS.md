@@ -41,7 +41,13 @@ puntual. Ver `ROADMAP.md` para lo diferido.
 | `docs/ALGORITHMS.md` | ecuaciones y calibración |
 | `docs/VALIDATION.md` | tablas detalladas de producción |
 | `docs/RECORD_FORMAT.md` | formato del registro de 734 bytes |
+| `crates/speakerbox-circuits/` | análisis nodal de redes eléctricas pasivas (MNA, `.CIR`) |
 | `ROADMAP.md` | alcance v1 y topologías diferidas |
+
+El repositorio es un `Cargo Workspace`: el paquete raíz sigue siendo
+`speakerbox-acoustics` y los subsistemas nuevos viven en `crates/`. El crate
+eléctrico no depende del acústico ni al revés, así que una dependencia circular
+es imposible por construcción.
 
 ## Comandos obligatorios
 

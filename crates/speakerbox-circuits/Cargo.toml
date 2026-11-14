@@ -1,0 +1,17 @@
+[package]
+name = "speakerbox-circuits"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Análisis nodal de redes eléctricas pasivas para filtros de altavoces"
+repository = "https://github.com/JhonMA82/speakerbox-acoustics"
+license = "MIT OR Apache-2.0"
+keywords = ["acoustics", "crossover", "circuit", "mna", "audio"]
+categories = ["multimedia::audio", "simulation", "science"]
+
+[dependencies]
+num-complex = "0.4"
+
+[lib]
+name = "speakerbox_circuits"
+path = "src/lib.rs"

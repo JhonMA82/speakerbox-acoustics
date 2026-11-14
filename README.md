@@ -291,6 +291,8 @@ validación. No hay caché ni paralelismo.
 | [`docs/ALGORITHMS.md`](docs/ALGORITHMS.md) | Ecuaciones y calibración |
 | [`docs/VALIDATION.md`](docs/VALIDATION.md) | Métricas detalladas de producción |
 | [`docs/RECORD_FORMAT.md`](docs/RECORD_FORMAT.md) | Formato del registro de 734 bytes |
+| [`docs/SPEAKERWORKSHOP_REUSE_RFC.md`](docs/SPEAKERWORKSHOP_REUSE_RFC.md) | Fronteras y contratos del crate eléctrico |
+| [`SPEAKERWORKSHOP_INTEGRATION_REPORT.md`](SPEAKERWORKSHOP_INTEGRATION_REPORT.md) | Informe de la Fase A + B, límites y evidencias |
 | [`AGENTS.md`](AGENTS.md) / [`docs/AGENTS.md`](docs/AGENTS.md) | Guía para agentes y extensión |
 | [`ROADMAP.md`](ROADMAP.md) | Alcance v1 y topologías diferidas |
 | [`CHANGELOG.md`](CHANGELOG.md) | Historial de versiones |
@@ -310,7 +312,12 @@ tests/      engine, bandpass, tapped, production_accuracy, driver_bank,
             system_production
 docs/       INTEGRATION, ALGORITHMS, VALIDATION, RECORD_FORMAT, AGENTS
 tests/data/ registros y oráculos propios
+crates/
+  speakerbox-circuits/  red eléctrica pasiva: MNA, Zin, .CIR
 ```
+
+El repositorio es un `Cargo Workspace`. El paquete raíz sigue siendo
+`speakerbox-acoustics`; el crate eléctrico no depende del acústico ni al revés.
 
 ## Compatibilidad
 
