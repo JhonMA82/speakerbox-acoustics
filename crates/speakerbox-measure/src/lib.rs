@@ -62,9 +62,14 @@ pub mod equiv;
 pub mod error;
 pub mod experiments;
 pub mod fit;
+pub mod validate;
 
 pub use curve_file::{parse_frd, parse_zma, write_frd, write_zma, CurveKind, ParsedCurve};
 pub use equiv::{EquivalentImpedance, TsEstimate, PARAMETER_NAMES};
 pub use error::{CurveParseError, MeasureError, MeasureResult};
 pub use experiments::{added_mass, sealed_box, AddedMassEstimate, SealedBoxEstimate};
 pub use fit::{fit_equivalent, initial_guess, FitOptions, FitReport, FitWarning};
+pub use validate::{
+    load_dataset, parse_meta, validate_curves, validate_dataset, Dataset, DatasetError,
+    DatasetMeta, ValidationReport,
+};
