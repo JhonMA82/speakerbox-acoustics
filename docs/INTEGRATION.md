@@ -529,3 +529,38 @@ Silencio produce fase legada NaN y excitación nula eficiencia legada NaN.
 Para fase y retardo opcionales, usar `try_observation_response`.
 El contrato y ejemplos por topología están en
 [`RADIATION_MODEL_CONTRACT.md`](audits/RADIATION_MODEL_CONTRACT.md).
+
+## Multivía
+
+`sum_at` y `sum_sweep` combinan presiones complejas de varias vías con el
+contrato de [`docs/audits/MULTIWAY_PRESSURE_CONTRACT.md`](audits/MULTIWAY_PRESSURE_CONTRACT.md).
+Cada vía se normaliza a 2.83 V RMS (`MULTIWAY_REFERENCE_VOLTS`); la polaridad,
+la ganancia y el retardo se declaran, no se deducen.
+
+```rust
+use speakerbox_acoustics::{
+    sum_at, Air, Chamber, Design, Driver, MultiwayChannel, System,
+};
+
+let driver = Driver::from_ui_units(350.0, 4.0e-4, 20.0, 6.0, 18.0, 4.0, 1.0, 1);
+let mut woofer = System::new(Air::default(), driver);
+woofer.rear_chamber = Some(Chamber::new(20.0e-3));
+let mut tweeter = System::new(Air::default(), driver);
+tweeter.rear_chamber = Some(Chamber::new(2.0e-3));
+let low = Design::System(woofer);
+let high = Design::System(tweeter);
+
+let total = sum_at(
+    &[
+        MultiwayChannel::new(&low),
+        MultiwayChannel::new(&high).with_gain(0.5).with_delay_s(1.0e-4),
+    ],
+    1000.0,
+)?;
+assert!(total.spl_db.unwrap().is_finite());
+```
+
+La suma presupone fuentes compactas, misma distancia (1 m), mismo aire de
+referencia y un solo punto de observación. No modela off-axis, directividad,
+sala ni el trayecto de 1 m. Si una vía no tiene observación definida, el
+resultado es `None`, nunca una suma parcial.
