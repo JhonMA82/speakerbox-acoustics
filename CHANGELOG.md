@@ -21,6 +21,9 @@ pública pueda cambiar.
 - `sum_at`/`sum_sweep`: suma coherente de presiones complejas con referencia
   de 2.83 V RMS, polaridad, ganancia y retardo explícitos; total `None` si
   falta una vía. Contrato en `docs/audits/MULTIWAY_PRESSURE_CONTRACT.md`.
+- Comprobación aritmética con dos oráculos reales de un solo driver
+  (`tests/multiway_oracles.rs`), etiquetada como tal; no sustituye a una
+  medición multivía.
 
 ### Workspace y circuitos (Fase A + B)
 
