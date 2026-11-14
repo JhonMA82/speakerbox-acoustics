@@ -23,6 +23,13 @@ use num_complex::Complex64;
 /// Límite del residual relativo aceptado.
 const MAX_RELATIVE_RESIDUAL: f64 = 1e-8;
 
+/// Máximo de incógnitas del solver denso.
+///
+/// La matriz es `O(n²)` en memoria y `O(n³)` en tiempo. Con 512 incógnitas
+/// ocupa unos 4 MiB por copia; por encima, una entrada mal formada podría
+/// agotar la memoria del proceso antes de devolver un error.
+pub const MAX_UNKNOWNS: usize = 512;
+
 /// Resultado de resolver la red a una frecuencia.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Solution {
@@ -85,6 +92,11 @@ impl Circuit {
         }
         let node_unknowns = self.nodes() - 1;
         let size = node_unknowns + self.sources().len();
+        if size > MAX_UNKNOWNS {
+            return Err(CircuitError::Unsupported(
+                "la red excede el máximo de incógnitas del solver denso (512)",
+            ));
+        }
         let mut matrix = vec![vec![Complex64::new(0.0, 0.0); size]; size];
         let mut rhs = vec![Complex64::new(0.0, 0.0); size];
 
@@ -438,6 +450,27 @@ mod tests {
         assert_eq!(
             solution.voltage(NodeId(1)).unwrap(),
             Complex64::new(2.0, 0.0)
+        );
+    }
+
+    #[test]
+    fn oversized_networks_are_rejected_before_allocating() {
+        let mut circuit = Circuit::new(MAX_UNKNOWNS + 2);
+        circuit
+            .push_source(VoltageSource::new(
+                NodeId(1),
+                NodeId::GROUND,
+                Complex64::new(1.0, 0.0),
+            ))
+            .unwrap();
+        circuit
+            .push_component(Component::resistor(NodeId(1), NodeId::GROUND, 10.0))
+            .unwrap();
+        assert_eq!(
+            circuit.solve(1000.0).unwrap_err(),
+            CircuitError::Unsupported(
+                "la red excede el máximo de incógnitas del solver denso (512)"
+            )
         );
     }
 

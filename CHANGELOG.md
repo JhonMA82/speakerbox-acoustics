@@ -26,6 +26,10 @@ pública pueda cambiar.
   `Zin`, transferencia entre nodos, barridos y parser/serializador `.CIR`.
 - 66 pruebas nuevas entre unitarias, integración, fixture RLC y contratos de
   error. Sin cambios en los solvers acústicos.
+- Endurecimiento de entrada tras revisión: cota de 512 incógnitas comprobada
+  antes de asignar, cargas medidas pasivas en todos sus puntos, división
+  compleja estable, round-trip `.CIR` con valores negativos, mensajes de error
+  saneados y acumulación de todos los errores de parseo.
 
 ## [0.2.0] — 2026-11-09
 

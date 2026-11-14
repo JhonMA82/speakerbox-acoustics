@@ -51,6 +51,8 @@ pub enum CircuitError {
     ZeroReference { freq_hz: f64, node: NodeId },
     /// Un valor no se puede representar en el formato de netlist.
     NotSerializable { index: usize, reason: &'static str },
+    /// La operación pedida excede una capacidad declarada.
+    Unsupported(&'static str),
 }
 
 impl fmt::Display for CircuitError {
@@ -110,6 +112,9 @@ impl fmt::Display for CircuitError {
             }
             CircuitError::NotSerializable { index, reason } => {
                 write!(f, "componente {index} no serializable: {reason}")
+            }
+            CircuitError::Unsupported(reason) => {
+                write!(f, "operación no soportada: {reason}")
             }
         }
     }

@@ -105,7 +105,14 @@ impl ComplexCurve {
         if freq_hz == f1 {
             return Ok(v1);
         }
-        let t = (freq_hz.log10() - f0.log10()) / (f1.log10() - f0.log10());
+        let span = f1.log10() - f0.log10();
+        if span == 0.0 {
+            // Dos frecuencias distintas pueden compartir el mismo log10: la
+            // banda es más estrecha que la resolución del interpolador. Se
+            // devuelve el extremo más cercano en vez de 0/0.
+            return Ok(if freq_hz <= f0 { v0 } else { v1 });
+        }
+        let t = (freq_hz.log10() - f0.log10()) / span;
         Ok(v0 + (v1 - v0) * t)
     }
 
@@ -150,6 +157,17 @@ mod tests {
         let mid = c.at(10f64.powf(1.5)).unwrap();
         assert!((mid.re - 5.5).abs() < 1e-12);
         assert!((mid.im - 2.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn frequencies_with_the_same_log10_do_not_produce_nan() {
+        let curve = ComplexCurve::new(
+            vec![1000.0, 1000.0000000000003],
+            vec![Complex64::new(8.0, 0.0), Complex64::new(9.0, 0.0)],
+        )
+        .unwrap();
+        let value = curve.at(1000.0000000000001).unwrap();
+        assert!(value.re.is_finite() && value.im.is_finite(), "{value:?}");
     }
 
     #[test]

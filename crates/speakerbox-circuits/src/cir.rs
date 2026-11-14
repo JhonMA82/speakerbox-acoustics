@@ -27,6 +27,7 @@
 
 use crate::error::{CircuitError, CircuitResult};
 use crate::model::{Circuit, Component, LoadImpedance, NodeId, VoltageSource};
+use crate::solver::MAX_UNKNOWNS;
 use num_complex::Complex64;
 use std::collections::HashMap;
 use std::fmt;
@@ -91,10 +92,6 @@ pub fn parse(text: &str) -> Result<Circuit, Vec<CirError>> {
             message: "netlist vacío".to_string(),
         });
     }
-    if !errors.is_empty() {
-        return Err(errors);
-    }
-
     let mut next_named = entries
         .iter()
         .flat_map(|entry| [entry.a.as_str(), entry.b.as_str()])
@@ -107,47 +104,61 @@ pub fn parse(text: &str) -> Result<Circuit, Vec<CirError>> {
         if label == "0" || label.eq_ignore_ascii_case("gnd") {
             return Ok(NodeId::GROUND);
         }
-        if let Ok(number) = label.parse::<u32>() {
-            return Ok(NodeId(number));
+        let numeric_like = label
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_digit() || c == '+' || c == '-');
+        if numeric_like {
+            return match label.parse::<u32>() {
+                Ok(number) if (number as usize) < MAX_UNKNOWNS => Ok(NodeId(number)),
+                _ => Err(CirError {
+                    line,
+                    message: format!(
+                        "nodo numérico fuera del límite del solver ({}): {}",
+                        MAX_UNKNOWNS,
+                        clean_token(label)
+                    ),
+                }),
+            };
         }
         if let Some(id) = named.get(label) {
             return Ok(NodeId(*id));
         }
-        let id = u32::try_from(next_named).map_err(|_| CirError {
-            line,
-            message: "demasiados nodos".to_string(),
-        })?;
+        let id = u32::try_from(next_named)
+            .ok()
+            .filter(|id| (*id as usize) < MAX_UNKNOWNS)
+            .ok_or_else(|| CirError {
+                line,
+                message: format!("demasiados nodos: el límite es {MAX_UNKNOWNS}"),
+            })?;
         next_named += 1;
         named.insert(label.to_string(), id);
         Ok(NodeId(id))
     };
 
-    let mut resolved = Vec::with_capacity(entries.len());
+    let mut resolved: Vec<Option<(NodeId, NodeId)>> = Vec::with_capacity(entries.len());
     let mut max_node = 0_u32;
     for entry in &entries {
-        let a = match resolve(&entry.a, entry.line) {
-            Ok(node) => node,
-            Err(error) => {
-                errors.push(error);
-                continue;
+        let a = resolve(&entry.a, entry.line);
+        let b = resolve(&entry.b, entry.line);
+        match (a, b) {
+            (Ok(a), Ok(b)) => {
+                max_node = max_node.max(a.0).max(b.0);
+                resolved.push(Some((a, b)));
             }
-        };
-        let b = match resolve(&entry.b, entry.line) {
-            Ok(node) => node,
-            Err(error) => {
+            (Err(error), _) | (_, Err(error)) => {
                 errors.push(error);
-                continue;
+                resolved.push(None);
             }
-        };
-        max_node = max_node.max(a.0).max(b.0);
-        resolved.push((a, b));
-    }
-    if !errors.is_empty() {
-        return Err(errors);
+        }
     }
 
     let mut circuit = Circuit::new(max_node as usize + 1);
     for (entry, nodes) in entries.iter().zip(resolved) {
+        let Some((a, b)) = nodes else {
+            continue;
+        };
+        let nodes = (a, b);
         let result = match entry.kind {
             Kind::Resistor => {
                 circuit.push_component(Component::resistor(nodes.0, nodes.1, entry.value))
@@ -213,7 +224,7 @@ fn parse_line(raw: &str, line: usize) -> Result<Option<RawEntry>, CirError> {
         _ => {
             return Err(CirError {
                 line,
-                message: format!("tipo de componente desconocido: {name}"),
+                message: format!("tipo de componente desconocido: {}", clean_token(name)),
             })
         }
     };
@@ -238,7 +249,7 @@ fn parse_line(raw: &str, line: usize) -> Result<Option<RawEntry>, CirError> {
         Some(token) => {
             return Err(CirError {
                 line,
-                message: format!("token inesperado: {token}"),
+                message: format!("token inesperado: {}", clean_token(token)),
             })
         }
         None => None,
@@ -246,7 +257,10 @@ fn parse_line(raw: &str, line: usize) -> Result<Option<RawEntry>, CirError> {
     if tokens.len() > expected + usize::from(extra.is_some()) {
         return Err(CirError {
             line,
-            message: format!("tokens sobrantes: {}", tokens[expected + 1..].join(" ")),
+            message: format!(
+                "tokens sobrantes: {}",
+                clean_token(&tokens[expected + 1..].join(" "))
+            ),
         });
     }
     Ok(Some(RawEntry {
@@ -261,24 +275,44 @@ fn parse_line(raw: &str, line: usize) -> Result<Option<RawEntry>, CirError> {
 
 /// Convierte un valor con sufijo SI (`10k`, `5uF`, `1e-3`, `2.2mH`).
 ///
+/// Acepta valores negativos finitos: el formato los necesita para fuentes con
+/// polaridad invertida y para la parte imaginaria capacitiva de una carga. Son
+/// los constructores de componentes quienes rechazan un R, L o C negativos.
+///
 /// # Errores
 ///
-/// Texto que no empieza por un número válido o sufijo no reconocido.
+/// Texto que no empieza por un número válido, sufijo no reconocido o valor no
+/// finito.
 pub fn parse_si_value(token: &str) -> Result<f64, String> {
     let token = token.trim();
     let (number, suffix) =
-        split_number(token).ok_or_else(|| format!("valor no numérico: {token}"))?;
+        split_number(token).ok_or_else(|| format!("valor no numérico: {}", clean_token(token)))?;
     let suffix = suffix.trim().to_ascii_lowercase().replace('µ', "u");
-    let (factor, unit) =
-        split_multiplier(&suffix).ok_or_else(|| format!("sufijo no reconocido en {token}"))?;
+    let (factor, unit) = split_multiplier(&suffix)
+        .ok_or_else(|| format!("sufijo no reconocido en {}", clean_token(token)))?;
     if !matches!(unit, "" | "ohm" | "r" | "h" | "f" | "v" | "a" | "hz" | "s") {
-        return Err(format!("unidad no reconocida en {token}: {unit}"));
+        return Err(format!(
+            "unidad no reconocida en {}: {}",
+            clean_token(token),
+            clean_token(unit)
+        ));
     }
     let value = number * factor;
-    if !value.is_finite() || value < 0.0 {
-        return Err(format!("valor fuera de rango: {token}"));
+    if !value.is_finite() {
+        return Err(format!("valor fuera de rango: {}", clean_token(token)));
     }
     Ok(value)
+}
+
+/// Sanea un token de entrada para un mensaje: sin caracteres de control y con
+/// longitud acotada, para que un fichero hostil no inyecte secuencias ANSI en
+/// el terminal o el log de quien muestre el error.
+fn clean_token(token: &str) -> String {
+    token
+        .chars()
+        .map(|c| if c.is_control() { '?' } else { c })
+        .take(80)
+        .collect()
 }
 
 fn split_number(token: &str) -> Option<(f64, &str)> {
@@ -411,7 +445,7 @@ C1 3 0 5u
         assert!((parse_si_value("4.7µF").unwrap() - 4.7e-6).abs() < 1e-18);
         assert!(parse_si_value("abc").is_err());
         assert!(parse_si_value("10x").is_err());
-        assert!(parse_si_value("-5").is_err());
+        assert!((parse_si_value("-5").unwrap() + 5.0).abs() < 1e-12);
         assert!(parse_si_value("1e").is_err());
     }
 
@@ -454,6 +488,49 @@ C1 3 0 5u
     fn keeps_solver_errors_at_the_right_line() {
         let errors = parse("V1 1 0 1\nR1 1 1 10\n").unwrap_err();
         assert_eq!(errors[0].line, 2);
+    }
+
+    #[test]
+    fn negative_source_and_reactive_load_round_trip() {
+        let mut circuit = Circuit::new(2);
+        circuit
+            .push_source(VoltageSource::new(
+                NodeId(1),
+                NodeId::GROUND,
+                Complex64::new(-1.0, 0.0),
+            ))
+            .unwrap();
+        circuit
+            .push_component(Component::load(
+                NodeId(1),
+                NodeId::GROUND,
+                Complex64::new(8.0, -4.0),
+            ))
+            .unwrap();
+        let text = to_cir(&circuit).unwrap();
+        assert_eq!(parse(text.as_str()).unwrap(), circuit);
+    }
+
+    #[test]
+    fn node_ids_are_capped_with_a_clear_error() {
+        for label in ["512", "4096", "4294967295", "-1", "18446744073709551616"] {
+            let text = format!("V1 1 0 1\nR1 {label} 0 10\n");
+            let errors = parse(&text).unwrap_err();
+            assert!(
+                errors[0].message.contains("nodo numérico fuera"),
+                "{label}: {}",
+                errors[0].message
+            );
+        }
+        let ok = parse("V1 1 0 1\nR1 511 0 10\n").unwrap();
+        assert_eq!(ok.nodes(), 512);
+    }
+
+    #[test]
+    fn control_characters_never_reach_the_error_text() {
+        let errors = parse("R1 1 0 \u{1b}[2J\n").unwrap_err();
+        assert!(!errors[0].message.chars().any(char::is_control));
+        assert!(errors[0].message.contains("?[2J"));
     }
 
     #[test]

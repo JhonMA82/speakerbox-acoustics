@@ -55,8 +55,15 @@ pub struct VoltageSource { pub positive: NodeId, pub negative: NodeId, pub volts
 ```
 
 Unidades SI estrictas. Los constructores validan: `R > 0`, `L > 0`,
-`dcr >= 0`, `C > 0`, carga pasiva con `Re(Z) > 0`, nodos existentes y `a != b`.
-Ningún valor se recorta en silencio.
+`dcr >= 0`, `C > 0`, carga pasiva con `Re(Z) > 0` **en todos los puntos** de una
+curva medida, nodos existentes y `a != b`. Ningún valor se recorta en
+silencio.
+
+El parser `.CIR` acepta valores negativos finitos (polaridad de fuente,
+reactancia capacitiva) y deja el signo físico a los constructores, que
+devuelven el error con su línea. Los ids de nodo están acotados a
+`MAX_UNKNOWNS − 1 = 511`; el solver rechaza más de 512 incógnitas antes de
+reservar la matriz densa.
 
 ### Solver
 
@@ -99,7 +106,14 @@ x = [tensiones de nodo ≠ tierra, corrientes de fuente]
 `InvalidFrequency`, `EmptyCircuit`, `NoSource`, `UnknownNode`, `SelfLoop`,
 `InvalidComponent`, `InvalidSource`, `UnusableComponent`, `CurveTooShort`,
 `CurveNotIncreasing`, `CurveOutOfRange`, `Singular`, `Inaccurate`,
-`NonFiniteResult`, `SourceCount`, `ZeroReference`, `NotSerializable`.
+`NonFiniteResult`, `SourceCount`, `ZeroReference`, `NotSerializable`,
+`Unsupported`.
+
+La división compleja de `Zin` y de la transferencia es estable por escala: un
+cociente finito no se convierte en `NaN` por desbordar `|z|²`. Los mensajes de
+error sanean los tokens de entrada (sin caracteres de control, 80 caracteres) y
+el parser acumula todos los errores de sintaxis y de construcción, no solo los
+de la primera fase.
 
 Sin `panic!`, `unwrap` ni `expect` en rutas de entrada pública.
 

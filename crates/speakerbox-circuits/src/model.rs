@@ -114,7 +114,16 @@ impl ComponentKind {
     /// Las mismas que [`ComponentKind::impedance`], más una admitancia no
     /// finita por desbordamiento numérico.
     pub fn admittance(&self, index: usize, freq_hz: f64) -> CircuitResult<Complex64> {
-        let y = Complex64::new(1.0, 0.0) / self.impedance(index, freq_hz)?;
+        let z = self.impedance(index, freq_hz)?;
+        // 1/z = conj(u)/(scale·|u|²) con u = z/scale: evita que |z|² desborde
+        // para impedancias enormes y convierta una rama en un circuito abierto
+        // silencioso.
+        let scale = z.re.abs().max(z.im.abs());
+        if scale == 0.0 || !scale.is_finite() {
+            return Err(CircuitError::UnusableComponent { index, freq_hz });
+        }
+        let normalized = z / scale;
+        let y = normalized.conj() / normalized.norm_sqr() / scale;
         if !y.re.is_finite() || !y.im.is_finite() {
             return Err(CircuitError::UnusableComponent { index, freq_hz });
         }
@@ -154,6 +163,15 @@ impl ComponentKind {
                 LoadImpedance::Curve(curve) => {
                     if curve.len() < 2 {
                         return fail("la curva de carga necesita al menos dos puntos");
+                    }
+                    if curve
+                        .values()
+                        .iter()
+                        .any(|z| !z.re.is_finite() || !z.im.is_finite() || z.re <= 0.0)
+                    {
+                        return fail(
+                            "la carga medida debe ser pasiva: Re(Z) > 0 Ω en todos los puntos",
+                        );
                     }
                 }
             },
@@ -422,6 +440,42 @@ mod tests {
                 .is_err());
             assert_eq!(circuit.components().len(), before);
         }
+    }
+
+    #[test]
+    fn rejects_measured_loads_with_non_positive_real_part() {
+        let curve = crate::curves::ComplexCurve::new(
+            vec![100.0, 1000.0],
+            vec![Complex64::new(-8.0, 1.0), Complex64::new(8.0, 1.0)],
+        )
+        .unwrap();
+        let mut circuit = Circuit::new(2);
+        assert!(circuit
+            .push_component(Component::load_curve(NodeId(1), NodeId::GROUND, curve))
+            .is_err());
+        assert!(circuit.components().is_empty());
+    }
+
+    #[test]
+    fn huge_impedance_stays_finite_instead_of_becoming_zero_admittance() {
+        let mut circuit = Circuit::new(2);
+        circuit
+            .push_source(VoltageSource::new(
+                NodeId(1),
+                NodeId::GROUND,
+                Complex64::new(1.0, 0.0),
+            ))
+            .unwrap();
+        circuit
+            .push_component(Component::load(
+                NodeId(1),
+                NodeId::GROUND,
+                Complex64::new(1e200, 0.0),
+            ))
+            .unwrap();
+        let z = circuit.input_impedance(1000.0).unwrap();
+        assert!(z.re.is_finite() && z.re > 0.0);
+        assert!((z.re - 1e200).abs() / 1e200 < 1e-12, "Zin={}", z.re);
     }
 
     #[test]

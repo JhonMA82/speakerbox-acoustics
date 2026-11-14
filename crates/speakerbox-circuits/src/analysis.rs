@@ -6,6 +6,28 @@ use crate::model::{Circuit, NodeId};
 use crate::solver::Solution;
 use num_complex::Complex64;
 
+/// División compleja estable: `(a·conj(u))/(|u|²·escala)` con `u = b/escala`.
+///
+/// Evita que `|b|²` desborde o subdesborde y convierta un cociente finito en
+/// `NaN` o infinito. Devuelve `None` si el divisor es cero o no finito.
+fn stable_divide(a: Complex64, b: Complex64) -> Option<Complex64> {
+    let scale = b.re.abs().max(b.im.abs());
+    if scale == 0.0 || !scale.is_finite() {
+        return None;
+    }
+    let normalized = b / scale;
+    let denominator = normalized.norm_sqr() * scale;
+    if denominator == 0.0 || !denominator.is_finite() {
+        return None;
+    }
+    let result = a * normalized.conj() / denominator;
+    if result.re.is_finite() && result.im.is_finite() {
+        Some(result)
+    } else {
+        None
+    }
+}
+
 impl Circuit {
     /// Resuelve la red en cada frecuencia de `freq_hz`.
     ///
@@ -43,7 +65,8 @@ impl Circuit {
                 node: self.sources()[0].positive,
             });
         }
-        Ok(-self.sources()[0].volts / current)
+        stable_divide(-self.sources()[0].volts, current)
+            .ok_or(CircuitError::NonFiniteResult { freq_hz })
     }
 
     /// Transferencia compleja `V(output) / V(reference)` a `freq_hz`.
@@ -68,7 +91,8 @@ impl Circuit {
                 node: reference,
             });
         }
-        Ok(solution.voltage(output)? / denominator)
+        stable_divide(solution.voltage(output)?, denominator)
+            .ok_or(CircuitError::NonFiniteResult { freq_hz })
     }
 
     /// Transferencia compleja sobre una malla de frecuencias.
@@ -170,6 +194,37 @@ mod tests {
             .voltage_transfer(1000.0, NodeId(2), NodeId(1))
             .unwrap();
         assert!((curve.at(1000.0).unwrap() - direct).norm() < 1e-15);
+    }
+
+    #[test]
+    fn subnormal_reference_is_a_typed_error_not_infinity() {
+        let mut circuit = Circuit::new(3);
+        circuit
+            .push_source(VoltageSource::new(
+                NodeId(1),
+                NodeId::GROUND,
+                Complex64::new(1e-320, 0.0),
+            ))
+            .unwrap();
+        circuit
+            .push_component(Component::resistor(NodeId(1), NodeId::GROUND, 1.0))
+            .unwrap();
+        circuit
+            .push_source(VoltageSource::new(
+                NodeId(2),
+                NodeId::GROUND,
+                Complex64::new(1.0, 0.0),
+            ))
+            .unwrap();
+        circuit
+            .push_component(Component::resistor(NodeId(2), NodeId::GROUND, 1.0))
+            .unwrap();
+        assert_eq!(
+            circuit
+                .voltage_transfer(1000.0, NodeId(2), NodeId(1))
+                .unwrap_err(),
+            CircuitError::NonFiniteResult { freq_hz: 1000.0 }
+        );
     }
 
     #[test]

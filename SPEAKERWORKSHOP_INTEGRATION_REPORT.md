@@ -64,8 +64,8 @@ Comandos ejecutados en el worktree.
 
 | Verificación | Resultado |
 |---|---|
-| `cargo test --workspace` | 310 tests, 30 suites, 0 fallos |
-| `cargo test -p speakerbox-circuits` | 66 tests (32 unitarios, 32 de integración, 2 doc-tests) |
+| `cargo test --workspace` | 318 tests, 30 suites, 0 fallos |
+| `cargo test -p speakerbox-circuits` | 74 tests (40 unitarios, 32 de integración, 2 doc-tests) |
 | `cargo clippy --workspace --all-targets -- -D warnings` | limpio |
 | `cargo fmt --all --check` | limpio |
 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` | limpio |
@@ -104,7 +104,13 @@ Errores numéricos observados en las pruebas:
   medidas: devuelve `NotSerializable` en vez de perder información.
 - Una fuente de tensión con valor cero no define `Zin`: `ZeroReference`.
 - El solver es denso y `O(n³)`. Adecuado para el tamaño de un crossover
-  (decenas de incógnitas); no está pensado para redes de miles de nodos.
+  (decenas de incógnitas); el límite es `MAX_UNKNOWNS = 512` y se comprueba
+  antes de reservar la matriz. Un `.CIR` con ids de nodo mayores se rechaza en
+  el parser con la línea exacta.
+- Las cargas medidas deben ser pasivas en todos sus puntos (`Re(Z) > 0`); una
+  curva con un punto no pasivo se rechaza al añadirla.
+- El parser acepta valores negativos finitos para fuentes y reactancias; R, L y
+  C negativos se rechazan en el constructor con la línea del error.
 - No hay contrato de presión compleja, polaridad, retardo ni calibración
   acústica. `DesignPoint.phase_deg` no se toca ni se reinterpreta.
 
