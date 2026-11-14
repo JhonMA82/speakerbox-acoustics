@@ -209,6 +209,16 @@ impl EquivalentImpedance {
         if !self.l1b_h.is_finite() || self.l1b_h < 0.0 {
             return Err(MeasureError::InvalidParameter("l1b_h"));
         }
+        let ts = self.ts_estimate();
+        if !ts.fs_hz.is_finite()
+            || !ts.qms.is_finite()
+            || !ts.qes.is_finite()
+            || !ts.qts.is_finite()
+        {
+            return Err(MeasureError::InvalidParameter(
+                "el circuito produce estimaciones T/S no finitas",
+            ));
+        }
         Ok(())
     }
 }
@@ -265,6 +275,13 @@ mod tests {
         assert!((ts.qms - expected_qms).abs() < 1e-9);
         assert!((ts.qes - expected_qms * 6.4 / 45.0).abs() < 1e-9);
         assert!(ts.qts > 0.0 && ts.qts < ts.qms.min(ts.qes));
+    }
+
+    #[test]
+    fn parameters_whose_ts_estimates_overflow_are_rejected() {
+        assert!(
+            EquivalentImpedance::new(8.0, 0.02, 6.4, 0.0015, 1.0e308, 1.0e-308, 1.0e308).is_err()
+        );
     }
 
     #[test]

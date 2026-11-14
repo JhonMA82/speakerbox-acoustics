@@ -47,10 +47,22 @@ pub struct ParsedCurve {
 ///
 /// Un `Vec<CurveParseError>` con una entrada por línea inválida.
 pub fn parse_frd(text: &str) -> Result<ParsedCurve, Vec<CurveParseError>> {
-    let (freqs, magnitudes_db, phases_deg) = parse_rows(text)?;
+    let (freqs, magnitudes_db, phases_deg, lines) = parse_rows(text)?;
+    let mut errors = Vec::new();
     let mut values = Vec::with_capacity(freqs.len());
-    for (db, phase) in magnitudes_db.iter().zip(&phases_deg) {
-        values.push(from_db_deg(*db, *phase));
+    for ((db, phase), line) in magnitudes_db.iter().zip(&phases_deg).zip(&lines) {
+        let magnitude = 10.0_f64.powf(db / 20.0);
+        if !magnitude.is_finite() || magnitude <= 0.0 {
+            errors.push(CurveParseError {
+                line: *line,
+                message: "la magnitud en dB no es representable".to_string(),
+            });
+            continue;
+        }
+        values.push(from_modulus_deg(magnitude, *phase));
+    }
+    if !errors.is_empty() {
+        return Err(errors);
     }
     let curve = ComplexCurve::new(freqs, values).map_err(|error| {
         vec![CurveParseError {
@@ -70,16 +82,21 @@ pub fn parse_frd(text: &str) -> Result<ParsedCurve, Vec<CurveParseError>> {
 ///
 /// Un `Vec<CurveParseError>` con una entrada por línea inválida.
 pub fn parse_zma(text: &str) -> Result<ParsedCurve, Vec<CurveParseError>> {
-    let (freqs, magnitudes, phases_deg) = parse_rows(text)?;
+    let (freqs, magnitudes, phases_deg, lines) = parse_rows(text)?;
+    let mut errors = Vec::new();
     let mut values = Vec::with_capacity(freqs.len());
-    for (magnitude, phase) in magnitudes.iter().zip(&phases_deg) {
-        if *magnitude <= 0.0 {
-            return Err(vec![CurveParseError {
-                line: 1,
+    for ((magnitude, phase), line) in magnitudes.iter().zip(&phases_deg).zip(&lines) {
+        if !magnitude.is_finite() || *magnitude <= 0.0 {
+            errors.push(CurveParseError {
+                line: *line,
                 message: "la magnitud de impedancia debe ser > 0 Ω".to_string(),
-            }]);
+            });
+            continue;
         }
         values.push(from_modulus_deg(*magnitude, *phase));
+    }
+    if !errors.is_empty() {
+        return Err(errors);
     }
     let curve = ComplexCurve::new(freqs, values).map_err(|error| {
         vec![CurveParseError {
@@ -140,21 +157,18 @@ pub fn write_frd(curve: &ComplexCurve) -> crate::MeasureResult<String> {
     Ok(out)
 }
 
-fn from_db_deg(db: f64, phase_deg: f64) -> Complex64 {
-    from_modulus_deg(10.0_f64.powf(db / 20.0), phase_deg)
-}
-
 fn from_modulus_deg(modulus: f64, phase_deg: f64) -> Complex64 {
     Complex64::from_polar(modulus, phase_deg.to_radians())
 }
 
-type ParsedRows = (Vec<f64>, Vec<f64>, Vec<f64>);
+type ParsedRows = (Vec<f64>, Vec<f64>, Vec<f64>, Vec<usize>);
 
 fn parse_rows(text: &str) -> Result<ParsedRows, Vec<CurveParseError>> {
     let mut errors = Vec::new();
     let mut freqs = Vec::new();
     let mut magnitudes = Vec::new();
     let mut phases = Vec::new();
+    let mut lines = Vec::new();
     for (index, raw) in text.lines().enumerate() {
         let line = index + 1;
         let content = raw.trim();
@@ -210,6 +224,7 @@ fn parse_rows(text: &str) -> Result<ParsedRows, Vec<CurveParseError>> {
         freqs.push(parsed[0]);
         magnitudes.push(parsed[1]);
         phases.push(parsed[2]);
+        lines.push(line);
     }
     if errors.is_empty() && freqs.is_empty() {
         errors.push(CurveParseError {
@@ -218,7 +233,7 @@ fn parse_rows(text: &str) -> Result<ParsedRows, Vec<CurveParseError>> {
         });
     }
     if errors.is_empty() {
-        Ok((freqs, magnitudes, phases))
+        Ok((freqs, magnitudes, phases, lines))
     } else {
         Err(errors)
     }
@@ -287,5 +302,13 @@ mod tests {
         assert!(parse_zma("100 8 0\n100 9 0\n").is_err());
         assert!(parse_zma("100 0 0\n200 9 0\n").is_err());
         assert!(parse_zma("* solo comentario\n").is_err());
+    }
+
+    #[test]
+    fn non_positive_magnitudes_report_their_own_line() {
+        let errors = parse_zma("10 8 0\n20 9 0\n30 0 0\n40 -1 0\n").unwrap_err();
+        assert_eq!(errors.len(), 2);
+        assert_eq!(errors[0].line, 3);
+        assert_eq!(errors[1].line, 4);
     }
 }

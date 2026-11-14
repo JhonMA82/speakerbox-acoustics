@@ -98,22 +98,46 @@ pub struct FitReport {
 ///
 /// - [`MeasureError::CurveTooShort`] con menos de cinco puntos.
 /// - [`MeasureError::InvalidParameter`] si la curva contiene una impedancia
-///   nula o no finita.
+///   nula o no finita, o un punto con `Re(Z) <= 0` (no es una impedancia).
+/// - [`MeasureError::InvalidParameter`] si la semilla tiene un parámetro fuera
+///   de los límites físicos del ajuste.
 /// - [`MeasureError::SingularFit`] si el sistema normal no se puede resolver.
 pub fn fit_equivalent(curve: &ComplexCurve, options: &FitOptions) -> MeasureResult<FitReport> {
     let (freqs, values) = prepare(curve)?;
-    let initial = match options.initial {
-        Some(model) => model,
-        None => initial_guess(curve)?,
+    let (initial, mut x) = match options.initial {
+        Some(model) => {
+            let seed = model.to_array();
+            for (index, value) in seed.iter().enumerate() {
+                let (low, high) = BOUNDS[index];
+                if !(*value >= low && *value <= high) {
+                    return Err(MeasureError::InvalidParameter(
+                        "la semilla tiene un parámetro fuera de los límites del ajuste",
+                    ));
+                }
+            }
+            let mut x = [0.0; 7];
+            for (slot, value) in x.iter_mut().zip(seed) {
+                *slot = value.ln();
+            }
+            (model, x)
+        }
+        None => {
+            // La heurística puede caer fuera de los límites: se recorta y el
+            // informe guarda la semilla realmente usada.
+            let seed = initial_guess(curve)?;
+            let x = log_bounds(seed.to_array());
+            (params_from_x(&x)?, x)
+        }
     };
-    let mut x = log_bounds(initial.to_array());
     let mut cost = cost_of(&x, &freqs, &values);
     let initial_cost = cost;
     let mut lambda = 1e-3;
     let mut iterations = 0;
-    let mut converged = false;
+    // Una semilla ya óptima cumple la tolerancia sin necesitar una mejora
+    // estricta que nunca llegará (coste 0).
+    let mut converged = cost <= options.tolerance;
 
-    while iterations < options.max_iterations {
+    while !converged && iterations < options.max_iterations {
         iterations += 1;
         let residual = match residual(&x, &freqs, &values) {
             Some(values) => values,
@@ -147,7 +171,7 @@ pub fn fit_equivalent(curve: &ComplexCurve, options: &FitOptions) -> MeasureResu
     }
 
     let parameters = params_from_x(&x)?;
-    let stats = statistics(&parameters, &freqs, &values);
+    let stats = statistics(&parameters, &freqs, &values)?;
     let mut warnings = Vec::new();
     if !has_interior_peak(&values) {
         warnings.push(FitWarning::NoResonance);
@@ -212,7 +236,12 @@ struct Statistics {
     max_relative_error: f64,
 }
 
-fn statistics(model: &EquivalentImpedance, freqs: &[f64], values: &[Complex64]) -> Statistics {
+fn statistics(
+    model: &EquivalentImpedance,
+    freqs: &[f64],
+    values: &[Complex64],
+) -> MeasureResult<Statistics> {
+    let mut evaluated = 0_usize;
     let mut magnitude_sq = 0.0;
     let mut phase_sq = 0.0;
     let mut max_relative = 0.0_f64;
@@ -221,6 +250,7 @@ fn statistics(model: &EquivalentImpedance, freqs: &[f64], values: &[Complex64]) 
             Ok(value) => value,
             Err(_) => continue,
         };
+        evaluated += 1;
         let magnitude_error = predicted.norm() - measured.norm();
         magnitude_sq += magnitude_error * magnitude_error;
         let phase_error = wrap(predicted.arg() - measured.arg());
@@ -230,12 +260,17 @@ fn statistics(model: &EquivalentImpedance, freqs: &[f64], values: &[Complex64]) 
             max_relative = relative;
         }
     }
-    let count = freqs.len() as f64;
-    Statistics {
+    if evaluated == 0 {
+        return Err(MeasureError::InvalidParameter(
+            "ningún punto del ajuste se pudo evaluar",
+        ));
+    }
+    let count = evaluated as f64;
+    Ok(Statistics {
         rmse_magnitude_ohm: (magnitude_sq / count).sqrt(),
         rmse_phase_deg: (phase_sq / count).sqrt().to_degrees(),
         max_relative_error: max_relative,
-    }
+    })
 }
 
 fn has_interior_peak(values: &[Complex64]) -> bool {
@@ -574,6 +609,70 @@ mod tests {
         assert_eq!(
             fit_equivalent(&curve, &options).unwrap(),
             fit_equivalent(&curve, &options).unwrap()
+        );
+    }
+
+    #[test]
+    fn an_optimal_seed_reports_convergence() {
+        let model = known();
+        let curve = synthetic(&model, 40);
+        let report = fit_equivalent(
+            &curve,
+            &FitOptions {
+                initial: Some(model),
+                ..FitOptions::default()
+            },
+        )
+        .unwrap();
+        assert!(report.converged, "iteraciones={}", report.iterations);
+        assert!(report.initial_cost <= 1e-10);
+        assert!(report.final_cost <= 1e-10);
+    }
+
+    #[test]
+    fn out_of_bounds_seeds_are_rejected() {
+        let model = known();
+        let curve = synthetic(&model, 40);
+        let seed = EquivalentImpedance::new(
+            1.0e9,
+            model.l1a_h(),
+            model.re_ohm(),
+            model.l1b_h(),
+            model.r2_ohm(),
+            model.l2_h(),
+            model.c2_f(),
+        )
+        .unwrap();
+        assert_eq!(
+            fit_equivalent(
+                &curve,
+                &FitOptions {
+                    initial: Some(seed),
+                    ..FitOptions::default()
+                }
+            )
+            .unwrap_err(),
+            MeasureError::InvalidParameter(
+                "la semilla tiene un parámetro fuera de los límites del ajuste"
+            )
+        );
+    }
+
+    #[test]
+    fn curves_that_cannot_be_evaluated_are_errors() {
+        let freqs = vec![1.0e308, 1.1e308, 1.2e308, 1.3e308, 1.4e308];
+        let values = vec![Complex64::new(8.0, 0.0); 5];
+        let curve = ComplexCurve::new(freqs, values).unwrap();
+        assert_eq!(
+            fit_equivalent(
+                &curve,
+                &FitOptions {
+                    initial: Some(known()),
+                    ..FitOptions::default()
+                }
+            )
+            .unwrap_err(),
+            MeasureError::InvalidParameter("ningún punto del ajuste se pudo evaluar")
         );
     }
 

@@ -28,7 +28,7 @@
 
 | Verificación | Resultado |
 |---|---|
-| `cargo test -p speakerbox-measure` | 26 pasan, 0 fallan |
+| `cargo test -p speakerbox-measure` | 31 pasan, 0 fallan |
 | `cargo test --workspace` | 334 pasan, 0 fallan |
 | `cargo clippy --workspace --all-targets -- -D warnings` | limpio |
 | `cargo fmt --all --check` | limpio |
@@ -47,7 +47,13 @@ Recuperación con el fixture independiente (24 puntos, 5 Hz–20 kHz):
   `FitReport`.
 - Serializadores FRD/ZMA: rechazan magnitudes nulas o no representables en vez
   de escribir texto que su propio parser rechazaría.
-- Ajuste: rechaza curvas con `Re(Z) <= 0`, que no son impedancias.
+- Ajuste: rechaza curvas con `Re(Z) <= 0`, que no son impedancias, y semillas
+  con parámetros fuera de los límites del ajuste.
+- El error de una magnitud ZMA no positiva lleva su línea real y se informa de
+  todas las filas malas, no solo la primera.
+- Una semilla que ya es el óptimo se reporta como convergente.
+- `EquivalentImpedance::new` rechaza parámetros cuyas estimaciones T/S
+  desbordan a infinito o `NaN`.
 
 ## 4. Diferencias con el legacy
 
