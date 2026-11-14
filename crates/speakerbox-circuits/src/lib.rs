@@ -18,13 +18,16 @@
 //! - Expone tensión por nodo, transferencia compleja entre nodos, impedancia
 //!   de entrada y barridos en frecuencia.
 //! - Lee y escribe netlists `.CIR` con sufijos SI.
+//! - Sintetiza escaleras Butterworth LP/HP de orden 1–4, L-pad y Zobel.
+//! - Optimiza valores de componentes contra una magnitud objetivo en dB.
 //!
 //! ## Qué no hace
 //!
 //! - No modela la respuesta acústica. Una transferencia de tensión no es SPL,
 //!   ni fase de presión: esa referencia sigue siendo un contrato pendiente del
 //!   proyecto acústico.
-//! - No optimiza componentes ni elige topologías de crossover.
+//! - No sintetiza pasivamente familias distintas de Butterworth.
+//! - No modela sistemas multivía: falta la referencia de presión compleja.
 //! - No importa `.SWD` ni datos de medición en bruto.
 //!
 //! ## Ejemplo
@@ -66,13 +69,23 @@
 
 pub mod analysis;
 pub mod cir;
+pub mod crossover;
 pub mod curves;
 pub mod error;
 pub mod model;
+pub mod optimize;
 pub mod solver;
 
 pub use cir::{parse as parse_cir, parse_si_value, to_cir, CirError};
+pub use crossover::{
+    l_pad, synthesize, zobel, FilterFamily, FilterKind, FilterResponse, FilterSpec, LPad, Ladder,
+    Zobel,
+};
 pub use curves::ComplexCurve;
 pub use error::{CircuitError, CircuitResult};
 pub use model::{Circuit, Component, ComponentKind, LoadImpedance, NodeId, VoltageSource};
+pub use optimize::{
+    optimize, DesignVariable, OptimizationOptions, OptimizationReport, OptimizationTarget,
+    OptimizationWarning, VariableField,
+};
 pub use solver::Solution;

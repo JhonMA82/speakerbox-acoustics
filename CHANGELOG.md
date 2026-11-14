@@ -46,6 +46,18 @@ pública pueda cambiar.
   convergencia declarada cuando la semilla ya es óptima, semilla fuera de
   límites rechazada y guarda de finitud en `Fs/Qms/Qes/Qts`.
 
+### Crossover y optimización (Fase D)
+
+- `speakerbox-circuits` incorpora prototipos Butterworth y Linkwitz-Riley
+  (respuesta compleja), síntesis pasiva Butterworth LP/HP de orden 1–4,
+  L-pad con bypass explícito, red Zobel y un optimizador Levenberg–Marquardt
+  restringido contra magnitud en dB.
+- 21 pruebas nuevas; la escalera sintetizada se contrasta con la función de
+  transferencia analítica, no con tablas heredadas.
+- RMSE ponderado por `Σw`, rechazo de objetivos inválidos construidos a mano,
+  Jacobiano acotado, arranque de DCR desde el mínimo y límites asintóticos de
+  los prototipos para relaciones de frecuencia enormes.
+
 ## [0.2.0] — 2026-11-09
 
 ### Añadido

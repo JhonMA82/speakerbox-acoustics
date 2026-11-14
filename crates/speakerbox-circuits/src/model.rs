@@ -344,6 +344,20 @@ impl Circuit {
         Ok(())
     }
 
+    /// Sustituye el valor de un componente existente, validándolo.
+    ///
+    /// # Errores
+    ///
+    /// [`CircuitError::UnknownComponent`] o [`CircuitError::InvalidComponent`].
+    pub fn replace_component(&mut self, index: usize, kind: ComponentKind) -> CircuitResult<()> {
+        if index >= self.components.len() {
+            return Err(CircuitError::UnknownComponent { index });
+        }
+        kind.validate(index)?;
+        self.components[index].kind = kind;
+        Ok(())
+    }
+
     /// Revalida el circuito completo.
     ///
     /// # Errores

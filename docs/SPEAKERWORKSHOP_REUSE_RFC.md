@@ -205,3 +205,49 @@ de `num-complex`. El crate eléctrico no depende de él; el acústico tampoco.
 Los mismos de §8, más: recuperación de parámetros conocidos con datos
 sintéticos, aviso ante curvas planas o sin resonancia, y rechazo de
 experimentos incoherentes (`Fs_cargada ≥ Fs_libre`, `Fs_caja ≤ Fs_libre`).
+
+## 10. Extensión Fase D — crossover y optimización (PR separada)
+
+Rama `feat/speakerworkshop-crossover`, apilada sobre la Fase C.
+
+### Contratos
+
+- **Prototipos**: Butterworth y Linkwitz-Riley con transferencia compleja
+  analítica. Butterworth 1–4; Linkwitz-Riley 2 y 4 (dos Butterworth de medio
+  orden al cuadrado).
+- **Síntesis pasiva**: solo Butterworth 1–4, escalera doblemente terminada con
+  `g_k = 2·sin((2k−1)π/(2n))`, normalizada a 1 Ω y 1 rad/s y escalada en
+  frecuencia e impedancia. La transferencia normalizada es `2·Vout/Vin`.
+- **L-pad**: `Rserie = Z0(1−k)`, `Rpar = Z0·k/(1−k)` con `k = 10^(−dB/20)`.
+  `0 dB` devuelve bypass explícito, nunca una red degenerada.
+- **Zobel**: `R = Re`, `C = Le/Re²`, con `Le = 0` como red vacía.
+- **Optimizador**: LM en log-parámetros, residual `√w·(20log10|H| − objetivo)`,
+  límites por variable, Jacobiano por diferencias centrales, informe con
+  coste, iteraciones, RMSE **ponderado** (`Σw·e²/Σw`), error máximo y avisos.
+  Un objetivo sin ningún peso positivo se rechaza, y `optimize` revalida el
+  objetivo antes de usarlo porque sus campos son públicos. Las sondas del
+  Jacobiano se recortan a los límites de cada variable. Un DCR inicial de una
+  bobina ideal (0) arranca en el mínimo declarado.
+- **Multivía**: fuera de alcance. No se simula un conjunto sin referencia de
+  presión compleja, polaridad, retardo y nivel.
+
+### Criterios
+
+`tests/crossover.rs` y los tests del módulo: la escalera coincide con la
+analítica en `1e-9`, el L-pad conserva `Z0`, el Zobel reduce la dispersión de
+`|Zin|` y el optimizador disminuye el coste con RMSE `< 0.05 dB`.
+
+## 11. Fase E — inventario, sin implementación
+
+Las instrucciones dejan la medición en tiempo real fuera del primer alcance.
+No se añade audio I/O al núcleo. Inventario para una futura crate
+`speakerbox-measure` con feature nativa opt-in:
+
+- Captura por tarjeta de sonido y calibración de la cadena.
+- Medición de impedancia con resistencia de referencia y aislamiento de
+  niveles.
+- FFT/MLS con ventanas, promediado y gating.
+- Detección de la banda útil y exportación a FRD/ZMA, que este repositorio ya
+  lee.
+- Seguridad eléctrica y de niveles: nunca en un crate que compile para wasm
+  por defecto.
