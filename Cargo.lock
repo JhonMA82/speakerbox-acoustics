@@ -121,6 +121,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "speakerbox-measure"
+version = "0.1.0"
+dependencies = [
+ "num-complex",
+ "speakerbox-circuits",
+]
+
+[[package]]
 name = "syn"
 version = "3.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
