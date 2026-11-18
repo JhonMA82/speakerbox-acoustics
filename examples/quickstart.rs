@@ -1,12 +1,12 @@
-//! Recorrido mínimo por todas las topologías del motor.
+//! Recorrido por las familias clásicas de recintos y un banco equivalente.
 //!
 //! ```text
 //! cargo run --release --example quickstart
 //! ```
 //!
 //! Cada bloque construye un diseño distinto y consulta la respuesta a 50 Hz.
-//! Los diseños son los mismos que usan los tests de producción, así que sirven
-//! como punto de partida para una aplicación real.
+//! La primera fila usa 50 L en medio espacio. Xd es pico en mm. La última
+//! columna imprime cero cuando la topología carece de puerto.
 
 use speakerbox_acoustics::{
     Air, Bandpass, Chamber, Design, Driver, DriverBank, EndCorrection, Flare, Horn, OffsetHorn,

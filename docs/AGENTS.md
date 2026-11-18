@@ -3,113 +3,21 @@
 Este documento describe el repositorio, los comandos, las invariantes y el
 flujo para extender la librería sin romper la validación de producción.
 
-## Estado actual
+## Localizar el cambio
 
-**v1 cerrado.** Las topologías del alcance v1 están validadas contra exports
-propios de Hornresp 60.70:
+Consulte el [mapa de responsabilidades y pruebas](ARCHITECTURE.md). Parta del tipo que posee el dato y siga sus consumidores. Compruebe las ramas de `Design` antes de extender la fachada.
 
-- Bocina normal.
-- OD / OD1 / OD2.
-- TH (S2/S4) y TH1 (S2/S3).
-- BP4, BP6 paralelo y BP6 serie.
-- Caja sellada, ventilada y radiador pasivo.
+| Cambio | Punto de entrada y comprobación de impacto |
+| --- | --- |
+| Perfil, pérdida o solver | `horn_profile` define geometría persistente, `segment` la propaga y `thermoviscous` delimita el régimen. Revise extremos, matriz uniforme, convergencia, disipación, serialización y comparador externo. |
+| Topología o red | Revise primero los elementos y constructores existentes. Dibuje tomas, fronteras y salidas de cada cara. Compare contra el solver especializado, continuidad, reciprocidad y potencias antes de contrastar con Hornresp. |
+| Terminación, driver, magnitud o unidad | Siga la magnitud desde `radiation`, `driver` o `element` al punto específico, la fachada, `EnergyReport` y multivía. Verifique signos, pico/RMS, silencio y absorción sin campo. |
+| Registro, driver importado o medición | Edite el lector propietario. Conserve unidades de origen, campos opcionales y errores. Pruebe registros antiguos, fase ausente, ida y vuelta donde se ofrece y ficheros malformados. |
+| Optimizador | Distinga coste acústico, ajuste de parámetros medidos y optimización de circuitos. Compruebe presupuesto, restricciones y determinismo en el módulo correspondiente. |
+| Fallo de validación o regresión | Reproduzca el test puntual con `--nocapture`. Fije excitación, área, boca, aire, fase, banda y malla. Compare fasores y energía antes de tocar calibración, tolerancias u oráculos. |
+| Nueva salida pública | Revise compatibilidad de structs y enums, unidades, ausencias, documentación de usuario y Rustdoc. Ejecute las comprobaciones del [archivo raíz](../AGENTS.md). |
 
-No se aceptan topologías nuevas sin modelo, export propio y test de producción
-puntual. Ver `ROADMAP.md` para lo diferido.
-
-## Mapa del repositorio
-
-| Ruta | Responsabilidad |
-|---|---|
-| `src/air.rs` | propiedades del aire |
-| `src/driver.rs` | modelo electromecánico del altavoz |
-| `src/driver_bank.rs` | bancos de drivers: N, wiring, isobaric, DVC |
-| `src/driver_import.rs` | importación WinISD `.wdr` / OpenISD `.owdr` |
-| `src/segment.rs` | Webster, matrices 2×2, perfiles y `Horn` |
-| `src/element.rs` | `Chamber`, `Port`, `PassiveRadiator`, `Lining`, `EndCorrection` |
-| `src/system.rs` | red completa, radiador directo, caja, bocina, puerto, PR |
-| `src/tapped.rs` | solver nodal de TH/TH1 |
-| `src/offset.rs` | stub/path de OD/OD1/OD2 y radiador trasero directo |
-| `src/bandpass.rs` | BP4/BP6P/BP6S |
-| `src/design.rs` | fachada `Design`/`DesignPoint` para la UI |
-| `src/multiway.rs` | suma coherente de presiones multivía (2.83 V RMS) |
-| `src/calibration.rs` | calibración empírica `validated_60_70` |
-| `src/record.rs` | lector del registro binario de 734 bytes |
-| `src/validation.rs` | `OraclePoint`, `validate`, tolerancias |
-| `tests/*_production.rs` | validación puntual por topología |
-| `tests/data/` | registros y oráculos propios |
-| `docs/INTEGRATION.md` | guía para integrar la librería |
-| `docs/ALGORITHMS.md` | ecuaciones y calibración |
-| `docs/VALIDATION.md` | tablas detalladas de producción |
-| `docs/RECORD_FORMAT.md` | formato del registro de 734 bytes |
-| `docs/audits/MULTIWAY_PRESSURE_CONTRACT.md` | contrato propuesto para sumar presiones multivía |
-| `crates/speakerbox-circuits/` | MNA, `.CIR`, prototipos de filtro, L-pad, Zobel y optimizador |
-| `crates/speakerbox-measure/` | curvas FRD/ZMA, circuito equivalente y ajuste restringido |
-| `ROADMAP.md` | alcance v1 y topologías diferidas |
-
-El repositorio es un `Cargo Workspace`: el paquete raíz sigue siendo
-`speakerbox-acoustics` y los subsistemas nuevos viven en `crates/`. La arista
-es `speakerbox-measure → speakerbox-circuits`; ninguno de los dos depende del
-crate acústico, así que una dependencia circular es imposible por construcción.
-
-## Comandos obligatorios
-
-```bash
-cargo fmt --all --check
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
-cargo check --lib --target wasm32-unknown-unknown
-cargo +1.75.0 check --workspace --all-targets
-```
-
-Para ver las métricas de una topología:
-
-```bash
-cargo test --test od_production -- --nocapture
-cargo test --test th_production -- --nocapture
-cargo test --test bp_production -- --nocapture
-cargo test --test system_production -- --nocapture
-cargo test --test production_accuracy -- --nocapture
-```
-
-## Flujo de datos
-
-```text
-Driver + geometría
-      │
-      ▼
-System / TappedHorn / OffsetHorn / Bandpass
-      │  response_at(f)
-      ▼
-ResponsePoint / TappedPoint / OffsetPoint / BandpassPoint
-      │  Design
-      ▼
-DesignPoint (SPL, Ze, Xd, fase, retardo, potencia, puerto)
-```
-
-## Convenciones que no se deben romper
-
-- **SI** en el API público. Los `from_ui_units` aceptan cm², cm, L, g, mH, mm.
-- `spl_db` es presión de potencia a 1 m, dB re 20 µPa.
-- `xd_mm` es desplazamiento de **pico** (`√2`·RMS) en todas las topologías.
-- `phase_deg` es fase de presión reducida por j (en OD, suma total);
-  la presión física añade +90°.
-- `eg` puede ser negativo (invierte la polaridad); `rg` debe ser finito y no
-  negativo.
-- `solid_angle` en estereorradianes (`4π`, `2π`, `π`, `π/2`).
-- `response_at` devuelve un punto neutro si no es resoluble;
-  `try_response_at` devuelve `SolveError` y valida entrada, configuración y
-  todos los campos del resultado.
-- Los constructores no recortan valores; `validate()` rechaza parámetros no
-  finitos o no físicos.
-- `Design::response` desenrolla la fase y calcula el retardo de grupo; no
-  duplique esa lógica en la UI.
-- `Design::sweep_log` devuelve vacío ante límites o número de puntos inválidos;
-  `try_sweep_log` devuelve el `SolveError`.
-- La calibración es empírica y está ligada a la geometría validada. No cambie
-  `spl_offset_db`, `mouth_radiation_scale`, `mouth_radiation_area_factor` ni
-  `rear_radiation_scale` sin revalidar los tests de producción.
+Extienda el elemento existente si comparten ecuaciones y condiciones de frontera. Use una variante explícita cuando cambie la interpretación física. Cree un módulo cuando haya responsabilidad y consumidores identificables. Escale las decisiones que alteren contratos públicos, convenciones o calibraciones. Un modelo con comparación parcial conserva la etiqueta experimental y la prueba fallida.
 
 ## Cómo añadir una topología
 
@@ -122,8 +30,7 @@ DesignPoint (SPL, Ze, Xd, fase, retardo, potencia, puerto)
    - SPL RMS ≤ 2 dB, máximo ≤ 3,5 dB.
    - `Ze` RMS ≤ 15 %, máximo ≤ 35 %.
    - `Xd` RMS ≤ 15 %, máximo ≤ 40 % (ignorar `Xd ≤ 0.02 mm`).
-5. Documente ecuaciones, calibración y métricas en `README.md`,
-   `docs/ALGORITHMS.md` y `tests/data/README.md`.
+5. Documente el modelo en [Algoritmos](ALGORITHMS.md) y el alcance en [Validación](VALIDATION.md). Registre la procedencia junto al fixture.
 6. Actualice `ROADMAP.md` si cambia el alcance.
 7. Ejecute todos los comandos obligatorios.
 
@@ -131,8 +38,7 @@ Sin oráculo propio, la topología queda como **experimental** y no entra en v1.
 
 ## Validación de producción
 
-- Los oráculos son exports propios, nunca datos de proyectos con licencia
-  incompatible.
+- Las puertas v1 usan exports propios. Las comparaciones adicionales usan fixtures externos con revisión, procedencia y alcance explícitos.
 - `OraclePoint::parse_tsv` acepta el `All Chart Data` de Hornresp con coma o
   punto decimal y devuelve `Result`; conserva la posición de las columnas y
   rechaza celdas inválidas o columnas faltantes.
@@ -167,8 +73,8 @@ Sin oráculo propio, la topología queda como **experimental** y no entra en v1.
   `docs/INTEGRATION.md` y los ejemplos.
 - En `.wdr` (WinISD) los valores son SI y el separador decimal puede ser coma;
   `Mms` es masa total, así que el importador resta la masa añadida del aire.
-- En `.owdr` (OpenISD) cada campo puede venir como `value` o dentro de
-  `readings[].read_value`; el importador acepta ambos.
+- En `.owdr` (OpenISD) cada campo puede venir como `value` o en los valores del objeto
+  `readings`, bajo `read_value`; el importador acepta ambos.
 - No commitee ficheros `.wdr`/`.owdr` de terceros sin licencia; los tests del
   importador usan cadenas sintéticas propias.
 
@@ -180,19 +86,3 @@ Sin oráculo propio, la topología queda como **experimental** y no entra en v1.
   repositorio.
 - Cambios mínimos y reversibles; no reescriba módulos que ya están validados.
 - Los ejemplos deben compilar con `cargo check --all-targets`.
-
-## Auditoría física correctiva
-
-Consultar `docs/audits/ACOUSTIC_AUDIT.md` y sus cuatro informes asociados.
-SPL/Ze/Xd siguen pasando sus oráculos; potencia/rendimiento legados son
-estimaciones con limitaciones medidas, no un balance energético general.
-No cambiar calibración ni ampliar las garantías sin resolver ese modelo.
-
-## Segunda pasada energética
-
-Estado vigente: docs/audits/RADIATION_MODEL_CONTRACT.md. Los campos legados
-power_w/acoustical_power_w son absorción de cargas explícitas (pueden ser
-subtotales), no potencia de campo. try_energy_at conserva calidad radiativa,
-fuente/bornes/pérdidas y eficiencias opcionales. Matched no define SPL; fase
-legada NaN en silencio y eficiencia NaN para 0/0 son ausencias deliberadas.
-Conservar calibración, oráculos y optimizaciones de la primera pasada.

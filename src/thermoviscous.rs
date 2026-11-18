@@ -6,9 +6,13 @@ use crate::{error::require_positive, omega, Air, SolveError};
 /// Propiedades termodinámicas del fluido. Use valores coherentes con `Air`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ThermoviscousAir {
+    /// Viscosidad dinámica (Pa·s), positiva.
     pub viscosity_pa_s: f64,
+    /// Conductividad térmica (W/(m·K)), positiva.
     pub thermal_conductivity_w_m_k: f64,
+    /// Calor específico a presión constante (J/(kg·K)), positivo.
     pub heat_capacity_j_kg_k: f64,
+    /// Cociente Cp/Cv, finito y mayor que uno.
     pub heat_capacity_ratio: f64,
 }
 

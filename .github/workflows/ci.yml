@@ -19,6 +19,9 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 
+      - name: Comprobar enlaces y ejemplos de la guía
+        run: python3 tools/check-docs.py
+
   msrv:
     name: MSRV 1.75
     runs-on: ubuntu-latest

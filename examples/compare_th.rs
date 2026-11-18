@@ -1,3 +1,7 @@
+//! Compara dos diseños con sus oráculos desde la raíz del workspace.
+//! Ejecute `cargo run --example compare_th`. El RMS de Xd de este diagnóstico
+//! histórico divide por el total de filas, incluidas las excluidas por excursión baja.
+//! Para la puerta de aceptación use el test de integración `th_production`.
 use speakerbox_acoustics::{Driver, Flare, OraclePoint, Segment, TappedHorn};
 fn driver() -> Driver {
     Driver::from_ui_units(350.0, 4e-4, 20.0, 6.0, 18.0, 4.0, 1.0, 1)

@@ -225,8 +225,7 @@ Estado: **validado a nivel de producción** contra exports propios de Hornresp
 
 La banda de producción del SPL es **10 Hz–1 kHz** (banda útil de un bandpass de
 subwoofer). Por encima, el modelo de puerto sin pérdidas no reproduce los
-valles/picos finos de Hornresp; `Ze` y `Xd` siguen siendo válidos en todo el
-rango. El modelo sigue Fincham (1983)/Geddes (1989).
+valles/picos finos de Hornresp. El filtro de frecuencia en la prueba BP también limita las comparaciones de Ze y Xd. El modelo sigue Fincham (1983)/Geddes (1989).
 
 El **BP6 serie** (`Bandpass::new_bp6_series`) queda también **validado a
 producción** con su export propio. La diferencia clave frente al paralelo es
@@ -264,8 +263,7 @@ El alcance v1, las topologías diferidas y el orden sugerido están en
   propios. Los **bandpass BP4/BP6 paralelo/BP6 serie** y las **cajas
   sellada/ventilada/radiador pasivo** están validados a producción con exports
   propios. Con esto, el **alcance v1 de topologías queda cerrado**. No están
-  implementados multiple entry, los TH con cámara de garganta/trasera, ni los
-  perfiles tractrix/Bessel/OS cerrados.
+  implementados multiple entry, los TH con cámara de garganta/trasera, ni un perfil Bessel dedicado. Tractrix y OS tienen especificación geométrica en el árbol integrado.
 * Los **bancos de drivers** (`DriverBank`) cubren N drivers en un mismo
   recinto, cableado paralelo/serie/serie-paralelo, isobaric, push-pull y DVC
   paralelo/serie. La comprobación local contra Hornresp `Nd = 2P/2S` da SPL
@@ -299,8 +297,7 @@ El alcance v1, las topologías diferidas y el orden sugerido están en
   Hornresp. Consulte su [alcance y condiciones](horn-simulation-integration/VALIDACION.md).
 * La directividad es la de un pistón equivalente y el propio Hornresp la
   describe como «indicativa, no exacta».
-* No se distribuye código de la aplicación de referencia; solo se usan
-  fórmulas públicas de acústica y datos propios de validación.
+* No se distribuye código de la aplicación de referencia; la procedencia de los datos propios y externos se registra por fixture.
 
 Licencia: MIT OR Apache-2.0.
 
@@ -318,3 +315,15 @@ Las métricas históricas TH/BP de Xd dividían la suma por TODOS los puntos,
 incluidos los excluidos por Xd<=0.02 mm. El informe nuevo divide por los
 puntos realmente comparados. Es una diferencia del denominador de reporte,
 no una regresión del solver ni un cambio en los archivos de referencia.
+
+## Evidencia aplicable al árbol integrado
+
+| Pregunta | Reproducción | Alcance y criterio |
+| --- | --- | --- |
+| ¿Resuelve la geometría y la propagación 1D? | `cargo test --test horn_profile --test horn_simulation_reference` | Puntos geométricos y matrices frente a referencia numérica independiente. El [contrato del fixture](horn-simulation-integration/VALIDACION.md) fija aire, frecuencias, carga y normalización. |
+| ¿Cierran las ecuaciones y potencias de una red? | `cargo test --test acoustic_network --test energy_physics --test energy_regressions` | Tubos analíticos, uniones, fronteras y equivalencias bajo las mismas cargas. Un residuo pequeño verifica la solución discreta. |
+| ¿Se reproducen las nuevas topologías? | `cargo test --test wavebox_hornresp -- --nocapture` | [Comparación externa por observable](wavebox-integration/VALIDACION.md), con procedencia, frecuencias y límites. PH1, BP8S y DBR tienen evidencia externa para sus fixtures. BPB excede el límite de excursión. Los ensayos de ABC/BPC conservan discrepancias y BP8P carece de oráculo propio. |
+| ¿Son identificables los parámetros de una medida? | `cargo test -p speakerbox-measure` | Ajustes y experimentos sintéticos comprueban recuperación en los casos construidos. Para una medición física documente calibración, temperatura, amplitud, incertidumbre y procedencia. |
+| ¿Coincide un crossover con su función objetivo? | `cargo test -p speakerbox-circuits` | Cargas y prototipos eléctricos. Use una referencia acústica adicional para afirmar precisión de presión. |
+
+Para reproducir los casos clásicos ejecute `cargo test --test production_accuracy --test th_production --test od_production --test bp_production --test system_production -- --nocapture`. Las tablas clásicas conservan las cifras de esos informes y sus convenciones de recuento. Las pruebas y los datos de cada diseño determinan la banda efectiva. Para tiempos de ejecución consulte [las medidas de propagación](horn-simulation-integration/RESULTADOS.md) y [las medidas de red](wavebox-integration/RESULTADOS.md) con sus revisiones y configuración. Un benchmark mide coste de cálculo. El backend FEM y la validación experimental de un sistema físico completo quedan pendientes.

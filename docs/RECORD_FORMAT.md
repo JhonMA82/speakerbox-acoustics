@@ -66,3 +66,9 @@ Los campos del registro son:
 cm y áreas en cm².
 
 ---
+
+## Texto de intercambio y geometría
+
+`record::HornrespTextRecord` conserva el texto de la plantilla, sus secciones, el separador decimal y sus campos desconocidos. La conversión a `System` y la exportación por plantilla tienen un subconjunto comprobado de diseños sellados y ventilados tradicionales con un driver. Retener un dato textual y saber simularlo son garantías distintas. [Pruebas de ida y vuelta](../tests/hornresp_text_roundtrip.rs).
+
+`HornProfileSpec::{to_json,from_json}` intercambia la ley geométrica y sus parámetros SI. `NetworkLayout::{to_json,from_json}` intercambia la geometría nominal de red y los índices del diafragma. Compruebe la versión y los elementos admitidos antes de persistir. El driver y la excitación se suministran al resolver. Las funciones arbitrarias de área requieren una representación propia del consumidor. [Esquema de red](../src/network/schema.rs) · [Ejemplo BP4](wavebox-integration/bp4-network.json).

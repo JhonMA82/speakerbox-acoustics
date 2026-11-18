@@ -49,7 +49,7 @@ No se implementan en v1:
 - TH con cámara de garganta o trasera.
 - Multiple entry (ME1/ME2).
 - Compound, stubbed y paraflex.
-- Perfiles tractrix/Bessel/OS en forma cerrada.
+- Perfil Bessel dedicado. Tractrix y OS cuentan con representación en el [árbol integrado](docs/index.md).
 - Directividad, mapas polares y compresión de potencia.
 - Exportación de fabricación.
 

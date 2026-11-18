@@ -1,5 +1,6 @@
 //! Optimización acotada desacoplada; los candidatos no mutan el diseño original.
 use crate::error::SolveError;
+/// Intervalo físico de una variable. El valor inicial y el bloqueo opcional deben pertenecer al intervalo.
 #[derive(Clone, Copy, Debug)]
 pub struct Bound {
     pub min: f64,
@@ -11,6 +12,7 @@ pub enum Algorithm {
     NelderMead,
     DifferentialEvolution,
 }
+/// Motivo de salida. Agotar el presupuesto puede dejar un candidato válido sin convergencia.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stop {
     Converged,
@@ -23,6 +25,7 @@ pub struct Candidate {
     pub parameters: Vec<f64>,
     pub cost: f64,
 }
+/// Mejor candidato evaluado, contadores y condición de parada. Compruebe `best` antes de usarlo.
 #[derive(Clone, Debug)]
 pub struct SearchResult {
     pub best: Option<Candidate>,
@@ -30,13 +33,16 @@ pub struct SearchResult {
     pub iterations: usize,
     pub stop: Stop,
 }
+/// Presupuesto y criterio de parada de una minimización en parámetros acotados.
 #[derive(Clone, Copy, Debug)]
 pub struct SearchConfig {
     pub algorithm: Algorithm,
     pub max_evaluations: usize,
     pub max_iterations: usize,
     pub tolerance: f64,
+    /// Semilla del generador de Differential Evolution.
     pub seed: u64,
+    /// Población solicitada para Differential Evolution. El algoritmo usa al menos cuatro individuos.
     pub population: usize,
 }
 struct Evaluator<'a, F, C> {

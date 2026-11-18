@@ -17,6 +17,7 @@ pub struct UnitDriveResponse {
     pub radiation_quality: RadiationQuality,
 }
 
+/// Presión, excursión de pico y potencias activas a la tensión aplicada.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LinearDrivePoint {
     pub pressure_pa: C,
@@ -26,12 +27,16 @@ pub struct LinearDrivePoint {
     pub coil_heat_w: f64,
 }
 
+/// Base física del límite en vatios. Seleccione la magnitud que especifica el fabricante.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PowerBasis {
+    /// Potencia activa total que entra por los bornes del driver.
     TerminalActive,
+    /// Disipación activa del modelo de bobina a la frecuencia resuelta.
     CoilHeat,
 }
 
+/// Restricción que limita la tensión del generador en una frecuencia.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OutputConstraint {
     Excursion,
@@ -43,10 +48,13 @@ pub enum OutputConstraint {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct MaximumSplLimits {
     pub excursion_peak_m: Option<f64>,
+    /// Potencia máxima en W y base de referencia. Se aplica a la respuesta normalizada a un voltio.
     pub power_limit: Option<(PowerBasis, f64)>,
+    /// Tensión RMS máxima en circuito abierto del amplificador (V).
     pub amplifier_open_circuit_v_rms: Option<f64>,
 }
 
+/// Máximo lineal estimado a una frecuencia con los límites suministrados.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MaximumSplPoint {
     pub frequency_hz: f64,
@@ -55,6 +63,7 @@ pub struct MaximumSplPoint {
     pub excursion_voltage_rms: Option<f64>,
     pub power_voltage_rms: Option<f64>,
     pub amplifier_voltage_rms: Option<f64>,
+    /// Restricciones sin valor especificado. Una restricción ausente puede limitar al sistema real.
     pub uncharacterized: Vec<OutputConstraint>,
     pub radiation_quality: RadiationQuality,
     pub output: LinearDrivePoint,
@@ -154,6 +163,7 @@ impl UnitDriveResponse {
 
     /// Máximo lineal estacionario. Un límite empírico de la zona lineal
     /// puede restringir la excursión, potencia o tensión suministradas.
+    /// Elige la menor tensión RMS vinculante. Rechaza límites negativos, no finitos o sin cota vinculante. Conserva la calidad de radiación del punto de entrada.
     pub fn maximum_spl(&self, limits: MaximumSplLimits) -> Result<MaximumSplPoint, SolveError> {
         self.validate()?;
         let voltage_limit = |limit: f64, slope: f64| -> Result<f64, SolveError> {

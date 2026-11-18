@@ -1,4 +1,4 @@
-//! New-capability release benchmark; reports elapsed time AND result accuracy.
+//! Mide tiempo y precisión de las capacidades de la integración de referencia.
 use speakerbox_acoustics::optimization::*;
 use speakerbox_acoustics::*;
 use std::{hint::black_box, time::Instant};

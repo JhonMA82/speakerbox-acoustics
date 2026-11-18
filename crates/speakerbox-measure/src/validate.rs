@@ -1,7 +1,7 @@
 //! Validación de la suma coherente contra un dataset de mediciones.
 //!
 //! El dataset y las tolerancias están en
-//! [`docs/audits/MULTIWAY_PRESSURE_CONTRACT.md`](../../../docs/audits/MULTIWAY_PRESSURE_CONTRACT.md) §8.
+//! el contrato multivía del repositorio. Véanse [`DatasetMeta`] y [`validate_curves`].
 //! No se ejecuta ninguna validación aquí: esta API compara las curvas cuando
 //! existan y devuelve un informe con el veredicto.
 
@@ -183,9 +183,10 @@ pub fn validate_dataset(dataset: &Dataset) -> Result<ValidationReport, DatasetEr
 
 /// Compara `woofer + tweeter·polarity·gain·e^(−j2πfτ)` con `system`.
 ///
-/// La comparación usa solo las magnitudes de las curvas (dB re 1), así que no
-/// depende de `p_ref`. Se excluyen los puntos a más de 12 dB del máximo medido
-/// y los de magnitud nula.
+/// Evalúa el error de magnitud en dB y la diferencia circular de fase en grados.
+/// Use una referencia común de amplitud y tiempo para las tres curvas.
+/// El suelo de comparación está 12 dB por debajo del máximo medido y se
+/// requieren al menos cinco puntos comparables. Consulte [`ValidationReport`].
 pub fn validate_curves(
     woofer: &ComplexCurve,
     tweeter: &ComplexCurve,

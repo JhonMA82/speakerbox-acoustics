@@ -4,11 +4,14 @@ use crate::energy::{load_termination, EnergyReport, RadiationQuality as Q, Termi
 use crate::{Air, DesignPoint, Driver, Flare, Segment, SolveError, TransferMatrix};
 use num_complex::Complex64 as C;
 use std::{f64::consts::TAU, sync::Arc};
+/// Condición acústica en el extremo final de la línea. El extremo inicial está cerrado.
 #[derive(Clone, Copy, Debug)]
 pub enum LineTermination {
     BaffledPiston,
     Closed,
+    /// Presión idealmente nula en el extremo.
     PressureRelease,
+    /// Resistencia acústica prescrita, en Pa·s/m³.
     Resistance(f64),
 }
 /// Elemento lineal localizado entre segmentos. M en kg/m⁴ y R en Pa·s/m³.
@@ -19,6 +22,7 @@ pub struct Fold {
     pub acoustic_mass: f64,
     pub resistance: f64,
 }
+/// Línea de Webster con inyección en una toma y pérdidas distribuidas en sus segmentos.
 #[derive(Clone, Debug)]
 pub struct TransmissionLine {
     pub air: Air,
@@ -32,6 +36,7 @@ pub struct TransmissionLine {
     pub rg: f64,
     pub polarity: f64,
 }
+/// Resumen y fasores de la línea a una frecuencia, sin información espacial de directividad.
 #[derive(Clone, Copy, Debug)]
 pub struct LinePoint {
     pub summary: DesignPoint,
@@ -53,6 +58,7 @@ struct State {
     current: C,
 }
 impl TransmissionLine {
+    /// Configura la boca con pistón, Eg = 2,83 V RMS, Rg = 0 Ω y polaridad positiva. Valide la toma con [`Self::validate`].
     pub fn new(driver: Driver, segments: Vec<Segment>, tap: usize) -> Self {
         Self {
             air: Air::default(),
@@ -277,6 +283,7 @@ impl TransmissionLine {
     pub fn try_response_at(&self, f: f64) -> Result<LinePoint, SolveError> {
         Ok(self.state(f)?.point)
     }
+    /// Calcula el balance activo para una frecuencia positiva en Hz, incluso si la terminación carece de observador radiativo.
     pub fn try_energy_at(&self, f: f64) -> Result<EnergyReport, SolveError> {
         let s = self.state(f)?;
         let ud = s.point.driver_volume_velocity_m3_s;

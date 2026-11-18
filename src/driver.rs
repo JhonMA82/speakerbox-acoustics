@@ -19,15 +19,21 @@ use num_complex::Complex64;
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum CoilModel {
     #[default]
+    /// Bobina clásica con la inductancia serie Le del driver.
     Inductance,
-    /// Ke en Ω·sqrt(s): Z=Re+Ke sqrt(jω), rama principal pasiva.
+    /// Re + Ke·√(jω), rama principal pasiva con Ke en Ω·√s. Sustituye Le.
     SemiInductance { ke: f64 },
     /// Re′ + jω Leb + (jω Le ∥ Rss ∥ Ke √(jω)). Parámetros SI.
     ExtendedSemiInductance {
+        /// Resistencia serie de continua del modelo extendido (Ω).
         re_prime_ohm: f64,
+        /// Inductancia serie de la rama principal (H).
         leb_h: f64,
+        /// Inductancia de la rama en paralelo (H).
         le_h: f64,
+        /// Resistencia de la rama en paralelo (Ω).
         rss_ohm: f64,
+        /// Coeficiente de la impedancia de raíz en la rama paralela (Ω·√s).
         ke_ohm_sqrt_s: f64,
     },
 }
@@ -287,7 +293,8 @@ impl Driver {
         }
     }
 
-    /// Impedancia de entrada (eléctrica) para una carga acústica dada.
+    /// Impedancia eléctrica en bornes (Ω), excluida Rg, para la carga acústica
+    /// total del diafragma (Pa·s/m³) a la frecuencia indicada (Hz).
     ///
     /// `Zin = Ze + Bl²/(Zm + Sd²·Zac)`
     pub fn input_impedance(&self, freq_hz: f64, z_acoustic: Complex64) -> Complex64 {

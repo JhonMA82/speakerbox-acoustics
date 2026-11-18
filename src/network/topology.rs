@@ -8,10 +8,13 @@ use crate::{Flare, Port, Segment};
 #[derive(Clone, Debug)]
 pub struct NetworkLayout {
     pub network: AcousticNetwork,
+    /// Nodo que recibe el caudal positivo del diafragma.
     pub front: AcousticNode,
+    /// Nodo que recibe el caudal opuesto.
     pub rear: AcousticNode,
 }
 
+/// Cámara cilíndrica uniforme. Volumen y longitud positivos fijan el área V/L.
 #[derive(Clone, Copy, Debug)]
 pub struct DistributedChamber {
     pub volume_m3: f64,

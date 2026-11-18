@@ -44,7 +44,7 @@ pub struct ResponsePoint {
     pub phase_deg: f64,
     /// Retardo de grupo (ms).
     pub group_delay_ms: f64,
-    /// Módulo de la impedancia eléctrica de entrada (Ω).
+    /// Módulo de la impedancia eléctrica vista por el generador, incluida Rg (Ω).
     pub ze_mag: f64,
     /// Fase de la impedancia eléctrica (grados).
     pub ze_phase_deg: f64,

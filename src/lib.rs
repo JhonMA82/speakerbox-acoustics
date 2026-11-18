@@ -4,16 +4,11 @@
 //! tapped horn, offset driver, bandpass BP4/BP6, radiador directo, recinto
 //! sellado o ventilado, cámara de garganta, puerto y radiador pasivo.
 //!
-//! Es una implementación independiente basada en ecuaciones públicas de
-//! acústica, validada punto por punto contra exports propios de la aplicación
-//! de referencia. No copia código de esa aplicación; los exports se usan solo
-//! como oráculo de validación.
-//!
-//! El motor resuelve la ecuación de Webster en cada segmento mediante
-//! integración numérica RK4 y propaga impedancias con matrices de transmisión
-//! 2×2. Eso permite usar cualquier perfil de área `S(x)`: cilíndrico, cónico,
-//! exponencial, parabólico, hiperbólico-exponencial o un perfil definido por
-//! el usuario.
+//! Para un recinto clásico o una línea, use [`Design`]. Para acoplar ambas
+//! caras del driver a un grafo, use [`network::AcousticNetwork`]. Los perfiles
+//! persistentes se construyen con [`HornProfileSpec`]. [`Segment`] resuelve la
+//! sección uniforme de forma cerrada y usa Webster/RK4 en perfiles variables.
+//! Las comparaciones con Hornresp cubren diseños, bandas y magnitudes concretos.
 //!
 //! ## Inicio rápido
 //!
@@ -86,8 +81,8 @@
 //! [`sum_at`] y [`sum_sweep`] suman presiones complejas de varias vías con la
 //! referencia de 2.83 V RMS, polaridad, ganancia y retardo explícitos. Es una
 //! presión coherente, no una suma de potencias, y presupone fuentes compactas
-//! a la misma distancia. El contrato completo está en
-//! [`docs/audits/MULTIWAY_PRESSURE_CONTRACT.md`](../../docs/audits/MULTIWAY_PRESSURE_CONTRACT.md).
+//! a la misma distancia. El contrato de la suma está en el
+//! módulo [`multiway`].
 //!
 //! ```rust
 //! use speakerbox_acoustics::{
@@ -133,7 +128,7 @@
 //!
 //! - El API público usa **SI**: m², m, m³, kg, N/m, T·m, Ω, H, Pa. Los
 //!   constructores `from_ui_units*` aceptan cm², cm, litros, gramos, mH y mm.
-//! - `spl_db` es la presión de potencia a 1 m, dB re 20 µPa.
+//! - `spl_db` es el nivel de presión estimado a 1 m según la topología, referido a [`Air::p_ref`].
 //! - `ze_mag`/`ze_phase_deg` son el módulo y la fase de la impedancia
 //!   eléctrica de entrada.
 //! - `xd_mm` es desplazamiento de **pico** (`√2`·RMS) en todas las

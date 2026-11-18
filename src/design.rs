@@ -4,7 +4,7 @@
 //! respuesta común [`DesignPoint`], pensada para ser consumida por la UI
 //! (egui) y por el futuro módulo de diseño paramétrico.
 //!
-//! ```no_run
+//! ```rust
 //! use speakerbox_acoustics::{Design, System, Air, Driver};
 //!
 //! let driver = Driver::from_ui_units(350.0, 4.0e-4, 20.0, 6.0, 18.0, 4.0, 1.0, 1);
@@ -25,7 +25,7 @@ use crate::tapped::{TappedHorn, TappedPoint};
 pub struct DesignPoint {
     /// Frecuencia (Hz).
     pub freq_hz: f64,
-    /// SPL de potencia a 1 m (dB).
+    /// Nivel de presión estimado a 1 m según el modelo de observación (dB).
     pub spl_db: f64,
     /// Fase reducida de presión de campo (grados, desenrollada en response).
     /// La presión estimada añade +90°; NaN en silencio.

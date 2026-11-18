@@ -4,7 +4,7 @@ Documento de referencia del motor. La implementación es **independiente** y se
 basa en ecuaciones públicas de acústica: ecuación de Webster, radiación de un
 pistón, parámetros T/S y matrices de transmisión. Se validó punto por punto
 contra exports propios de Hornresp 60.70; no se copió código de la aplicación.
-Los exports propios son los únicos datos externos usados como oráculo.
+Las integraciones añaden fixtures de procedencia externa, identificados en [Validación](VALIDATION.md).
 
 > Para integrar la librería en una aplicación, use
 > [`INTEGRATION.md`](INTEGRATION.md). Para las tablas de producción, use
@@ -50,8 +50,8 @@ dU/dx = −j·ω·S(x)·p / (ρ·c²)
 
 ### 2.2 Matriz de transferencia
 
-Se integra el sistema con **RK4** para dos estados base, `[1,0]` y `[0,1]`,
-con paso `Δx` tal que `k·Δx ≈ 0,03` (mínimo 192 pasos por segmento). El
+Para una sección variable se integra el sistema con **RK4** para dos estados base, `[1,0]` y `[0,1]`,
+con paso inicial basado en el módulo de la constante de propagación compleja (mínimo 192 pasos por segmento). El
 resultado es
 
 ```text
@@ -73,14 +73,14 @@ b = −j·Z0·sin(kL)
 c = −j·sin(kL)/Z0,      Z0 = ρc/S
 ```
 
-y las pruebas comparan RK4 contra ella.
+La ruta uniforme usa una matriz cerrada, también con pérdidas. Las pruebas contrastan el caso uniforme con soluciones analíticas.
 
 ### 2.3 Leyes de área
 
 | Perfil | `S(x)` | Corte |
 |---|---|---|
 | Cilíndrico | `S1` | — |
-| Cónico | `(r1 + (r2−r1)·x/L)²` | — |
+| Cónico | `π·(r1 + (r2−r1)·x/L)²` | — |
 | Exponencial | `S1·exp(m·x)`, `m = ln(S2/S1)/L` | `fc = m·c/(4π)` |
 | Parabólico | `S1 + (S2−S1)·x/L` | — |
 | Hiperbólico-exponencial | `S1·(cosh(x/xT) + T·sinh(x/xT))²` | `fc = c/(2π·xT)` |
@@ -95,7 +95,7 @@ con parámetros persistentes. La construcción de Le Cléac’h se describe en
 
 «Parabólico» (`Par`) es el nombre del software de referencia para un **área
 lineal** entre extremos; no es una parábola matemática en el radio ni en el
-área. El radio resultante es `sqrt(S(x))`, que no es lineal.
+área. El radio circular resultante es `sqrt(S(x)/π)`, que no es lineal.
 
 ### 2.4 Radiación
 
@@ -168,16 +168,15 @@ Za = Ra + jωMa + 1/(jωCa)
 
 ```text
 Z_carga = Z_frente + Z_trasera
-Z_frente = cámara de garganta + Z_entrada(bocina)   (o radiación directa)
+Z_frente = Z_cámara_garganta ∥ R_fuga ∥ (R_serie + Z_entrada_bocina)
 Z_trasera = recinto ∥ puerto ∥ radiador pasivo
 ```
 
-La bocina se propaga hasta la boca y la potencia radiada es
-`P = |U_boca|²·Re(Z_rad)`. El SPL de potencia a 1 m:
+Para una bocina de una sola salida, la ruta clásica de observación usa el caudal de boca y la impedancia de pistón del área geométrica. A 1 m, antes del ajuste empírico de nivel:
 
 ```text
-p_rms = sqrt(P·ρc/Ω)
-SPL   = 20·log10(p_rms/20µPa)
+p_rms = |U_boca|·sqrt(Re(Z_pistón)·2πρc/Ω²)
+SPL   = 20·log10(p_rms/p_ref)
 ```
 
 La impedancia eléctrica es `Zin = Ze + Bl²/(Zm + Sd²·Zcarga)`. El retardo de
@@ -282,16 +281,6 @@ spl_offset_db               = -5.75
 rear_radiation_scale        = 4.50   (factor de potencia)
 ```
 
-Estado: **validado a nivel de producción** en `src/offset.rs` con
-`tests/od_production.rs` contra tres exports propios de Hornresp 60.70
-(OD/OD1/OD2, 10 Hz–1 kHz):
-
-| Caso | SPL RMS / máx | `Ze` RMS / máx | `Xd` RMS / máx |
-|---|---:|---:|---:|
-| OD-A | **0,85 / 1,59 dB** | **4,7 / 11,4 %** | **4,0 / 16,4 %** |
-| OD1-B | **0,85 / 1,77 dB** | **4,7 / 12,0 %** | **4,1 / 17,2 %** |
-| OD2-C | **0,85 / 1,61 dB** | **4,8 / 11,7 %** | **4,3 / 18,9 %** |
-
 La equivalencia con la bocina normal cuando `tap = 0` se verifica a 1e-9 y el
 stub multisegmento tiene una prueba contra el producto de matrices. Los `.aks`
 confirman que `Vrc` no actúa como cámara sellada en estos registros; el modelo
@@ -370,24 +359,10 @@ matriz del segmento cilíndrico. Esta formulación incluye la realimentación de
 puerto trasero en la carga del diafragma, que el modelo de suma simple no
 captura.
 
-Estado: **validado a nivel de producción** en `src/bandpass.rs` y
-`tests/bp_production.rs` contra exports propios de Hornresp 60.70:
-
-| Caso | SPL RMS / máx | Ze RMS / máx | Xd RMS / máx |
-|---|---:|---:|---:|
-| BP4-A | **0,21 / 0,86 dB** | **0,2 / 0,8 %** | **0,4 / 2,0 %** |
-| BP6P-A | **0,22 / 0,82 dB** | **0,2 / 0,7 %** | **0,5 / 2,5 %** |
-| BP6S-A | **0,26 / 1,50 dB** | **1,4 / 6,0 %** | **3,7 / 33,0 %** |
-
-La banda de producción del SPL es 10 Hz–1 kHz. Por encima, el modelo de puerto
-sin pérdidas no reproduce los valles/picos finos de Hornresp; `Ze` y `Xd`
-siguen siendo válidos en todo el rango.
-
 En el BP6S, el puerto trasero añade la corrección de extremo embridada de
 Hornresp en su salida interior (`0.8216·a`). El `QL` del registro se aplica
 solo a la cámara delantera, escalado por la relación de sintonías
-`QL_front = QL·fb_front/fb_rear` cuando la trasera sintoniza más bajo. Con
-ello, el BP6S-A cumple las tolerancias puntuales en los 533 puntos.
+`QL_front = QL·fb_front/fb_rear` cuando la trasera sintoniza más bajo. La prueba de producción compara las filas dentro de su banda declarada.
 
 ### 2.11 Radiador directo con recinto
 
@@ -398,7 +373,7 @@ su puerto y/o radiador pasivo:
 ```text
 Z_front = Z_rad(Sd)
 Z_rear  = Z_c ∥ Z_port ∥ Z_pr
-U_d     = ps / (Zd + Sd²·(Z_front + Z_rear))
+U_d     = Sd·Bl·Eg / (Ze·(Zm + Sd²·(Z_front + Z_rear)) + Bl²)
 ```
 
 El `QL` del recinto ventilado se modela como una resistencia en paralelo con
@@ -422,141 +397,14 @@ p_total = p_d + p_port + p_pr
 p_x     = U_x·sqrt(Re(Z_rad(A_x))·2πρc/Ω²)
 ```
 
-El factor común `jωρ` no se escribe porque cancela en la suma de fases. Para
-una caja sellada `p_total = p_d`, y el modelo coincide exactamente con
-Hornresp. Para el puerto ventilado se usa la corrección de extremo calibrada
+La suma anterior usa presión reducida. Multiplicar por j recupera la fase física. Para una caja sellada solo contribuye el diafragma. Para el puerto ventilado se usa la corrección de extremo calibrada
 `EndCorrection::Inner(1.5)`, equivalente al extremo interior embridado más el
 exterior sin brida. El radiador pasivo usa su propia área, masa, compliancia y
 resistencia.
 
-Validación de producción (`tests/system_production.rs`, 10 Hz–1 kHz):
+## Evidencia por diseño
 
-| Caso | SPL RMS / máx | Ze RMS / máx | Xd RMS / máx |
-|---|---:|---:|---:|
-| Sellada-A | **0,00 / 0,00 dB** | **0,0 / 0,0 %** | **0,0 / 0,0 %** |
-| Ventilada-A | **0,06 / 0,20 dB** | **0,7 / 3,1 %** | **0,4 / 2,6 %** |
-| Radiador pasivo-A | **0,38 / 0,97 dB** | **2,5 / 9,3 %** | **1,0 / 3,6 %** |
-
-Datos: `tests/data/sealed_a_*`, `vented_a_*` y `pr_a_*`.
-
----
-
-## 3. Validación
-
-| Prueba | Resultado |
-|---|---|
-| Matriz de tubo vs. solución exacta de Webster | error < 1e-6 relativo |
-| Matriz exponencial vs. solución exacta de Webster | error < 1e-5 relativo (50 Hz–2 kHz) |
-| Impedancia adaptada `Z0` preservada | error < 1e-9 |
-| `Ze` en resonancia mecánica vs. `Re + Bl²/Rms` | exacto (< 1e-9) |
-| `H1(1)`, `H1(2)`, `H1(5)` | 0.19846, 0.64676, 0.80781 |
-| Continuidad serie/asintótica en `x=25` | < 1e-6 |
-| Asíntotas de radiación a baja frecuencia | < 0.1 % |
-| `F23` del registro vs. fórmula exponencial | 70.27 Hz (coincide) |
-| Volumen geométrico de la bocina | 91.8 L |
-| Mínimo de `|Ze|` de una caja ventilada | coincide con `Fb = 1/(2π√(Ma·C))` (< 10 %) |
-| Respuesta del sistema por defecto | finita y positiva en 10 Hz–20 kHz |
-
-El sistema por defecto (registro real) da `Fs = 51.61 Hz`, `Qts = 0.133`,
-`Vas = 69.87 L`, `SPL = 100.34 dB (1 W)` y una respuesta que sube hasta
-~110 dB entre 160 Hz y 1,25 kHz y cae por encima de 2,5 kHz, coherente con una
-bocina de 1,35 m con boca de 2400 cm².
-
-### 3.1 Validación contra Hornresp 60.70
-
-Se exportaron **tres diseños** desde la propia aplicación
-(`File > Export > All Chart Data`), con 533 puntos entre 10 Hz y 20 kHz cada
-uno. El diseño 2 se creó con la UI (botón **Add**, edición de `S1..L23` y
-`Mmd`, `Calculate`), no ajustando el modelo al oráculo:
-
-* Diseño 1: `S1=80`, `S2=350`, `S3=2400 cm²`, `L12=60`, `L23=75 cm`, `Mmd=20 g`.
-* Diseño 2: `S1=100`, `S2=500`, `S3=3000 cm²`, `L12=50`, `L23=80 cm`, `Mmd=30 g`.
-* Diseño 3: `S1=120`, `S2=600`, `S3=3200 cm²`, `L12=55`, `L23=70 cm`,
-  `Sd=400 cm²`, `Mmd=25 g`, `Vrc=18 L`, `Vtc=1200 cc`, `Atc=400 cm²`.
-
-| Métrica | Diseño 1 | Diseño 2 | Diseño 3 |
-|---|---:|---:|---:|
-| SPL RMS | **1.91 dB** | **1.94 dB** | **1.93 dB** |
-| SPL máximo | 3.15 dB | 3.23 dB | 3.17 dB |
-| `Ze` RMS / máximo | 6.4 % / **26.8 %** | 6.0 % / **23.9 %** | 6.2 % / **23.2 %** |
-| `Xd` RMS / máximo | 9.3 % / **35.3 %** | 7.1 % / **23.6 %** | 7.8 % / **25.1 %** |
-| Sin calibrar | 4.90 dB | 4.92 dB | ~4.9 dB |
-
-Puntos dorados del diseño 1 (44 puntos): SPL RMS **1.35 dB** (máx. 2.73),
-`Ze` 20.0 % RMS, `Xd` 19.4 % RMS. La prueba
-`tests/production_accuracy.rs` fija las tolerancias de producción
-(SPL ≤ 2 dB RMS y 3.5 dB máx; `Ze` ≤ 15 % RMS y 35 % puntual; `Xd` ≤ 15 % RMS y
-40 % puntual) y se ejecuta en cada
-`cargo test`. La calibración empírica compensa los modos axiales de cámara, la
-terminación de boca y la referencia de nivel; para otro diseño debe generarse
-su propio export y validarse con `validate`/`compare_oracle`.
-
-### 3.2 Correcciones críticas frente a versiones anteriores
-
-Durante la validación se corrigieron errores que invalidaban el modelo:
-
-1. **Signo del sistema de Webster**: el estado `U` debe definirse hacia el
-   interior del segmento; con el signo opuesto la reactancia de la bocina
-   salía con el signo invertido y la impedancia de entrada no era pasiva.
-2. **Cámara de garganta en derivación**: la compliancia de `Vtc` va en
-   paralelo con la impedancia de la bocina, no en serie (en serie bloqueaba el
-   diafragma).
-3. **Corriente de entrada a la bocina**: con cámara en paralelo, la velocidad
-   que entra en la bocina es `p_garganta / Z_bocina`, no la velocidad total
-   del diafragma.
-4. **Campo legado**: la impedancia es la de pantalla infinita (2π). El
-   escalado 2π/Ω se conserva solo para presentar SPL. La segunda auditoría
-   elimina ese factor del flujo de potencia de las terminaciones.
-5. **Potencia eléctrica de entrada**: `Pin = Re(Eg·I*)`, no `|I|²·(Re+Rg)`;
-   esta última subestimaba la potencia y producía eficiencias > 100 %.
-6. **Orden y unidades del registro**: el orden real de los campos de cámara es
-   `Vrc, Fr, Vtc, Lrc, Tal, Atc` (verificado en la UI): `Vrc=14 L`,
-   `Fr=40000 mks rayls/m`, `Vtc=900 cc`, `Lrc=16 cm`, `Tal=4 cm`,
-   `Atc=350 cm²`. Las longitudes de bocina van en cm y las áreas en cm².
-   `Fta` es el ángulo tangente de boca.
-7. **Polaridad de la fuente del driver en el TH**: la fuente Norton debe
-   inyectar corriente en `tap_a`. Con el signo opuesto, la red sigue dando un
-   SPL de magnitud parecido, pero `Ze` y sobre todo `Xd` se desvían en las
-   resonancias. Corregido el signo, `Xd` pasó de 48,8 %/59,9 % RMS a
-   4,3 %/4,5 % RMS.
-
-### 3.3 Validación de tapped horn
-
-Se exportaron dos tapped horns completos desde Hornresp 60.70, con 533 puntos
-cada uno:
-
-* TH1: `S1=400`, `S2=400`, `S3=400`, `S4=1200`, `S5=1500 cm²`;
-  `L12=0,40`, `L23=0,20`, `L34=1,20`, `L45=0,30 m`.
-* TH2: `S1=150`, `S2=400`, `S3=400`, `S4=900`, `S5=1200 cm²`;
-  `L12=0,35`, `L23=0,25`, `L34=1,00`, `L45=0,30 m`.
-
-Ambas usan la opción TH (tomas S2/S4); los nombres TH1/TH2 identifican los dos
-diseños exportados, no el flag TH1 (tomas S2/S3).
-
-La geometría TH2 se contrastó con el esquema de Hornresp: **113,999 L** de
-volumen, y las tomas S2/S4 con el `.aks` exportado. La calibración TH es
-global (los dos diseños usan la misma):
-
-| Métrica | TH1 (S2/S4) | TH2 (S2/S4) | Límite de producción |
-|---|---:|---:|---:|
-| SPL RMS / máximo | **0,53 / 1,59 dB** | **0,52 / 1,63 dB** | ≤ 2 / 3,5 dB |
-| `Ze` RMS / máximo | **7,0 / 29,9 %** | **7,1 / 30,9 %** | ≤ 15 / 35 % |
-| `Xd` RMS / máximo | **4,3 / 18,6 %** | **4,5 / 19,0 %** | ≤ 15 / 40 % |
-
-También se validó la variante **TH1 (S2/S3)** con la geometría del primer
-diseño (`TH1 = 1` en el registro, driver entre S2 y S3):
-
-| Métrica | TH1 (S2/S3) | Límite de producción |
-|---|---:|---:|
-| SPL RMS / máximo | **0,55 / 2,69 dB** | ≤ 2 / 3,5 dB |
-| `Ze` RMS / máximo | **6,7 / 15,9 %** | ≤ 15 / 35 % |
-| `Xd` RMS / máximo | **3,5 / 15,8 %** | ≤ 15 / 40 % |
-
-La prueba `tests/th_production.rs` fija estas tolerancias puntuales y se
-ejecuta en cada `cargo test`. El arnés `examples/compare_th` imprime las
-métricas para cualquier par de ficheros oráculo.
-
----
+Los fixtures, bandas, umbrales y comandos de reproducción se mantienen en [Validación](VALIDATION.md).
 
 ## 4. Incógnitas y límites
 
@@ -579,7 +427,7 @@ métricas para cualquier par de ficheros oráculo.
 
 ## Auditoría de consistencia física (2026-11-12)
 
-Esta sección prevalece sobre las convenciones históricas anteriores:
+Convenciones para interpretar matrices, cargas y resultados:
 
 - Fasores RMS con `exp(jωt)`, eje geométrico de entrada a salida y U positiva
   hacia la boca: `dp/dx=-jωρU/S`, `dU/dx=-jωSp/(ρc²)` sin pérdidas.
@@ -668,3 +516,20 @@ radiación mutua a partir de longitudes solamente. Ver
 Alineamientos: [derivaciones y dominios](reference-integration/ALIGNMENT_VALIDATION.md).
 Se separa la síntesis T/S ideal del solver completo; desviaciones y coste de
 propuestas EBS se exponen en lugar de ocultarse con calibración.
+
+## Convenciones de entrada y observación
+
+| Magnitud | Referencia que debe conservar el consumidor |
+| --- | --- |
+| Frecuencia y aire | Frecuencia positiva en Hz, ω = 2πf en rad/s. `Air::default()` fija c = 344 m/s, ρ = 1,205 kg/m³ y p_ref = 20 µPa. |
+| Geometría y motor | Longitud en m, volumen en m³, superficie en m², Mmd en kg, Cms en m/N. Mms incluye carga de aire. Al importar Mms use la conversión del importador una sola vez. |
+| Impedancia | Eléctrica V/I en Ω, mecánica F/v en N·s/m, acústica p/U en Pa·s/m³. ρc es impedancia específica, ρc/S es impedancia característica referida a caudal. |
+| Caudal y signo | Fasores RMS con exp(+jωt). U = S·v es positivo en el sentido axial entrada → salida. En una unión el extremo de salida de un tramo aporta −U a la suma saliente. El driver diferencial inyecta caudales opuestos. |
+| Excitación | Eg es tensión de generador en circuito abierto, Rg resistencia serie en Ω. En el resumen de `System`, Ze incluye Rg. `Driver::input_impedance` y la impedancia de bornes de la red excluyen Rg. Invertir polaridad gira. la presión 180°. La suma multivía tiene referencia propia de 2,83 V RMS. |
+| Campo | SPL = 20 log₁₀(│p_rms│/p_ref). El estimador de presión depende de la topología. Ω en sr fija el ángulo de observación (2π = medio espacio). El pistón usa su área física o el factor de área explícito del modelo calibrado. |
+| Fase y desplazamiento | La fachada clásica informa fase de presión reducida. La presión física añade +90°. El fasor de campo de la red ya es físico. El retardo de grupo es −dφ/dω con φ en radianes. `xd_mm` expresa pico en mm y `peak_displacement_m` pico en m. |
+| Energía | En una carga pasiva, la potencia activa es la parte real de presión por caudal conjugado con caudal hacia la carga. `EnergyReport` identifica absorción, pérdidas y calidad de radiación. Con denominador nulo, la eficiencia tipada queda ausente. |
+
+El extremo cerrado impone caudal nulo y la liberación ideal de presión impone p = 0. Una carga adaptada absorbe potencia y carece de estimación de campo. Para usar varias fuentes compactas se suma presión compleja con su polaridad. Inferir potencia radiada integrada a partir de una única observación requiere hipótesis adicionales.
+
+Consulte el [ensamblaje de redes, FDD y bobina extendida](wavebox-integration/MODELOS.md) y los [dominios de geometría, adaptador y capa límite](horn-simulation-integration/API.md) para sus condiciones específicas.

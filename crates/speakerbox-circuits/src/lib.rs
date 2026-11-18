@@ -23,11 +23,11 @@
 //!
 //! ## Qué no hace
 //!
-//! - No modela la respuesta acústica. Una transferencia de tensión no es SPL,
-//!   ni fase de presión: esa referencia sigue siendo un contrato pendiente del
-//!   proyecto acústico.
+//! - La transferencia es una relación compleja de tensiones. Para obtener Pa o SPL,
+//!   la aplicación debe excitar un driver y un modelo de recinto y radiación.
 //! - No sintetiza pasivamente familias distintas de Butterworth.
-//! - No modela sistemas multivía: falta la referencia de presión compleja.
+//! - La suma de vías acústicas pertenece al motor acústico. Para una cascada
+//!   de etapas analógicas ideales use [`equalizer::equalizer_response`].
 //! - No importa `.SWD` ni datos de medición en bruto.
 //!
 //! ## Ejemplo

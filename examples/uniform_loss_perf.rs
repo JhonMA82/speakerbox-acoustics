@@ -1,4 +1,4 @@
-//! Same source can be built at base/head; accuracy compared to constant operator exponential.
+//! Compara el tramo uniforme con pérdidas frente a la exponencial del operador constante.
 use num_complex::Complex64 as C;
 use speakerbox_acoustics::{Air, Flare, Segment};
 use std::{hint::black_box, time::Instant};

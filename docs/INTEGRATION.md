@@ -1,8 +1,6 @@
 # Integración de `speakerbox-acoustics`
 
-Guía práctica para usar la librería desde una aplicación nativa o web. Para
-las ecuaciones y la validación completa, ver `docs/ALGORITHMS.md`. Para el
-mapa del repositorio y las reglas de contribución, ver `docs/AGENTS.md`.
+Para elegir una crate o consultar sus dependencias, vea [Arquitectura](ARCHITECTURE.md). Las garantías por variable están en [Validación](VALIDATION.md).
 
 ## 1. Añadir la dependencia
 
@@ -11,8 +9,7 @@ mapa del repositorio y las reglas de contribución, ver `docs/AGENTS.md`.
 speakerbox-acoustics = { path = "../speakerbox-acoustics" }
 ```
 
-El núcleo es Rust puro, sin UI ni dependencias del sistema. Compila para
-Linux, macOS, Windows y `wasm32-unknown-unknown`.
+El núcleo es Rust puro, sin UI ni dependencias del sistema. La compilación nativa y la del objetivo WASM se verifican por separado.
 
 ```bash
 cargo check --lib --target wasm32-unknown-unknown
@@ -46,27 +43,7 @@ Driver ──► topología ──► respuesta
 
 ## 3. Unidades y convenciones
 
-- **SI** en todo el API: m², m, m³, kg, N/m, T·m, Ω, H, Pa.
-- Los constructores `from_ui_units` aceptan las unidades de la UI del software de referencia:
-  cm², cm, litros, gramos, mH, mm.
-- `spl_db`: presión de potencia a 1 m, dB re 20 µPa.
-- `ze_mag`, `ze_phase_deg`: impedancia eléctrica de entrada.
-- `xd_mm`: desplazamiento de **pico** (`√2`·RMS) en todas las topologías.
-- `solid_angle`: estereorradianes. `4π` espacio libre, `2π` media esfera,
-  `π` cuarto de espacio, `π/2` octavo de espacio.
-- `eg` puede ser negativo: el signo invierte la polaridad. `rg` debe ser
-  finito y no negativo.
-- `phase_deg`: fase de la velocidad volumétrica radiada; la presión lejana
-  añade +90°. `Design::response` desenrolla la fase y calcula el retardo de
-  grupo.
-- `response_at` devuelve un punto neutro si el diseño no es resoluble;
-  `try_response_at` devuelve `SolveError`.
-- `try_response_at` valida aire, driver, geometría, cámaras, puertos y todos
-  los campos del resultado. `response_at` devuelve el punto neutro documentado
-  si algo no es válido.
-- Los constructores no recortan valores: use `validate()` o `try_response_at`
-  para detectar entradas no físicas.
-- `validate` compara SPL, `Ze` y `Xd`; **no** compara `ze_phase_deg`.
+Use el [contrato físico](ALGORITHMS.md#convenciones-de-entrada-y-observación). Con datos de interfaz, revise las unidades de **cada argumento**. Por ejemplo, `Driver::from_ui_units` recibe Sd en cm², Mmd en g y Le en mH, pero mantiene Cms en m/N. Para comprobar errores antes de mostrar resultados use la ruta `try_*`.
 
 ## 4. Recetas por topología
 
@@ -221,9 +198,11 @@ sys.solid_angle = std::f64::consts::TAU;
 sys.rear_chamber = Some(Chamber::new(40.0e-3));
 ```
 
-Opciones:
+Para un banco isobárico:
 
 ```rust
+use speakerbox_acoustics::{Driver, DriverBank, Mechanical, Wiring};
+let base = Driver::from_ui_units(350.0, 4e-4, 20.0, 6.0, 18.0, 4.0, 1.0, 1);
 let bank = DriverBank::new(base, 4)
     .with_wiring(Wiring::Parallel)          // todos en paralelo
     .with_mechanical(Mechanical::Isobaric)  // 2 pares isobáricos
@@ -247,15 +226,11 @@ let bank = DriverBank::new(base, 4)
 ### 4.7 Importar drivers WinISD `.wdr` y OpenISD `.owdr`
 
 ```rust
-use speakerbox_acoustics::{import_driver, import_driver_file};
+use speakerbox_acoustics::import_wdr;
 
-// Desde texto (la app lee el fichero como quiera).
-let text = std::fs::read_to_string("driver.wdr").expect("leer driver");
-let imported = import_driver(&text).expect("driver válido");
-let driver = imported.driver;
-
-// O directamente desde disco (solo nativo; en wasm use el lector de la app).
-let imported = import_driver_file("driver.owdr").expect("driver válido");
+let texto = "[Driver]\nBrand=Test\nModel=W1\nFs=50\nQms=2\nQes=0.5\nVas=0.05\nRe=6\nSd=0.02\nMms=0.03\nCms=0.0004\nBL=10\nRms=2\nLe=0.001\n";
+let imported = import_wdr(texto).unwrap();
+assert_eq!(imported.driver.sd, 0.02); // m² en WDR
 ```
 
 El importador rechaza `Mms <= masa añadida del aire`, `c`/`rho` no positivas y
@@ -326,13 +301,13 @@ for p in design.sweep_log(20.0, 200.0, 12) {
 | Campo | Significado |
 |---|---|
 | `freq_hz` | frecuencia (Hz) |
-| `spl_db` | SPL de potencia a 1 m (dB re 20 µPa) |
-| `phase_deg` | fase de la velocidad volumétrica radiada (grados) |
+| `spl_db` | nivel estimado a 1 m según la topología (dB re p_ref) |
+| `phase_deg` | fase de presión reducida (grados) |
 | `group_delay_ms` | retardo de grupo (ms), calculado por `response` |
 | `ze_mag`, `ze_phase_deg` | impedancia eléctrica de entrada |
 | `xd_mm` | desplazamiento de pico del diafragma (mm) |
-| `power_w` | potencia acústica radiada (W) |
-| `efficiency_pct` | rendimiento acústico (%) |
+| `power_w` | absorción de cargas explícitas (W), posiblemente un subtotal |
+| `efficiency_pct` | 100 × absorción de cargas / potencia activa de la fuente |
 | `za_real`, `za_imag` | impedancia acústica de referencia (Pa·s/m³); `0.0` en `Bandpass` significa «no aplicable» |
 | `port_velocity` | velocidad máxima de puerto (m/s); `None` significa «no aplicable» |
 
@@ -430,13 +405,12 @@ punto neutro sea aceptable.
 - `InvalidResponse`: campo del resultado no finito o no físico.
 - `SingularSystem`: sistema lineal singular o mal condicionado.
 
-Llame a `validate()` en el tipo de topología si quiere comprobar la
-configuración una sola vez antes de un barrido.
+Llame a `validate()` para comprobar entradas. Para reutilizar esa comprobación en un barrido de `Design`, use `prepare()`.
 
 ## 8. WASM y nativo
 
 El núcleo de cálculo no usa hilos ni tiempo del sistema. Compila para wasm sin
-cambios; la única función de filesystem (`import_driver_file`) solo se compila
+cambios; la función de importación por ruta (`import_driver_file`) solo se compila
 en nativo:
 
 ```bash
@@ -455,19 +429,10 @@ worker o hilo de cálculo y devolver los `DesignPoint` a la UI.
 4. Fije `eg`, `rg` y, si aplica, `spl_offset_db`/calibración.
 5. Valide la configuración con `validate()` y barra con `Design::sweep_log` o
    `try_sweep_log`; use `try_response_at` para errores de usuario.
-6. Recuerde que `xd_mm` es pico y que `phase_deg` es fase de velocidad.
+6. Recuerde que `xd_mm` es pico y que `phase_deg` es fase de presión reducida.
 7. Valide contra un export propio de Hornresp antes de llamar “producción” a
    una geometría nueva; recuerde que `validate` no compara la fase de
    impedancia.
-
-## 10. Dónde mirar
-
-- `README.md`: visión general, estado y uso de la librería.
-- `docs/ALGORITHMS.md`: ecuaciones, calibración y tablas de validación.
-- `docs/AGENTS.md`: mapa del repositorio, comandos e invariantes para agentes.
-- `ROADMAP.md`: alcance v1 y topologías diferidas.
-- `tests/data/README.md`: oráculos y parámetros de los diseños validados.
-- `examples/quickstart.rs`: recorrido ejecutable por todas las topologías.
 
 ## Integración después de la auditoría física
 
@@ -484,13 +449,6 @@ multiplicando por j. La fase usa la referencia eléctrica sin el trayecto
 común al observador. En BP6 serie, el puerto trasero es **interior**.
 Las salidas externas solo se suman bajo la aproximación compacta descrita en
 ALGORITHMS.md; no hay posiciones ni direcciones de radiación configurables.
-
-Los campos `acoustic_network_power_w` y `electrical_input_power_w` de estas
-soluciones sirven para comprobar el balance de la **red**. Los campos legados
-`power_w`/`efficiency_pct` conservan estimaciones de campo calibradas que no
-representan un balance energético general. No dimensionar potencia térmica
-ni certificar rendimiento a partir de esos campos; consultar las métricas
-y limitaciones de la auditoría.
 
 Para interacción paramétrica use `let prepared=design.prepare()?` y consulte
 `prepared.try_response_at(f)`: la configuración se valida una sola vez y el
@@ -517,8 +475,7 @@ exhaustivos. No cambian las estructuras públicas de punto existentes.
 
 ## Contrato energético de segunda pasada
 
-La sección previa de primera auditoría es histórica en cuanto a potencia:
-los puntos ahora reportan absorción de las terminaciones modeladas. Use
+Los puntos legados reportan absorción de las terminaciones modeladas. Use
 `design.try_energy_at(f)?` para distinguir esa suma de la potencia realmente
 radiada disponible o aproximada (`radiated_power.watts` y `quality`).
 `efficiency_vs_source_pct` y `efficiency_vs_driver_terminals_pct` devuelven
@@ -556,7 +513,7 @@ let total = sum_at(
         MultiwayChannel::new(&high).with_gain(0.5).with_delay_s(1.0e-4),
     ],
     1000.0,
-)?;
+).unwrap();
 assert!(total.spl_db.unwrap().is_finite());
 ```
 
@@ -564,3 +521,41 @@ La suma presupone fuentes compactas, misma distancia (1 m), mismo aire de
 referencia y un solo punto de observación. No modela off-axis, directividad,
 sala ni el trayecto de 1 m. Si una vía no tiene observación definida, el
 resultado es `None`, nunca una suma parcial.
+
+## Recorridos por escenario
+
+| Necesidad | Secuencia reproducible desde la raíz | Qué inspeccionar |
+| --- | --- | --- |
+| Parámetros de un recinto clásico | `cargo run --example quickstart`, después `cargo run --example design_demo` | Cambie primero el volumen de la sellada. Compare SPL, Ze y Xd a igual frecuencia y excitación. |
+| Línea con toma intermedia | `cargo test --test transmission_line` | [Configuración explícita](../tests/transmission_line.rs), longitudes, zona de pérdida, terminación y caudales con signo. |
+| Geometría paramétrica | `cargo test --test horn_profile` | Resuelva `HornProfileSpec`, consulte sección y volumen antes de convertir con `into_horn`. [Esquema y dominio](horn-simulation-integration/API.md). |
+| Red propia o Paraflex | `cargo test --test acoustic_network` y `cargo test --test wavebox_hornresp` | Lea [el JSON PH1](wavebox-integration/ph1-network.json) con `NetworkLayout::from_json`. Compruebe caras, área de boca, grafo, caudal y error de excursión, además del SPL. |
+| Optimización | `cargo test --test optimization` y `cargo test --test horn_fidelity` | Elija cotas y semilla. Rechace geometrías imposibles en la evaluación. Registre qué candidatos alcanzaron la segunda fidelidad. |
+| Excursión, potencia y techo lineal | `cargo test --test maximum_spl` | Obtenga `UnitDriveResponse::from_design` o `from_network`. Declare límites con unidades explícitas. Lea `dominant`, potencia activa de bornes, calentamiento de bobina y restricciones sin caracterizar. |
+| Filtro con carga | `cargo run -p speakerbox-circuits --example ladder_sweep` o `--example crossover_sweep` | Tensión compleja en la carga y curva objetivo. Para un EQ ideal multiplique la tensión por H(f) antes de evaluar la presión. |
+| Datos e identificación | `cargo test -p speakerbox-measure --test identification` | Lea una ZMA con fase. Compruebe convergencia y residuos del ajuste. Antes de convertir a driver, obtenga por separado los parámetros físicos faltantes. |
+| Medición conjunta de vías | `cargo run -p speakerbox-measure --example validate_multiway -- RUTA_DATASET` | Suministre woofer.frd, tweeter.frd, system.frd y meta.txt. Para ejercitarlo sin medición use `cargo test -p speakerbox-measure --test validation_dataset`. |
+
+## Diagnóstico rápido
+
+- **Excursión desplazada por un factor constante.** Revise mm/m y pico/RMS, después Mmd/Mms y si el generador se especificó en bornes o en vacío.
+- **Magnitud coherente y fase incompatible.** Verifique exp(+jωt), presión física/reducida, inversión de polaridad y retardo del instrumento. Compare fasores en una sola frecuencia antes de derivar la fase.
+- **Presión ausente.** Revise si la carga corresponde a un absorbente adaptado y consulte energía. En silencio la fase carece de definición.
+- **Red singular o mal condicionada.** Compruebe índices, camino hasta las excitaciones, cierre y referencia de cada componente. Repita alrededor de la frecuencia problemática. Un polo ideal puede impedir una solución finita. Revise residuo y razón de pivotes antes de interpretar la curva.
+- **Oráculo vacío, fase ausente o modelo fuera de banda.** Conserve los diagnósticos. Compruebe columnas, dominio común y número de puntos admitidos. La estimación de máxima salida hereda el dominio físico del modelo de partida.
+
+## Ejecutables y entradas
+
+Desde la raíz, `cargo run --example NOMBRE` ejecuta un ejemplo del motor y `cargo run -p CRATE --example NOMBRE` selecciona una crate auxiliar. Los tiempos se miden con `--release`.
+
+| Ejemplos | Entrada y lectura de la salida |
+| --- | --- |
+| `quickstart`, `design_demo`, `bandpass_demo`, `horn_demo` | Diseños incorporados. El último admite un registro binario como argumento opcional. Las curvas son predicciones lineales. |
+| `compare_oracle` | Ejecute `cargo run --example compare_oracle -- tests/data/default_record.bin tests/data/default_oracle_full.txt`. Muestra errores por variable frente al export. |
+| `compare_th` | Lee los dos TSV incluidos desde la raíz. El denominador histórico de su RMS de Xd incluye filas excluidas por baja excursión. |
+| `import_driver` | Requiere una ruta a WDR/OWDR suministrada por el consumidor. El ejemplo en texto de la sección 4.7 funciona sin ficheros externos. |
+| `perf_sweep`, `uniform_loss_perf`, `completion_perf`, `horn_simulation_perf`, `wavebox_perf` | Diseños incluidos. Compare solo ejecuciones del mismo binario, perfil de compilación y equipo. Las salidas incluyen costes de cálculo o diagnósticos numéricos. |
+| `ladder_sweep`, `crossover_sweep` (circuits) | Prototipos y cargas de ejemplo. Interprete magnitud y fase como transferencia eléctrica. |
+| `validate_multiway` (measure) | Requiere directorio de dataset. Si las vías no comparten la misma referencia temporal, el error de fase de la suma pierde significado físico. |
+
+La CLI acústica también permite producir filas CSV con el registro incluido: `cargo run --bin speakerbox-cli -- --record tests/data/default_record.bin --csv --fmin 20 --fmax 200 --points 8`.

@@ -2,6 +2,7 @@
 use crate::error::{CircuitError, CircuitResult};
 use num_complex::Complex64 as C;
 
+/// Forma espectral de la transferencia analógica ideal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EqualizerKind {
     Peaking,
@@ -13,12 +14,16 @@ pub enum EqualizerKind {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AnalogEqualizer {
     pub kind: EqualizerKind,
+    /// Frecuencia central o de transición, finita y positiva (Hz).
     pub frequency_hz: f64,
+    /// Factor Q adimensional, finito y positivo.
     pub quality_factor: f64,
+    /// Ganancia en dB en el centro del pico o en la banda del shelf.
     pub gain_db: f64,
 }
 
 impl AnalogEqualizer {
+    /// Evalúa H(jω) como cociente complejo de tensiones. Rechaza frecuencias y factores Q fuera del dominio.
     pub fn response(self, frequency_hz: f64) -> CircuitResult<C> {
         if !frequency_hz.is_finite() || frequency_hz <= 0.0 {
             return Err(CircuitError::InvalidFrequency(frequency_hz));

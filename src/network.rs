@@ -13,12 +13,14 @@ const MAX_UNKNOWNS: usize = 256;
 /// Índice de un nodo en la red.
 pub type AcousticNode = usize;
 
+/// Elemento entre dos nodos. Un tramo distribuido conserva dos caudales de extremo.
 #[derive(Clone, Debug)]
 pub enum Conduit {
     Distributed(Segment),
     Inertance(Port),
 }
 
+/// Tramo orientado de entrada a salida. La orientación fija el signo de ambos caudales.
 #[derive(Clone, Debug)]
 pub struct AcousticDuct {
     pub inlet: AcousticNode,
@@ -26,6 +28,7 @@ pub struct AcousticDuct {
     pub conduit: Conduit,
 }
 
+/// Carga local con presión nodal común y caudal saliente a la frontera.
 #[derive(Clone, Copy, Debug)]
 pub enum Boundary {
     Chamber(Chamber),
@@ -41,12 +44,14 @@ pub enum Boundary {
     },
 }
 
+/// Asigna una condición de frontera a un índice de nodo.
 #[derive(Clone, Copy, Debug)]
 pub struct AcousticBoundary {
     pub node: AcousticNode,
     pub boundary: Boundary,
 }
 
+/// Fuente ideal de caudal volumétrico RMS (m³/s).
 #[derive(Clone, Copy, Debug)]
 pub struct AcousticSource {
     pub node: AcousticNode,
@@ -54,6 +59,7 @@ pub struct AcousticSource {
     pub flow_m3_s: C,
 }
 
+/// Grafo lineal con nodos numerados desde cero. Resuelva a frecuencia positiva con [`Self::solve`] o [`Self::solve_driver`].
 #[derive(Clone, Debug, Default)]
 pub struct AcousticNetwork {
     pub nodes: usize,
@@ -61,14 +67,18 @@ pub struct AcousticNetwork {
     pub boundaries: Vec<AcousticBoundary>,
 }
 
+/// Fallo de configuración o de solución compleja. Conserve el nodo o indicador numérico al informar del error.
 #[derive(Clone, Debug, PartialEq)]
 pub enum NetworkError {
     Model(SolveError),
     UnknownNode(AcousticNode),
+    /// El nodo pertenece a una componente desconectada de la excitación.
     Disconnected(AcousticNode),
+    /// La componente conectada carece de una condición física de referencia.
     MissingReference(AcousticNode),
     Invalid(&'static str),
     Singular,
+    /// Razón de pivotes equilibrados por debajo del umbral del solver.
     IllConditioned(f64),
     Residual(f64),
     NonFinite,
@@ -98,12 +108,15 @@ impl From<SolveError> for NetworkError {
     }
 }
 
+/// Estado RMS por índice de nodo, tramo y frontera, en el orden de las entradas.
 #[derive(Clone, Debug)]
 pub struct NetworkState {
     pub pressure_pa: Vec<C>,
     /// Ambos caudales tienen dirección de entrada a salida.
     pub duct_flow_m3_s: Vec<(C, C)>,
+    /// Caudal RMS hacia cada frontera (m³/s), en el orden de `boundaries`.
     pub boundary_flow_m3_s: Vec<C>,
+    /// Mayor residuo relativo por ecuación después de resolver.
     pub relative_residual: f64,
     /// Indicador del condicionamiento tras el equilibrado.
     pub pivot_ratio: f64,
@@ -128,6 +141,7 @@ impl NetworkState {
     }
 }
 
+/// Motor conectado a dos nodos distintos. La resistencia serie actúa entre generador y bornes.
 #[derive(Clone, Copy, Debug)]
 pub struct NetworkDriver {
     pub driver: Driver,
@@ -137,6 +151,7 @@ pub struct NetworkDriver {
     pub voltage_rms: C,
     pub source_resistance_ohm: f64,
     pub solid_angle: f64,
+    /// Suspensión FDD opcional. Con `None` se usan Cms y Rms del driver.
     pub mechanical_damping: Option<MechanicalDamping>,
 }
 
@@ -147,6 +162,7 @@ pub struct MechanicalDamping {
     pub compliance_loss_m_n: f64,
 }
 
+/// Estado cargado y energía a la frecuencia resuelta. El campo solo está disponible para las aberturas modeladas.
 #[derive(Clone, Debug)]
 pub struct DrivenNetworkState {
     pub frequency_hz: f64,
@@ -158,6 +174,7 @@ pub struct DrivenNetworkState {
     /// Impedancia compleja en los bornes, sin resistencia de generador.
     pub electrical_impedance_ohm: C,
     pub diaphragm_flow_m3_s: C,
+    /// Módulo del desplazamiento de pico, en metros.
     pub peak_displacement_m: f64,
     /// Campo estimado a 1 m, presión física. Suma coherente de fuentes compactas.
     pub pressure_estimate_pa: Option<C>,

@@ -22,6 +22,7 @@ pub enum HornProfileKind {
     OblateSpheroidal,
     /// Exponencial unido de forma tangente a un cono.
     ExponentialConical {
+        /// Posición de unión dividida por la longitud total, estrictamente entre 0 y 1.
         join_fraction: f64,
     },
 }
@@ -31,13 +32,16 @@ pub enum HornProfileKind {
 pub struct HornProfileSpec {
     pub kind: HornProfileKind,
     pub length_m: f64,
+    /// Radio circular de garganta (m), finito y positivo.
     pub throat_radius_m: f64,
+    /// Radio circular de boca (m), finito y positivo.
     pub mouth_radius_m: f64,
 }
 
 /// Sección circular para exportación geométrica.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HornProfileSample {
+    /// Distancia desde la garganta (m).
     pub axial_m: f64,
     pub radius_m: f64,
     pub area_m2: f64,
@@ -257,6 +261,7 @@ impl HornProfileSpec {
 }
 
 impl HornProfile {
+    /// Recupera los parámetros nominales para guardar o editar el diseño.
     pub fn spec(&self) -> HornProfileSpec {
         self.spec
     }
@@ -269,6 +274,7 @@ impl HornProfile {
     pub fn mouth_area_m2(&self) -> f64 {
         self.horn.mouth_area()
     }
+    /// Volumen interior geométrico en m³, evaluado al resolver el perfil.
     pub fn volume_m3(&self) -> f64 {
         self.volume_m3
     }

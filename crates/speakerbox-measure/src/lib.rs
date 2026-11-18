@@ -26,7 +26,10 @@
 //!   faltan `Bl`, `Sd` y una base física para repartir los elementos del
 //!   circuito entre motor y suspensión.
 //! - No inventa parámetros que el experimento no determine.
-//! - No asume calibración de las curvas: ni 1 V, ni 2.83 V, ni 1 W.
+//! - La lectura conserva la referencia suministrada por el usuario. [`validate_curves`]
+//!   compara magnitud relativa y fase circular entre vías medidas en las mismas
+//!   condiciones. Distancia y tensión declaradas en [`DatasetMeta`] documentan
+//!   la adquisición. El comparador no reescala mediciones a otra distancia.
 //!
 //! ## Ejemplo
 //!
@@ -35,7 +38,7 @@
 //! use speakerbox_circuits::ComplexCurve;
 //! use speakerbox_measure::{fit_equivalent, initial_guess, FitOptions};
 //!
-//! // Curva sintética de cinco puntos alrededor de la resonancia.
+//! // Curva sintética de siete puntos alrededor de la resonancia.
 //! let freqs = vec![10.0, 20.0, 40.0, 80.0, 160.0, 320.0, 640.0];
 //! let values = vec![
 //!     Complex64::new(6.4, 0.5),
