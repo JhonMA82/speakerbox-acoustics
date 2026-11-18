@@ -19,6 +19,9 @@ num-complex = "0.4"
 libm = "0.2"
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
+[dev-dependencies]
+speakerbox-circuits = { path = "crates/speakerbox-circuits", version = "0.1.0" }
+
 [lib]
 name = "speakerbox_acoustics"
 path = "src/lib.rs"

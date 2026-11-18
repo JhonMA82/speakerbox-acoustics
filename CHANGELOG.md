@@ -70,6 +70,20 @@ pública pueda cambiar.
   Jacobiano acotado, arranque de DCR desde el mínimo y límites asintóticos de
   los prototipos para relaciones de frecuencia enormes.
 
+### Ejemplo de extremo a extremo
+
+- `examples/crossover_end_to_end.rs` encadena las dos crates: la impedancia de
+  bornes de una caja ventilada termina el filtro en `speakerbox-circuits` y la
+  transferencia compleja escala el SPL del motor acústico. La raíz declara
+  `speakerbox-circuits` como dependencia de desarrollo; ninguna biblioteca
+  publicada cambia de dependencias.
+- El MNA con carga resistiva reproduce el prototipo Butterworth analítico con
+  un error máximo de `2,9e-15 dB`. Con la carga real, el prototipo diseñado
+  para 6 Ω entrega `+4,2 dB` a 2 kHz donde debía dar `-3,0 dB`: la inductancia
+  de bobina resuena con el condensador en derivación. El ejemplo es la
+  evidencia reproducible de por qué el diseño de crossover necesita la
+  impedancia compleja, no el valor nominal.
+
 ## [0.2.0] — 2026-11-09
 
 ### Añadido
