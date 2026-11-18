@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "nodes": 3,
+  "front": 0,
+  "rear": 1,
+  "ducts": [
+    {"inlet": 0, "outlet": 2, "model": {"kind": "distributed", "flare": "cylindrical",
+      "t": null, "length_m": 0.18, "inlet_area_m2": 0.004, "outlet_area_m2": 0.004,
+      "wall_loss": 0.0, "resistivity_pa_s_m2": 0.0}}
+  ],
+  "boundaries": [
+    {"node": 0, "model": {"kind": "compliance", "volume_m3": 0.016}},
+    {"node": 1, "model": {"kind": "compliance", "volume_m3": 0.022}},
+    {"node": 2, "model": {"kind": "opening", "area_m2": 0.004, "load_scale": 1.0}}
+  ]
+}

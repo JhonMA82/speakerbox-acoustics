@@ -9,6 +9,9 @@
 //! masas en gramos, inductancia en mH y desplazamientos en mm.
 //! [`LegacyRecord::to_system`] convierte todo a SI.
 
+mod text;
+pub use text::{HornrespTextRecord, TextRecordError};
+
 use crate::air::Air;
 use crate::calibration::Calibration;
 use crate::driver::Driver;

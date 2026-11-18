@@ -362,3 +362,6 @@ energético actual.
 [Integración horn-simulation](docs/horn-simulation-integration/README.md) documenta
 los perfiles paramétricos persistentes de bocina, el adaptador frontal circular,
 las pérdidas termoviscosas opcionales y la comparación Webster con otro solver.
+
+[Integración Wavebox](docs/wavebox-integration/README.md) documenta la red de
+recintos, las comparaciones Hornresp, Maximum SPL y la ecualización analógica.

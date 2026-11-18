@@ -22,6 +22,14 @@ pub enum CoilModel {
     Inductance,
     /// Ke en Ω·sqrt(s): Z=Re+Ke sqrt(jω), rama principal pasiva.
     SemiInductance { ke: f64 },
+    /// Re′ + jω Leb + (jω Le ∥ Rss ∥ Ke √(jω)). Parámetros SI.
+    ExtendedSemiInductance {
+        re_prime_ohm: f64,
+        leb_h: f64,
+        le_h: f64,
+        rss_ohm: f64,
+        ke_ohm_sqrt_s: f64,
+    },
 }
 
 /// Parámetros de un altavoz.
@@ -112,8 +120,22 @@ impl Driver {
         require_positive(self.bl, "driver.bl")?;
         require_non_negative(self.rms, "driver.rms")?;
         require_non_negative(self.le, "driver.le")?;
-        if let CoilModel::SemiInductance { ke } = self.coil_model {
-            require_non_negative(ke, "driver.ke")?;
+        match self.coil_model {
+            CoilModel::Inductance => (),
+            CoilModel::SemiInductance { ke } => require_non_negative(ke, "driver.ke")?,
+            CoilModel::ExtendedSemiInductance {
+                re_prime_ohm,
+                leb_h,
+                le_h,
+                rss_ohm,
+                ke_ohm_sqrt_s,
+            } => {
+                require_positive(re_prime_ohm, "driver.Re prime")?;
+                require_non_negative(leb_h, "driver.Leb")?;
+                require_positive(le_h, "driver.Le branch")?;
+                require_positive(rss_ohm, "driver.Rss")?;
+                require_positive(ke_ohm_sqrt_s, "driver.Ke branch")?;
+            }
         }
         Ok(())
     }
@@ -199,6 +221,14 @@ impl Driver {
         Complex64::new(self.rms, w * self.mmd) + Complex64::new(0.0, -1.0) / (w * self.cms)
     }
 
+    /// Resistencia de la bobina detenida en continua, usada para disipación.
+    pub fn coil_dc_resistance(&self) -> f64 {
+        match self.coil_model {
+            CoilModel::ExtendedSemiInductance { re_prime_ohm, .. } => re_prime_ohm,
+            _ => self.re,
+        }
+    }
+
     /// Impedancia eléctrica de la bobina `Ze = Re + jωLe`.
     pub fn coil_impedance(&self, freq_hz: f64) -> Complex64 {
         match self.coil_model {
@@ -206,6 +236,29 @@ impl Driver {
             CoilModel::SemiInductance { ke } => {
                 let q = ke * (omega(freq_hz) / 2.0).sqrt();
                 Complex64::new(self.re + q, q)
+            }
+            CoilModel::ExtendedSemiInductance {
+                re_prime_ohm,
+                leb_h,
+                le_h,
+                rss_ohm,
+                ke_ohm_sqrt_s,
+            } => {
+                if freq_hz == 0.0 {
+                    return re_prime_ohm.into();
+                }
+                let w = omega(freq_hz);
+                let k = ke_ohm_sqrt_s * (w / 2.0).sqrt();
+                let l = Complex64::new(0.0, w * le_h);
+                let semi = Complex64::new(k, k);
+                // The smallest branch magnitude is a scale for the
+                // parallel impedance, avoiding products of three impedances.
+                let scale = rss_ohm.min(l.norm()).min(semi.norm());
+                if scale == 0.0 {
+                    return Complex64::new(re_prime_ohm, w * leb_h);
+                }
+                Complex64::new(re_prime_ohm, w * leb_h)
+                    + scale / (scale / l + scale / rss_ohm + scale / semi)
             }
         }
     }
@@ -217,8 +270,20 @@ impl Driver {
     }
 
     pub(crate) fn scale_coil_model(&mut self, factor: f64) {
-        if let CoilModel::SemiInductance { ke } = &mut self.coil_model {
-            *ke *= factor;
+        match &mut self.coil_model {
+            CoilModel::Inductance => (),
+            CoilModel::SemiInductance { ke } => *ke *= factor,
+            CoilModel::ExtendedSemiInductance {
+                re_prime_ohm,
+                leb_h,
+                le_h,
+                rss_ohm,
+                ke_ohm_sqrt_s,
+            } => {
+                for value in [re_prime_ohm, leb_h, le_h, rss_ohm, ke_ohm_sqrt_s] {
+                    *value *= factor;
+                }
+            }
         }
     }
 

@@ -71,6 +71,7 @@ pub mod analysis;
 pub mod cir;
 pub mod crossover;
 pub mod curves;
+pub mod equalizer;
 pub mod error;
 pub mod model;
 pub mod optimize;

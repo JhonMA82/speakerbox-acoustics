@@ -1,0 +1,71 @@
+example,scenario,run,base_ms,wavebox_integration_ms
+perf_sweep,System bocina 4 tramos 500,1,7.262,7.577
+perf_sweep,System bocina 4 tramos 500,2,7.679,7.312
+perf_sweep,System bocina 4 tramos 500,3,7.072,8.562
+perf_sweep,System bocina 4 tramos 500,4,8.638,9.605
+perf_sweep,System bocina 4 tramos 500,5,7.765,8.096
+perf_sweep,System bocina 4 tramos 500,6,7.522,7.772
+perf_sweep,System bocina 4 tramos 500,7,7.659,7.722
+perf_sweep,System bocina 4 tramos 2000,1,30.873,30.022
+perf_sweep,System bocina 4 tramos 2000,2,29.227,29.005
+perf_sweep,System bocina 4 tramos 2000,3,30.621,31.934
+perf_sweep,System bocina 4 tramos 2000,4,33.576,33.376
+perf_sweep,System bocina 4 tramos 2000,5,32.085,52.0
+perf_sweep,System bocina 4 tramos 2000,6,31.29,30.576
+perf_sweep,System bocina 4 tramos 2000,7,31.203,31.982
+perf_sweep,TappedHorn 4 tramos 500,1,14.639,14.375
+perf_sweep,TappedHorn 4 tramos 500,2,14.733,14.181
+perf_sweep,TappedHorn 4 tramos 500,3,14.309,16.964
+perf_sweep,TappedHorn 4 tramos 500,4,16.512,35.824
+perf_sweep,TappedHorn 4 tramos 500,5,14.946,14.334
+perf_sweep,TappedHorn 4 tramos 500,6,15.246,15.836
+perf_sweep,TappedHorn 4 tramos 500,7,15.162,15.594
+perf_sweep,TappedHorn 4 tramos 2000,1,63.414,58.479
+perf_sweep,TappedHorn 4 tramos 2000,2,58.237,58.423
+perf_sweep,TappedHorn 4 tramos 2000,3,58.375,62.289
+perf_sweep,TappedHorn 4 tramos 2000,4,59.777,57.91
+perf_sweep,TappedHorn 4 tramos 2000,5,61.805,58.29
+perf_sweep,TappedHorn 4 tramos 2000,6,61.47,61.7
+perf_sweep,TappedHorn 4 tramos 2000,7,62.049,93.496
+perf_sweep,Bandpass BP6 serie 500,1,0.301,0.317
+perf_sweep,Bandpass BP6 serie 500,2,0.305,0.301
+perf_sweep,Bandpass BP6 serie 500,3,0.423,0.285
+perf_sweep,Bandpass BP6 serie 500,4,0.299,0.285
+perf_sweep,Bandpass BP6 serie 500,5,0.292,0.286
+perf_sweep,Bandpass BP6 serie 500,6,0.285,0.449
+perf_sweep,Bandpass BP6 serie 500,7,0.47,0.3
+perf_sweep,Bandpass BP6 serie 2000,1,1.441,1.178
+perf_sweep,Bandpass BP6 serie 2000,2,1.238,1.232
+perf_sweep,Bandpass BP6 serie 2000,3,1.806,1.639
+perf_sweep,Bandpass BP6 serie 2000,4,1.526,1.299
+perf_sweep,Bandpass BP6 serie 2000,5,1.243,1.268
+perf_sweep,Bandpass BP6 serie 2000,6,1.442,1.346
+perf_sweep,Bandpass BP6 serie 2000,7,1.403,1.321
+perf_sweep,100 cambios × 50 puntos 5000,1,78.352,73.17
+perf_sweep,100 cambios × 50 puntos 5000,2,73.937,73.028
+perf_sweep,100 cambios × 50 puntos 5000,3,76.175,88.987
+perf_sweep,100 cambios × 50 puntos 5000,4,77.8,73.113
+perf_sweep,100 cambios × 50 puntos 5000,5,76.1,77.27
+perf_sweep,100 cambios × 50 puntos 5000,6,77.051,77.12
+perf_sweep,100 cambios × 50 puntos 5000,7,77.417,76.861
+wavebox_perf,bp4_legacy,1,,1.996817
+wavebox_perf,bp4_legacy,2,,1.804964
+wavebox_perf,bp4_legacy,3,,2.926122
+wavebox_perf,bp4_legacy,4,,2.282997
+wavebox_perf,bp4_legacy,5,,1.815309
+wavebox_perf,bp4_legacy,6,,1.740169
+wavebox_perf,bp4_legacy,7,,1.898101
+wavebox_perf,bp4_network,1,,2.652129
+wavebox_perf,bp4_network,2,,2.466136
+wavebox_perf,bp4_network,3,,4.302386
+wavebox_perf,bp4_network,4,,2.866114
+wavebox_perf,bp4_network,5,,2.851502
+wavebox_perf,bp4_network,6,,2.581676
+wavebox_perf,bp4_network,7,,2.69969
+wavebox_perf,ph1_network,1,,110.732769
+wavebox_perf,ph1_network,2,,112.279753
+wavebox_perf,ph1_network,3,,143.462003
+wavebox_perf,ph1_network,4,,114.659222
+wavebox_perf,ph1_network,5,,131.469895
+wavebox_perf,ph1_network,6,,113.144124
+wavebox_perf,ph1_network,7,,112.104273

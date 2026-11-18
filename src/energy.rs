@@ -107,8 +107,9 @@ impl EnergyReport {
             source_resistor_loss_w: rg * current.norm_sqr(),
             driver_terminal_active_w: active_power(voltage, current),
             coil_loss_w: driver.coil_impedance(frequency_hz).re * current.norm_sqr(),
-            coil_dc_loss_w: driver.re * current.norm_sqr(),
-            coil_excess_loss_w: (driver.coil_impedance(frequency_hz).re - driver.re)
+            coil_dc_loss_w: driver.coil_dc_resistance() * current.norm_sqr(),
+            coil_excess_loss_w: (driver.coil_impedance(frequency_hz).re
+                - driver.coil_dc_resistance())
                 * current.norm_sqr(),
             suspension_loss_w: driver.rms * (ud / driver.sd).norm_sqr(),
             acoustic_input_w,

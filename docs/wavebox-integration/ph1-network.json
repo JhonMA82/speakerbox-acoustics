@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "nodes": 8,
+  "front": 1,
+  "rear": 6,
+  "ducts": [
+    {
+      "inlet": 0,
+      "outlet": 1,
+      "model": {
+        "kind": "distributed",
+        "flare": "linear_area",
+        "t": null,
+        "length_m": 0.4,
+        "inlet_area_m2": 0.03,
+        "outlet_area_m2": 0.06,
+        "wall_loss": 0.0,
+        "resistivity_pa_s_m2": 0.0
+      }
+    },
+    {
+      "inlet": 1,
+      "outlet": 2,
+      "model": {
+        "kind": "distributed",
+        "flare": "cylindrical",
+        "t": null,
+        "length_m": 0.8,
+        "inlet_area_m2": 0.06,
+        "outlet_area_m2": 0.06,
+        "wall_loss": 0.0,
+        "resistivity_pa_s_m2": 0.0
+      }
+    },
+    {
+      "inlet": 2,
+      "outlet": 3,
+      "model": {
+        "kind": "distributed",
+        "flare": "linear_area",
+        "t": null,
+        "length_m": 1.2,
+        "inlet_area_m2": 0.06,
+        "outlet_area_m2": 0.09,
+        "wall_loss": 0.0,
+        "resistivity_pa_s_m2": 0.0
+      }
+    },
+    {
+      "inlet": 3,
+      "outlet": 4,
+      "model": {
+        "kind": "distributed",
+        "flare": "cylindrical",
+        "t": null,
+        "length_m": 0.6,
+        "inlet_area_m2": 0.09,
+        "outlet_area_m2": 0.09,
+        "wall_loss": 0.0,
+        "resistivity_pa_s_m2": 0.0
+      }
+    },
+    {
+      "inlet": 5,
+      "outlet": 6,
+      "model": {
+        "kind": "distributed",
+        "flare": "conical",
+        "t": null,
+        "length_m": 0.3,
+        "inlet_area_m2": 0.005,
+        "outlet_area_m2": 0.000104,
+        "wall_loss": 0.0,
+        "resistivity_pa_s_m2": 0.0
+      }
+    },
+    {
+      "inlet": 6,
+      "outlet": 7,
+      "model": {
+        "kind": "distributed",
+        "flare": "conical",
+        "t": null,
+        "length_m": 0.001,
+        "inlet_area_m2": 0.000104,
+        "outlet_area_m2": 0.0001,
+        "wall_loss": 0.0,
+        "resistivity_pa_s_m2": 0.0
+      }
+    },
+    {
+      "inlet": 7,
+      "outlet": 3,
+      "model": {
+        "kind": "distributed",
+        "flare": "conical",
+        "t": null,
+        "length_m": 3,
+        "inlet_area_m2": 0.0001,
+        "outlet_area_m2": 0.2,
+        "wall_loss": 0.0,
+        "resistivity_pa_s_m2": 0.0
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "node": 4,
+      "model": {
+        "kind": "opening",
+        "area_m2": 0.09,
+        "load_scale": 1
+      }
+    }
+  ]
+}

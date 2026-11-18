@@ -168,6 +168,8 @@ pub mod driver_import;
 pub mod element;
 pub mod error;
 pub mod horn_profile;
+pub mod maximum_spl;
+pub mod network;
 pub mod offset;
 pub mod radiation;
 pub mod record;
