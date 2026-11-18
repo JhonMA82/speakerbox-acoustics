@@ -30,7 +30,7 @@ use crate::error::{
 };
 use crate::omega;
 use crate::radiation::piston_radiation_impedance;
-use crate::segment::Horn;
+use crate::segment::{Flare, Horn, Segment};
 
 /// Un punto del barrido de respuesta.
 #[derive(Clone, Copy, Debug)]
@@ -66,6 +66,42 @@ pub struct ResponsePoint {
     pub mouth_volume_velocity: f64,
     /// Velocidad del aire en el puerto (m/s), si aplica.
     pub port_velocity: Option<f64>,
+}
+
+/// Adaptador frontal circular uniforme. Proporcione la geometría explícitamente.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FrontAdapter {
+    pub volume_m3: f64,
+    pub area_m2: f64,
+}
+
+/// Fasores RMS de una bocina de `System`, con dependencia temporal exp(+jωt).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HornOperatingPoint {
+    /// Impedancia de entrada en los bornes del transductor (Ω), excluye Rg.
+    pub electrical_impedance_ohm: Complex64,
+    /// Impedancia acústica del frente completo en el diafragma (Pa·s/m³).
+    pub front_impedance: Complex64,
+    pub diaphragm_velocity_m_s: Complex64,
+    /// Presión al inicio del primer segmento (Pa).
+    pub inlet_pressure_pa: Complex64,
+    /// Caudal al inicio del primer segmento (m³/s).
+    pub inlet_flow_m3_s: Complex64,
+    pub mouth_flow_m3_s: Complex64,
+}
+
+impl FrontAdapter {
+    /// Longitud equivalente del cilindro. Cero representa una conexión ideal.
+    pub fn length_m(self) -> Result<f64, SolveError> {
+        require_positive(self.area_m2, "front adapter area")?;
+        require_non_negative(self.volume_m3, "front adapter volume")?;
+        let length = self.volume_m3 / self.area_m2;
+        require_finite(length, "front adapter length")?;
+        if self.volume_m3 > 0.0 {
+            require_positive(length, "front adapter length")?;
+        }
+        Ok(length)
+    }
 }
 
 /// Sistema acústico completo.
@@ -222,6 +258,81 @@ impl System {
         }
     }
 
+    /// Añade una cámara frontal uniforme como primer segmento de la bocina.
+    ///
+    /// Usa el área y el volumen suministrados, sin estimar geometría ni masa.
+    /// Reemplaza físicamente las opciones concentradas de cámara, fuga o
+    /// resistencia de garganta, por lo que combinarlas devuelve un error.
+    /// Las discontinuidades conservan p y U en la aproximación de onda plana.
+    pub fn with_front_adapter(mut self, adapter: FrontAdapter) -> Result<Self, SolveError> {
+        let length = adapter.length_m()?;
+        self.validate()?;
+        let horn = self
+            .horn
+            .as_mut()
+            .ok_or(SolveError::InvalidTopology("front adapter requires a horn"))?;
+        if length > 0.0 {
+            if self.throat_chamber.is_some()
+                || self.horn_leak.is_some()
+                || self.horn_series.is_some()
+            {
+                return Err(SolveError::InvalidTopology(
+                    "front adapter overlaps existing throat elements",
+                ));
+            }
+            horn.segments.insert(
+                0,
+                Segment::new(Flare::Cylindrical, length, adapter.area_m2, adapter.area_m2),
+            );
+        }
+        Ok(self)
+    }
+
+    /// Estado complejo en el diafragma y en los planos de entrada y boca.
+    /// Con adaptador instalado, la entrada es su cara delantera (lado
+    /// diafragma). Propague por el primer segmento para observar la garganta
+    /// de la bocina original. Disponible también con terminación adaptada.
+    pub fn try_horn_operating_point_at(
+        &self,
+        freq_hz: f64,
+    ) -> Result<HornOperatingPoint, SolveError> {
+        check_frequency(freq_hz)?;
+        self.validate()?;
+        let horn = self.horn.as_ref().ok_or(SolveError::InvalidTopology(
+            "operating point requires a horn",
+        ))?;
+        crate::segment::check_cascade(&horn.segments, &self.air, freq_hz)?;
+        let prepared = horn.prepare(&self.air, freq_hz, self.solid_angle);
+        let (front, rear) = self.loads_with_horn(freq_hz, Some(prepared.input_impedance));
+        let ud = self
+            .driver
+            .volume_velocity(freq_hz, self.eg, self.rg, front + rear);
+        let (p, u) = self.horn_inlet_state(front, ud, prepared.input_impedance);
+        let point = HornOperatingPoint {
+            electrical_impedance_ohm: self.driver.input_impedance(freq_hz, front + rear),
+            front_impedance: front,
+            diaphragm_velocity_m_s: ud / self.driver.sd,
+            inlet_pressure_pa: p,
+            inlet_flow_m3_s: u,
+            mouth_flow_m3_s: prepared.transmit(p, u),
+        };
+        if [
+            point.electrical_impedance_ohm,
+            front,
+            point.diaphragm_velocity_m_s,
+            p,
+            u,
+            point.mouth_flow_m3_s,
+        ]
+        .iter()
+        .all(|z| z.re.is_finite() && z.im.is_finite())
+        {
+            Ok(point)
+        } else {
+            Err(SolveError::InvalidResponse("horn operating point"))
+        }
+    }
+
     /// Frecuencia de sintonía del puerto trasero (Hz), si existe.
     pub fn rear_tuning_hz(&self) -> Option<f64> {
         let chamber = self.rear_chamber?;
@@ -295,6 +406,19 @@ impl System {
         };
 
         (front, rear)
+    }
+
+    fn horn_inlet_state(
+        &self,
+        front: Complex64,
+        diaphragm_flow: Complex64,
+        horn_impedance: Complex64,
+    ) -> (Complex64, Complex64) {
+        // La cámara y la fuga, si existen, toman parte del caudal del diafragma.
+        let node_pressure = front * diaphragm_flow;
+        let series = Complex64::new(self.horn_series.unwrap_or(0.0), 0.0);
+        let horn_flow = node_pressure / (horn_impedance + series);
+        (node_pressure - series * horn_flow, horn_flow)
     }
 
     /// Calcula un punto de respuesta a la frecuencia `freq_hz`.
@@ -528,15 +652,7 @@ impl System {
             .map(|h| h.mouth_area())
             .unwrap_or(self.driver.sd);
         let u_mouth = if let Some(horn) = &prepared {
-            let zh_horn = horn.input_impedance;
-            // Presión en el nodo de garganta y corriente que entra realmente
-            // en la bocina. Con una cámara de garganta en derivación, parte
-            // del volumen del diafragma se va a la compliancia de la cámara:
-            // no se puede usar u_d como velocidad de entrada de la bocina.
-            let p_throat = z_front * u_d;
-            let r_series = self.horn_series.unwrap_or(0.0);
-            let u_horn = p_throat / (zh_horn + Complex64::new(r_series, 0.0));
-            let p_horn = p_throat - Complex64::new(r_series, 0.0) * u_horn;
+            let (p_horn, u_horn) = self.horn_inlet_state(z_front, u_d, horn.input_impedance);
             horn.transmit(p_horn, u_horn)
         } else {
             u_d

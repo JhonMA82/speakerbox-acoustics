@@ -263,7 +263,7 @@ fn flare_from_code(code: &str, cutoff_hz: f64) -> Flare {
         "Cir" => Flare::Cylindrical,
         "Hyp" => {
             // El parámetro T no está en los campos numéricos iniciales del
-            // registro; 1/√2 es el perfil de Le Cléac'h habitual.
+            // registro; se conserva 1/√2 como valor histórico del importador.
             let _ = cutoff_hz;
             Flare::HyperbolicExponential {
                 t: std::f64::consts::FRAC_1_SQRT_2,

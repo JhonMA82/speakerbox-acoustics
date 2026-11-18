@@ -31,6 +31,7 @@ use num_complex::Complex64;
 use crate::air::Air;
 use crate::omega;
 use crate::radiation::piston_radiation_impedance;
+use crate::thermoviscous::ThermoviscousAir;
 
 /// Matriz de transferencia 2×2 para el vector de estado `[p, U]`.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -118,7 +119,7 @@ pub enum Flare {
     /// lineal.
     Parabolic,
     /// Familia de Salmon: `S(x) = S1·(cosh(x/xT) + T·sinh(x/xT))²`.
-    /// `T = 0` es catenoidal; `T = 1/√2` reproduce el perfil de Le Cléac'h.
+    /// `T = 0` es catenoidal y `T = 1/√2` es una elección dentro de la familia Salmon.
     HyperbolicExponential { t: f64 },
     /// Perfil arbitrario `S(x)` en m². Útil para tractrix, Bessel, OS, etc.
     ///
@@ -170,6 +171,7 @@ pub struct Segment {
     /// Pérdidas de pared (factor adimensional; 0 = sin pérdidas).
     pub loss: f64,
     flow_resistivity: f64,
+    thermoviscous: Option<ThermoviscousAir>,
 }
 
 impl Segment {
@@ -187,6 +189,7 @@ impl Segment {
             xt: 0.0,
             loss: 0.0,
             flow_resistivity: 0.0,
+            thermoviscous: None,
         };
         seg.xt = seg.solve_xt();
         seg
@@ -201,8 +204,20 @@ impl Segment {
     pub fn flow_resistivity(&self) -> f64 {
         self.flow_resistivity
     }
+    /// Activa pérdidas termoviscosas de capa delgada en un cilindro circular.
+    /// Se comprueba el dominio en cada frecuencia. No se superpone a otras
+    /// pérdidas distribuidas en el mismo tramo.
+    pub fn with_thermoviscous_losses(mut self, properties: ThermoviscousAir) -> Self {
+        self.thermoviscous = Some(properties);
+        self
+    }
+
+    pub fn thermoviscous_properties(&self) -> Option<ThermoviscousAir> {
+        self.thermoviscous
+    }
+
     pub fn has_distributed_losses(&self) -> bool {
-        self.loss != 0.0 || self.flow_resistivity != 0.0
+        self.loss != 0.0 || self.flow_resistivity != 0.0 || self.thermoviscous.is_some()
     }
 
     /// Comprueba la geometría del segmento.
@@ -255,6 +270,17 @@ impl Segment {
         }
         require_non_negative(self.loss, "segment.loss")?;
         require_non_negative(self.flow_resistivity, "segment.flow_resistivity")?;
+        if let Some(properties) = self.thermoviscous {
+            properties.validate()?;
+            if !matches!(self.flare, Flare::Cylindrical)
+                || self.loss != 0.0
+                || self.flow_resistivity != 0.0
+            {
+                return Err(crate::SolveError::InvalidParameter(
+                    "thermoviscous loss requires a cylinder without other distributed losses",
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -407,7 +433,19 @@ impl Segment {
         rho: f64,
         c: f64,
     ) -> (Complex64, Complex64) {
-        let area = self.area(x);
+        self.state_deriv_at_area(self.area(x), p, u, w, rho, c)
+    }
+
+    #[inline]
+    fn state_deriv_at_area(
+        &self,
+        area: f64,
+        p: Complex64,
+        u: Complex64,
+        w: f64,
+        rho: f64,
+        c: f64,
+    ) -> (Complex64, Complex64) {
         let s = if area.is_finite() && area > 0.0 {
             area
         } else {
@@ -423,8 +461,9 @@ impl Segment {
         (dp, du)
     }
 
-    /// Integra ∫g|p|² dx para la conductancia de pared g=loss·ωS/(ρc²).
-    /// Usa las mismas etapas RK4 del estado, no una resta de flujos como pérdida.
+    /// Integra `Re(Z')|U|² + Re(Y')|p|²` a lo largo del segmento.
+    /// Para Darcy y pared usa las etapas RK4. En un conducto termoviscoso
+    /// usa estados de la solución uniforme exacta y cuadratura de Simpson.
     pub fn dissipated_power_w(
         &self,
         air: &Air,
@@ -437,6 +476,40 @@ impl Segment {
         air.validate()?;
         if !self.has_distributed_losses() || self.length == 0.0 {
             return Ok(0.0);
+        }
+        if let Some(properties) = self.thermoviscous {
+            let coefficients = properties.coefficients(air, self.s1, f)?;
+            let steps = self.steps_for(coefficients.propagation())? * 2;
+            let dx = self.length / steps as f64;
+            let matrix = uniform_matrix(
+                coefficients.propagation(),
+                coefficients.series_per_m,
+                coefficients.shunt_per_m,
+                dx,
+            )
+            .checked()?;
+            let loss = |p: Complex64, u: Complex64| {
+                coefficients.series_per_m.re * u.norm_sqr()
+                    + coefficients.shunt_per_m.re * p.norm_sqr()
+            };
+            let mut sum = loss(p, u);
+            for i in 1..=steps {
+                (p, u) = matrix.apply(p, u);
+                let weight = if i == steps {
+                    1.0
+                } else if i % 2 == 0 {
+                    2.0
+                } else {
+                    4.0
+                };
+                sum += weight * loss(p, u);
+            }
+            let result = sum * (dx / 3.0);
+            return if result.is_finite() {
+                Ok(result)
+            } else {
+                Err(crate::SolveError::NonFiniteResponse)
+            };
         }
         let w = omega(f);
         let steps = self.integration_steps(air, f)? * 2;
@@ -482,7 +555,11 @@ impl Segment {
     }
 
     fn integration_steps(&self, air: &Air, f: f64) -> Result<usize, crate::SolveError> {
-        let g = self.propagation_constant(air, f) * self.length;
+        self.steps_for(self.propagation_constant(air, f))
+    }
+
+    fn steps_for(&self, propagation: Complex64) -> Result<usize, crate::SolveError> {
+        let g = propagation * self.length;
         // Transfer matrices carry growing AND decaying waves. exp(2 Re(g))
         // bounds their conditioning; beyond 8 nepers roundoff can erase the
         // transmitted wave. A scattering formulation is needed beyond this.
@@ -504,6 +581,18 @@ impl Segment {
     }
 
     fn try_matrix_validated(&self, air: &Air, f: f64) -> Result<TransferMatrix, crate::SolveError> {
+        if let Some(properties) = self.thermoviscous {
+            let coefficients = properties.coefficients(air, self.s1, f)?;
+            let propagation = coefficients.propagation();
+            self.steps_for(propagation)?;
+            return uniform_matrix(
+                propagation,
+                coefficients.series_per_m,
+                coefficients.shunt_per_m,
+                self.length,
+            )
+            .checked();
+        }
         if self.s1 == self.s2 && !matches!(self.flare, Flare::Custom(_)) {
             if !self.has_distributed_losses() {
                 let kl = air.wave_number(f) * self.length;
@@ -517,24 +606,13 @@ impl Segment {
                 .checked();
             }
             self.integration_steps(air, f)?;
-            let g = self.propagation_constant(air, f);
-            let z = g * self.length;
-            let sinhc = if z.norm() < 1e-5 {
-                Complex64::new(1., 0.) + z * z / 6. + z.powu(4) / 120.
-            } else {
-                z.sinh() / z
-            };
             let w = omega(f);
-            return TransferMatrix {
-                a: z.cosh(),
-                d: z.cosh(),
-                b: Complex64::new(-self.flow_resistivity, -w * air.rho) / self.s1
-                    * self.length
-                    * sinhc,
-                c: Complex64::new(-self.loss * w, -w) * self.s1 / (air.rho * air.c * air.c)
-                    * self.length
-                    * sinhc,
-            }
+            return uniform_matrix(
+                self.propagation_constant(air, f),
+                Complex64::new(self.flow_resistivity, w * air.rho) / self.s1,
+                Complex64::new(self.loss * w, w) * self.s1 / air.bulk_modulus(),
+                self.length,
+            )
             .checked();
         }
         let steps = self.integration_steps(air, f)?;
@@ -600,20 +678,23 @@ impl Segment {
         let mut ub = Complex64::new(1.0, 0.0);
 
         let mut x = 0.0;
+        let mut start_area = self.area(x);
         for _ in 0..steps {
-            let (dpa1, dua1) = self.state_deriv(x, pa, ua, w, air.rho, air.c);
-            let (dpb1, dub1) = self.state_deriv(x, pb, ub, w, air.rho, air.c);
+            let mid_area = self.area(x + 0.5 * dx);
+            let end_area = self.area(x + dx);
+            let (dpa1, dua1) = self.state_deriv_at_area(start_area, pa, ua, w, air.rho, air.c);
+            let (dpb1, dub1) = self.state_deriv_at_area(start_area, pb, ub, w, air.rho, air.c);
 
-            let (dpa2, dua2) = self.state_deriv(
-                x + 0.5 * dx,
+            let (dpa2, dua2) = self.state_deriv_at_area(
+                mid_area,
                 pa + 0.5 * dx * dpa1,
                 ua + 0.5 * dx * dua1,
                 w,
                 air.rho,
                 air.c,
             );
-            let (dpb2, dub2) = self.state_deriv(
-                x + 0.5 * dx,
+            let (dpb2, dub2) = self.state_deriv_at_area(
+                mid_area,
                 pb + 0.5 * dx * dpb1,
                 ub + 0.5 * dx * dub1,
                 w,
@@ -621,16 +702,16 @@ impl Segment {
                 air.c,
             );
 
-            let (dpa3, dua3) = self.state_deriv(
-                x + 0.5 * dx,
+            let (dpa3, dua3) = self.state_deriv_at_area(
+                mid_area,
                 pa + 0.5 * dx * dpa2,
                 ua + 0.5 * dx * dua2,
                 w,
                 air.rho,
                 air.c,
             );
-            let (dpb3, dub3) = self.state_deriv(
-                x + 0.5 * dx,
+            let (dpb3, dub3) = self.state_deriv_at_area(
+                mid_area,
                 pb + 0.5 * dx * dpb2,
                 ub + 0.5 * dx * dub2,
                 w,
@@ -638,16 +719,29 @@ impl Segment {
                 air.c,
             );
 
-            let (dpa4, dua4) =
-                self.state_deriv(x + dx, pa + dx * dpa3, ua + dx * dua3, w, air.rho, air.c);
-            let (dpb4, dub4) =
-                self.state_deriv(x + dx, pb + dx * dpb3, ub + dx * dub3, w, air.rho, air.c);
+            let (dpa4, dua4) = self.state_deriv_at_area(
+                end_area,
+                pa + dx * dpa3,
+                ua + dx * dua3,
+                w,
+                air.rho,
+                air.c,
+            );
+            let (dpb4, dub4) = self.state_deriv_at_area(
+                end_area,
+                pb + dx * dpb3,
+                ub + dx * dub3,
+                w,
+                air.rho,
+                air.c,
+            );
 
             pa += (dx / 6.0) * (dpa1 + 2.0 * dpa2 + 2.0 * dpa3 + dpa4);
             ua += (dx / 6.0) * (dua1 + 2.0 * dua2 + 2.0 * dua3 + dua4);
             pb += (dx / 6.0) * (dpb1 + 2.0 * dpb2 + 2.0 * dpb3 + dpb4);
             ub += (dx / 6.0) * (dub1 + 2.0 * dub2 + 2.0 * dub3 + dub4);
             x += dx;
+            start_area = end_area;
         }
 
         TransferMatrix {
@@ -659,17 +753,42 @@ impl Segment {
     }
 }
 
+fn uniform_matrix(
+    propagation: Complex64,
+    series_per_m: Complex64,
+    shunt_per_m: Complex64,
+    length: f64,
+) -> TransferMatrix {
+    let z = propagation * length;
+    let diagonal = z.cosh();
+    let sinhc = if z.norm() < 1e-5 {
+        Complex64::new(1.0, 0.0) + z * z / 6.0 + z.powu(4) / 120.0
+    } else {
+        z.sinh() / z
+    };
+    TransferMatrix {
+        a: diagonal,
+        b: -series_per_m * length * sinhc,
+        c: -shunt_per_m * length * sinhc,
+        d: diagonal,
+    }
+}
+
 /// Bound total attenuation, so subdivision cannot bypass conditioning checks.
 pub(crate) fn check_cascade(
     segments: &[Segment],
     air: &Air,
     f: f64,
 ) -> Result<(), crate::SolveError> {
-    let attenuation: f64 = segments
-        .iter()
-        .filter(|s| s.has_distributed_losses())
-        .map(|s| (s.propagation_constant(air, f) * s.length).re.abs())
-        .sum();
+    let mut attenuation = 0.0;
+    for segment in segments.iter().filter(|s| s.has_distributed_losses()) {
+        let propagation = if let Some(properties) = segment.thermoviscous {
+            properties.coefficients(air, segment.s1, f)?.propagation()
+        } else {
+            segment.propagation_constant(air, f)
+        };
+        attenuation += (propagation * segment.length).re.abs();
+    }
     if attenuation.is_finite() && attenuation <= 8.0 {
         Ok(())
     } else {

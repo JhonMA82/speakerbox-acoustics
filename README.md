@@ -358,3 +358,7 @@ terminaciones de red; puede ser un subtotal si falta alguna carga radiativa.
 El contrato actualizado está en [`RADIATION_MODEL_CONTRACT.md`](docs/audits/RADIATION_MODEL_CONTRACT.md).
 Los informes de la primera auditoría permanecen como historia, no como estado
 energético actual.
+
+[Integración horn-simulation](docs/horn-simulation-integration/README.md) documenta
+los perfiles paramétricos persistentes de bocina, el adaptador frontal circular,
+las pérdidas termoviscosas opcionales y la comparación Webster con otro solver.

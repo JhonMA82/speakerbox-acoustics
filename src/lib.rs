@@ -167,12 +167,14 @@ pub mod driver_bank;
 pub mod driver_import;
 pub mod element;
 pub mod error;
+pub mod horn_profile;
 pub mod offset;
 pub mod radiation;
 pub mod record;
 pub mod segment;
 pub mod system;
 pub mod tapped;
+pub mod thermoviscous;
 pub mod validation;
 
 pub use air::Air;
@@ -188,6 +190,7 @@ pub use driver_import::{
 };
 pub use element::{Chamber, EndCorrection, Lining, PassiveRadiator, Port};
 pub use error::SolveError;
+pub use horn_profile::{HornProfile, HornProfileKind, HornProfileSample, HornProfileSpec};
 pub use multiway::{
     sum_at, sum_sweep, MultiwayChannel, MultiwayObservation, MULTIWAY_REFERENCE_VOLTS,
 };
@@ -195,8 +198,9 @@ pub use offset::{OffsetHorn, OffsetPoint};
 pub use radiation::piston_radiation_impedance;
 pub use record::LegacyRecord;
 pub use segment::{Flare, Horn, Segment, TransferMatrix};
-pub use system::{ResponsePoint, System};
+pub use system::{FrontAdapter, HornOperatingPoint, ResponsePoint, System};
 pub use tapped::{TappedHorn, TappedPoint};
+pub use thermoviscous::ThermoviscousAir;
 pub use validation::{validate, OraclePoint, ValidationError, ValidationReport};
 
 /// Frecuencia angular a partir de una frecuencia en hercios.

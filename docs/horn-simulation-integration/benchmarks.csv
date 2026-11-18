@@ -1,0 +1,474 @@
+example,scenario,sample,before_ms,after_ms
+completion_perf,TL damped 2000,1,1.740935,1.823988
+completion_perf,TL damped 2000,2,1.792561,1.748266
+completion_perf,TL damped 2000,3,1.624673,1.597103
+completion_perf,TL damped 2000,4,1.691727,1.622424
+completion_perf,TL damped 2000,5,2.526107,1.602255
+completion_perf,TL damped 2000,6,1.739567,1.650906
+completion_perf,TL damped 2000,7,1.632799,1.597297
+completion_perf,TL damped 2000,8,1.751374,1.799415
+completion_perf,TL damped 2000,9,1.632449,1.990597
+completion_perf,TL damped 2000,10,1.705935,1.854814
+completion_perf,TL damped 2000,11,1.625256,1.593419
+completion_perf,TL damped 2000,12,1.733245,1.767285
+completion_perf,TL damped 2000,13,1.625386,1.590725
+completion_perf,TL damped 2000,14,1.656082,1.599368
+completion_perf,TL damped 2000,15,1.7027,3.656661
+completion_perf,TL damped 500,1,0.491253,0.508009
+completion_perf,TL damped 500,2,0.509651,0.421922
+completion_perf,TL damped 500,3,0.455691,0.42084
+completion_perf,TL damped 500,4,0.430085,0.417517
+completion_perf,TL damped 500,5,0.594147,0.42022
+completion_perf,TL damped 500,6,0.532776,0.41357
+completion_perf,TL damped 500,7,0.447491,0.420781
+completion_perf,TL damped 500,8,0.431517,0.439569
+completion_perf,TL damped 500,9,0.465307,0.417887
+completion_perf,TL damped 500,10,0.514358,0.429083
+completion_perf,TL damped 500,11,0.444405,0.431596
+completion_perf,TL damped 500,12,0.444065,0.419538
+completion_perf,TL damped 500,13,0.445958,0.414891
+completion_perf,TL damped 500,14,0.565053,0.431066
+completion_perf,TL damped 500,15,0.428081,0.419869
+completion_perf,TL uniform 2000,1,0.927496,0.98407
+completion_perf,TL uniform 2000,2,1.159929,0.958452
+completion_perf,TL uniform 2000,3,0.916661,1.048434
+completion_perf,TL uniform 2000,4,0.866869,1.191846
+completion_perf,TL uniform 2000,5,0.910493,0.90137
+completion_perf,TL uniform 2000,6,0.87405,0.917344
+completion_perf,TL uniform 2000,7,0.87424,0.872768
+completion_perf,TL uniform 2000,8,1.193821,0.862263
+completion_perf,TL uniform 2000,9,0.949471,0.8876
+completion_perf,TL uniform 2000,10,0.919656,0.896823
+completion_perf,TL uniform 2000,11,0.919075,1.00389
+completion_perf,TL uniform 2000,12,0.987816,0.878986
+completion_perf,TL uniform 2000,13,0.948388,0.948018
+completion_perf,TL uniform 2000,14,1.213169,1.106922
+completion_perf,TL uniform 2000,15,0.870133,0.874069
+completion_perf,TL uniform 500,1,0.553094,0.242487
+completion_perf,TL uniform 500,2,0.242767,0.33964
+completion_perf,TL uniform 500,3,0.248957,0.248456
+completion_perf,TL uniform 500,4,0.556702,0.246002
+completion_perf,TL uniform 500,5,0.239223,0.24402
+completion_perf,TL uniform 500,6,0.240715,0.320413
+completion_perf,TL uniform 500,7,0.247325,0.271601
+completion_perf,TL uniform 500,8,0.412348,0.266203
+completion_perf,TL uniform 500,9,0.241877,0.287474
+completion_perf,TL uniform 500,10,0.24419,0.35872
+completion_perf,TL uniform 500,11,0.284419,0.29848
+completion_perf,TL uniform 500,12,0.239473,0.262207
+completion_perf,TL uniform 500,13,0.311118,0.275576
+completion_perf,TL uniform 500,14,0.239874,0.241727
+completion_perf,TL uniform 500,15,0.244069,0.248186
+completion_perf,TL variable 2000,1,69.988411,35.022557
+completion_perf,TL variable 2000,2,78.933089,35.094032
+completion_perf,TL variable 2000,3,86.325615,36.300661
+completion_perf,TL variable 2000,4,68.175569,35.470123
+completion_perf,TL variable 2000,5,67.932961,34.198573
+completion_perf,TL variable 2000,6,65.747326,34.549312
+completion_perf,TL variable 2000,7,64.891713,36.629691
+completion_perf,TL variable 2000,8,74.597936,36.068332
+completion_perf,TL variable 2000,9,78.079303,35.763943
+completion_perf,TL variable 2000,10,68.976592,36.236303
+completion_perf,TL variable 2000,11,96.276466,34.452418
+completion_perf,TL variable 2000,12,66.07907,34.860229
+completion_perf,TL variable 2000,13,66.736359,34.576961
+completion_perf,TL variable 2000,14,67.356903,35.074616
+completion_perf,TL variable 2000,15,71.780635,66.665615
+completion_perf,TL variable 500,1,17.387567,8.985738
+completion_perf,TL variable 500,2,28.207807,8.965088
+completion_perf,TL variable 500,3,22.312372,9.632932
+completion_perf,TL variable 500,4,17.951649,8.892
+completion_perf,TL variable 500,5,20.418609,8.560211
+completion_perf,TL variable 500,6,16.544183,9.09471
+completion_perf,TL variable 500,7,16.021252,9.109847
+completion_perf,TL variable 500,8,17.09154,9.05993
+completion_perf,TL variable 500,9,17.957908,9.037195
+completion_perf,TL variable 500,10,17.002244,8.720927
+completion_perf,TL variable 500,11,16.889848,9.085754
+completion_perf,TL variable 500,12,16.985359,9.000518
+completion_perf,TL variable 500,13,18.311213,8.618234
+completion_perf,TL variable 500,14,16.435889,8.604896
+completion_perf,TL variable 500,15,16.807216,16.589615
+completion_perf,TL variable damped 2000,1,197.552855,99.740813
+completion_perf,TL variable damped 2000,2,210.157269,104.438845
+completion_perf,TL variable damped 2000,3,235.713624,99.57514
+completion_perf,TL variable damped 2000,4,193.498383,102.974019
+completion_perf,TL variable damped 2000,5,202.336394,96.950448
+completion_perf,TL variable damped 2000,6,210.950856,104.505557
+completion_perf,TL variable damped 2000,7,256.503919,101.533111
+completion_perf,TL variable damped 2000,8,228.13289,98.965683
+completion_perf,TL variable damped 2000,9,196.814127,98.309534
+completion_perf,TL variable damped 2000,10,196.829005,100.467943
+completion_perf,TL variable damped 2000,11,190.821488,100.456147
+completion_perf,TL variable damped 2000,12,209.952381,102.86718
+completion_perf,TL variable damped 2000,13,203.639815,99.629828
+completion_perf,TL variable damped 2000,14,274.872021,109.047842
+completion_perf,TL variable damped 2000,15,249.634937,96.655414
+completion_perf,TL variable damped 500,1,51.24743,24.596486
+completion_perf,TL variable damped 500,2,50.35081,28.080685
+completion_perf,TL variable damped 500,3,47.740023,25.358309
+completion_perf,TL variable damped 500,4,49.452712,25.971346
+completion_perf,TL variable damped 500,5,49.113312,24.299767
+completion_perf,TL variable damped 500,6,48.541828,23.811516
+completion_perf,TL variable damped 500,7,47.51944,25.89489
+completion_perf,TL variable damped 500,8,52.203871,24.400054
+completion_perf,TL variable damped 500,9,50.776795,25.803877
+completion_perf,TL variable damped 500,10,48.874918,28.163147
+completion_perf,TL variable damped 500,11,47.1116,25.447543
+completion_perf,TL variable damped 500,12,48.769112,25.615972
+completion_perf,TL variable damped 500,13,50.625939,24.319321
+completion_perf,TL variable damped 500,14,48.447458,25.418941
+completion_perf,TL variable damped 500,15,49.229541,28.422629
+completion_perf,acoustic DE budget=100,1,0.127508,0.127548
+completion_perf,acoustic DE budget=100,2,0.128109,0.121119
+completion_perf,acoustic DE budget=100,3,0.246183,0.119886
+completion_perf,acoustic DE budget=100,4,0.241807,0.136231
+completion_perf,acoustic DE budget=100,5,0.170201,0.124614
+completion_perf,acoustic DE budget=100,6,0.16261,0.125475
+completion_perf,acoustic DE budget=100,7,0.207606,0.147418
+completion_perf,acoustic DE budget=100,8,0.273243,0.1282
+completion_perf,acoustic DE budget=100,9,0.127007,0.121309
+completion_perf,acoustic DE budget=100,10,0.141789,0.119376
+completion_perf,acoustic DE budget=100,11,0.220375,0.14244
+completion_perf,acoustic DE budget=100,12,0.125315,0.123912
+completion_perf,acoustic DE budget=100,13,0.128239,0.124404
+completion_perf,acoustic DE budget=100,14,0.241907,0.123372
+completion_perf,acoustic DE budget=100,15,0.128089,0.127688
+completion_perf,acoustic DE budget=1000,1,1.021335,1.090136
+completion_perf,acoustic DE budget=1000,2,1.0522,1.142704
+completion_perf,acoustic DE budget=1000,3,1.035586,1.040473
+completion_perf,acoustic DE budget=1000,4,1.168614,1.014487
+completion_perf,acoustic DE budget=1000,5,1.129477,1.098
+completion_perf,acoustic DE budget=1000,6,1.025613,1.192079
+completion_perf,acoustic DE budget=1000,7,1.022349,1.026475
+completion_perf,acoustic DE budget=1000,8,1.171949,1.143428
+completion_perf,acoustic DE budget=1000,9,1.122076,1.013215
+completion_perf,acoustic DE budget=1000,10,1.09895,1.014356
+completion_perf,acoustic DE budget=1000,11,1.016869,1.138628
+completion_perf,acoustic DE budget=1000,12,1.310622,1.036498
+completion_perf,acoustic DE budget=1000,13,1.374957,1.385412
+completion_perf,acoustic DE budget=1000,14,1.141402,1.014306
+completion_perf,acoustic DE budget=1000,15,1.014435,1.118789
+completion_perf,acoustic DE budget=5000,1,11.601191,11.251877
+completion_perf,acoustic DE budget=5000,2,13.468292,13.025089
+completion_perf,acoustic DE budget=5000,3,11.764111,70.556348
+completion_perf,acoustic DE budget=5000,4,11.364539,11.769437
+completion_perf,acoustic DE budget=5000,5,11.961831,11.038939
+completion_perf,acoustic DE budget=5000,6,11.206306,12.552382
+completion_perf,acoustic DE budget=5000,7,11.790508,11.768645
+completion_perf,acoustic DE budget=5000,8,13.055344,13.874102
+completion_perf,acoustic DE budget=5000,9,12.372056,11.188058
+completion_perf,acoustic DE budget=5000,10,11.757052,12.151033
+completion_perf,acoustic DE budget=5000,11,11.383462,11.502226
+completion_perf,acoustic DE budget=5000,12,11.791903,11.235933
+completion_perf,acoustic DE budget=5000,13,11.591518,11.754818
+completion_perf,acoustic DE budget=5000,14,11.585278,12.389383
+completion_perf,acoustic DE budget=5000,15,17.028563,12.345009
+completion_perf,complex uniform matrix 10000,1,2.43032,1.886339
+completion_perf,complex uniform matrix 10000,2,2.046455,2.19908
+completion_perf,complex uniform matrix 10000,3,1.987979,1.7984
+completion_perf,complex uniform matrix 10000,4,2.020762,1.808709
+completion_perf,complex uniform matrix 10000,5,2.189731,1.769391
+completion_perf,complex uniform matrix 10000,6,2.151004,1.76219
+completion_perf,complex uniform matrix 10000,7,2.429666,1.877771
+completion_perf,complex uniform matrix 10000,8,2.060681,2.010436
+completion_perf,complex uniform matrix 10000,9,2.000252,1.766257
+completion_perf,complex uniform matrix 10000,10,1.948222,1.858069
+completion_perf,complex uniform matrix 10000,11,2.04882,1.78361
+completion_perf,complex uniform matrix 10000,12,2.156969,1.798651
+completion_perf,complex uniform matrix 10000,13,2.589557,1.940931
+completion_perf,complex uniform matrix 10000,14,2.021059,1.771742
+completion_perf,complex uniform matrix 10000,15,1.983765,3.090165
+completion_perf,optimizer DifferentialEvolution budget=100,1,0.017716,0.017506
+completion_perf,optimizer DifferentialEvolution budget=100,2,0.017656,0.017536
+completion_perf,optimizer DifferentialEvolution budget=100,3,0.017676,0.017345
+completion_perf,optimizer DifferentialEvolution budget=100,4,0.017716,0.017526
+completion_perf,optimizer DifferentialEvolution budget=100,5,0.017706,0.017566
+completion_perf,optimizer DifferentialEvolution budget=100,6,0.032167,0.017656
+completion_perf,optimizer DifferentialEvolution budget=100,7,0.018107,0.017435
+completion_perf,optimizer DifferentialEvolution budget=100,8,0.018227,0.017446
+completion_perf,optimizer DifferentialEvolution budget=100,9,0.017656,0.017596
+completion_perf,optimizer DifferentialEvolution budget=100,10,0.017796,0.017355
+completion_perf,optimizer DifferentialEvolution budget=100,11,0.017766,0.017596
+completion_perf,optimizer DifferentialEvolution budget=100,12,0.017706,0.017536
+completion_perf,optimizer DifferentialEvolution budget=100,13,0.018087,0.017586
+completion_perf,optimizer DifferentialEvolution budget=100,14,0.017767,0.017556
+completion_perf,optimizer DifferentialEvolution budget=100,15,0.017686,0.017486
+completion_perf,optimizer DifferentialEvolution budget=1000,1,0.449312,0.465506
+completion_perf,optimizer DifferentialEvolution budget=1000,2,0.558013,0.507838
+completion_perf,optimizer DifferentialEvolution budget=1000,3,0.414731,0.417335
+completion_perf,optimizer DifferentialEvolution budget=1000,4,0.417096,0.431577
+completion_perf,optimizer DifferentialEvolution budget=1000,5,0.58334,0.419289
+completion_perf,optimizer DifferentialEvolution budget=1000,6,0.595839,0.476664
+completion_perf,optimizer DifferentialEvolution budget=1000,7,0.781313,0.423054
+completion_perf,optimizer DifferentialEvolution budget=1000,8,0.470805,0.435092
+completion_perf,optimizer DifferentialEvolution budget=1000,9,0.418337,0.434281
+completion_perf,optimizer DifferentialEvolution budget=1000,10,0.432538,0.450474
+completion_perf,optimizer DifferentialEvolution budget=1000,11,0.720702,0.543602
+completion_perf,optimizer DifferentialEvolution budget=1000,12,0.469412,0.417255
+completion_perf,optimizer DifferentialEvolution budget=1000,13,0.416264,0.435482
+completion_perf,optimizer DifferentialEvolution budget=1000,14,0.649117,0.419278
+completion_perf,optimizer DifferentialEvolution budget=1000,15,0.435502,0.575528
+completion_perf,optimizer DifferentialEvolution budget=5000,1,8.490298,9.352458
+completion_perf,optimizer DifferentialEvolution budget=5000,2,8.80371,9.418526
+completion_perf,optimizer DifferentialEvolution budget=5000,3,8.870859,8.673118
+completion_perf,optimizer DifferentialEvolution budget=5000,4,8.567963,9.523192
+completion_perf,optimizer DifferentialEvolution budget=5000,5,8.942635,8.473874
+completion_perf,optimizer DifferentialEvolution budget=5000,6,9.287144,9.651702
+completion_perf,optimizer DifferentialEvolution budget=5000,7,14.890162,9.25718
+completion_perf,optimizer DifferentialEvolution budget=5000,8,10.042799,8.828527
+completion_perf,optimizer DifferentialEvolution budget=5000,9,8.795929,8.744102
+completion_perf,optimizer DifferentialEvolution budget=5000,10,8.801604,8.831759
+completion_perf,optimizer DifferentialEvolution budget=5000,11,11.130288,11.266298
+completion_perf,optimizer DifferentialEvolution budget=5000,12,8.797929,8.816717
+completion_perf,optimizer DifferentialEvolution budget=5000,13,9.092593,8.682369
+completion_perf,optimizer DifferentialEvolution budget=5000,14,10.800211,8.569573
+completion_perf,optimizer DifferentialEvolution budget=5000,15,8.422316,10.624681
+completion_perf,optimizer NelderMead budget=100,1,0.034631,0.060599
+completion_perf,optimizer NelderMead budget=100,2,0.032078,0.033519
+completion_perf,optimizer NelderMead budget=100,3,0.032689,0.032208
+completion_perf,optimizer NelderMead budget=100,4,0.110634,0.037315
+completion_perf,optimizer NelderMead budget=100,5,0.034481,0.052598
+completion_perf,optimizer NelderMead budget=100,6,0.035262,0.048832
+completion_perf,optimizer NelderMead budget=100,7,0.347923,0.032889
+completion_perf,optimizer NelderMead budget=100,8,0.035042,0.032038
+completion_perf,optimizer NelderMead budget=100,9,0.056433,0.032498
+completion_perf,optimizer NelderMead budget=100,10,0.032728,0.03375
+completion_perf,optimizer NelderMead budget=100,11,0.61759,0.032468
+completion_perf,optimizer NelderMead budget=100,12,0.0336,0.032278
+completion_perf,optimizer NelderMead budget=100,13,0.032818,0.032858
+completion_perf,optimizer NelderMead budget=100,14,0.543752,0.038567
+completion_perf,optimizer NelderMead budget=100,15,0.033599,0.033779
+completion_perf,optimizer NelderMead budget=1000,1,0.158644,0.079087
+completion_perf,optimizer NelderMead budget=1000,2,0.078215,0.079126
+completion_perf,optimizer NelderMead budget=1000,3,0.079297,0.079767
+completion_perf,optimizer NelderMead budget=1000,4,0.078646,0.079747
+completion_perf,optimizer NelderMead budget=1000,5,0.079437,0.079488
+completion_perf,optimizer NelderMead budget=1000,6,0.080759,0.082362
+completion_perf,optimizer NelderMead budget=1000,7,0.740703,0.09438
+completion_perf,optimizer NelderMead budget=1000,8,0.079928,0.079678
+completion_perf,optimizer NelderMead budget=1000,9,0.079638,0.080318
+completion_perf,optimizer NelderMead budget=1000,10,0.082392,0.080539
+completion_perf,optimizer NelderMead budget=1000,11,0.302366,0.102861
+completion_perf,optimizer NelderMead budget=1000,12,0.078426,0.080408
+completion_perf,optimizer NelderMead budget=1000,13,0.08109,0.080189
+completion_perf,optimizer NelderMead budget=1000,14,0.297739,0.079498
+completion_perf,optimizer NelderMead budget=1000,15,0.08177,0.184341
+completion_perf,optimizer NelderMead budget=5000,1,0.074169,0.073077
+completion_perf,optimizer NelderMead budget=5000,2,0.120268,0.116101
+completion_perf,optimizer NelderMead budget=5000,3,0.073879,0.073678
+completion_perf,optimizer NelderMead budget=5000,4,0.073699,0.073679
+completion_perf,optimizer NelderMead budget=5000,5,0.07398,0.07402
+completion_perf,optimizer NelderMead budget=5000,6,0.07445,0.073658
+completion_perf,optimizer NelderMead budget=5000,7,0.12248,0.07463
+completion_perf,optimizer NelderMead budget=5000,8,0.159195,0.07442
+completion_perf,optimizer NelderMead budget=5000,9,0.073919,0.073048
+completion_perf,optimizer NelderMead budget=5000,10,0.073879,0.073458
+completion_perf,optimizer NelderMead budget=5000,11,0.078376,0.07493
+completion_perf,optimizer NelderMead budget=5000,12,0.093228,0.073759
+completion_perf,optimizer NelderMead budget=5000,13,0.103803,0.072827
+completion_perf,optimizer NelderMead budget=5000,14,0.075051,0.091104
+completion_perf,optimizer NelderMead budget=5000,15,0.074179,0.076143
+horn_simulation_perf,compound 500 acoustic,1,23.008091,9.640848
+horn_simulation_perf,compound 500 acoustic,2,22.828181,9.515733
+horn_simulation_perf,compound 500 acoustic,3,20.784838,9.197236
+horn_simulation_perf,compound 500 acoustic,4,21.219615,9.027525
+horn_simulation_perf,compound 500 acoustic,5,20.794735,8.714826
+horn_simulation_perf,compound 500 acoustic,6,22.007918,8.614047
+horn_simulation_perf,compound 500 acoustic,7,23.047111,12.412693
+horn_simulation_perf,compound 500 geo,1,0.01338,0.01337
+horn_simulation_perf,compound 500 geo,2,0.011578,0.036804
+horn_simulation_perf,compound 500 geo,3,0.012959,0.011297
+horn_simulation_perf,compound 500 geo,4,0.013009,0.011778
+horn_simulation_perf,compound 500 geo,5,0.01359,0.01336
+horn_simulation_perf,compound 500 geo,6,0.01353,0.013099
+horn_simulation_perf,compound 500 geo,7,0.063765,0.017686
+horn_simulation_perf,cone 500 acoustic,1,6.302825,3.530637
+horn_simulation_perf,cone 500 acoustic,2,7.185938,3.928153
+horn_simulation_perf,cone 500 acoustic,3,7.144348,4.527337
+horn_simulation_perf,cone 500 acoustic,4,6.176069,3.650675
+horn_simulation_perf,cone 500 acoustic,5,6.505997,3.446043
+horn_simulation_perf,cone 500 acoustic,6,6.475994,3.433505
+horn_simulation_perf,cone 500 acoustic,7,6.400393,3.539071
+horn_simulation_perf,cone 500 geo,1,0.004987,0.004757
+horn_simulation_perf,cone 500 geo,2,0.004807,0.005298
+horn_simulation_perf,cone 500 geo,3,0.004997,0.007692
+horn_simulation_perf,cone 500 geo,4,0.004777,0.004727
+horn_simulation_perf,cone 500 geo,5,0.004797,0.004787
+horn_simulation_perf,cone 500 geo,6,0.004817,0.004727
+horn_simulation_perf,cone 500 geo,7,0.005087,0.004747
+horn_simulation_perf,os 500 acoustic,1,6.035171,4.03506
+horn_simulation_perf,os 500 acoustic,2,7.78429,3.877949
+horn_simulation_perf,os 500 acoustic,3,6.541648,5.042317
+horn_simulation_perf,os 500 acoustic,4,6.621076,3.814686
+horn_simulation_perf,os 500 acoustic,5,6.366912,3.740027
+horn_simulation_perf,os 500 acoustic,6,6.385389,3.480194
+horn_simulation_perf,os 500 acoustic,7,6.278232,3.59983
+horn_simulation_perf,os 500 geo,1,0.005798,0.005308
+horn_simulation_perf,os 500 geo,2,0.006439,0.006449
+horn_simulation_perf,os 500 geo,3,0.00626,0.008834
+horn_simulation_perf,os 500 geo,4,0.005028,0.005257
+horn_simulation_perf,os 500 geo,5,0.005889,0.005028
+horn_simulation_perf,os 500 geo,6,0.006179,0.005058
+horn_simulation_perf,os 500 geo,7,0.005718,0.005628
+horn_simulation_perf,scaled_tractrix 500 acoustic,1,1912.301925,77.210957
+horn_simulation_perf,scaled_tractrix 500 acoustic,2,1942.143128,75.678376
+horn_simulation_perf,scaled_tractrix 500 acoustic,3,1922.830409,79.063291
+horn_simulation_perf,scaled_tractrix 500 acoustic,4,1930.742031,75.28217
+horn_simulation_perf,scaled_tractrix 500 acoustic,5,1891.828128,71.522077
+horn_simulation_perf,scaled_tractrix 500 acoustic,6,1848.646614,71.616647
+horn_simulation_perf,scaled_tractrix 500 acoustic,7,1868.369205,81.53646
+horn_simulation_perf,scaled_tractrix 500 geo,1,1.405042,0.227565
+horn_simulation_perf,scaled_tractrix 500 geo,2,1.527052,0.175159
+horn_simulation_perf,scaled_tractrix 500 geo,3,1.386585,0.170031
+horn_simulation_perf,scaled_tractrix 500 geo,4,1.491039,0.219824
+horn_simulation_perf,scaled_tractrix 500 geo,5,1.482257,0.171012
+horn_simulation_perf,scaled_tractrix 500 geo,6,1.372985,0.172955
+horn_simulation_perf,scaled_tractrix 500 geo,7,1.432143,0.171073
+horn_simulation_perf,tractrix 500 acoustic,1,1936.765537,79.728029
+horn_simulation_perf,tractrix 500 acoustic,2,1926.926133,78.567428
+horn_simulation_perf,tractrix 500 acoustic,3,1948.170965,78.003283
+horn_simulation_perf,tractrix 500 acoustic,4,2126.409387,75.555653
+horn_simulation_perf,tractrix 500 acoustic,5,1931.930696,71.464712
+horn_simulation_perf,tractrix 500 acoustic,6,1845.687788,72.350409
+horn_simulation_perf,tractrix 500 acoustic,7,1899.958944,75.467386
+horn_simulation_perf,tractrix 500 geo,1,1.411011,0.220886
+horn_simulation_perf,tractrix 500 geo,2,1.619218,0.221056
+horn_simulation_perf,tractrix 500 geo,3,1.48509,0.257169
+horn_simulation_perf,tractrix 500 geo,4,1.685796,0.213445
+horn_simulation_perf,tractrix 500 geo,5,1.418393,0.215699
+horn_simulation_perf,tractrix 500 geo,6,1.570306,0.213795
+horn_simulation_perf,tractrix 500 geo,7,1.397181,0.214236
+horn_simulation_perf,tube 500 acoustic,1,0.066208,0.08818
+horn_simulation_perf,tube 500 acoustic,2,0.063764,0.065547
+horn_simulation_perf,tube 500 acoustic,3,0.063103,0.08817
+horn_simulation_perf,tube 500 acoustic,4,0.062703,0.062653
+horn_simulation_perf,tube 500 acoustic,5,0.063504,0.064405
+horn_simulation_perf,tube 500 acoustic,6,0.063063,0.063553
+horn_simulation_perf,tube 500 acoustic,7,0.063664,0.100037
+horn_simulation_perf,tube 500 geo,1,0.010255,0.01353
+horn_simulation_perf,tube 500 geo,2,0.011337,0.013149
+horn_simulation_perf,tube 500 geo,3,0.007641,0.015964
+horn_simulation_perf,tube 500 geo,4,0.008162,0.009905
+horn_simulation_perf,tube 500 geo,5,0.032838,0.0946
+horn_simulation_perf,tube 500 geo,6,0.034932,0.037164
+horn_simulation_perf,tube 500 geo,7,0.0338,0.017286
+horn_simulation_perf,tube_thermoviscous 500 acoustic,1,0.116562,0.124293
+horn_simulation_perf,tube_thermoviscous 500 acoustic,2,0.114959,0.11535
+horn_simulation_perf,tube_thermoviscous 500 acoustic,3,0.114719,0.171022
+horn_simulation_perf,tube_thermoviscous 500 acoustic,4,0.114609,0.114609
+horn_simulation_perf,tube_thermoviscous 500 acoustic,5,0.114879,0.115901
+horn_simulation_perf,tube_thermoviscous 500 acoustic,6,0.115891,0.114328
+horn_simulation_perf,tube_thermoviscous 500 acoustic,7,0.115831,0.11534
+horn_simulation_perf,tube_thermoviscous 500 geo,1,0.003415,0.005268
+horn_simulation_perf,tube_thermoviscous 500 geo,2,0.003425,0.003335
+horn_simulation_perf,tube_thermoviscous 500 geo,3,0.003405,0.005028
+horn_simulation_perf,tube_thermoviscous 500 geo,4,0.003375,0.003335
+horn_simulation_perf,tube_thermoviscous 500 geo,5,0.003385,0.003375
+horn_simulation_perf,tube_thermoviscous 500 geo,6,0.003425,0.003395
+horn_simulation_perf,tube_thermoviscous 500 geo,7,0.003395,0.003435
+perf_sweep,100 cambios × 50 puntos 5000,1,135.438,77.84
+perf_sweep,100 cambios × 50 puntos 5000,2,136.134,78.817
+perf_sweep,100 cambios × 50 puntos 5000,3,136.263,76.948
+perf_sweep,100 cambios × 50 puntos 5000,4,142.603,73.083
+perf_sweep,100 cambios × 50 puntos 5000,5,138.247,96.51
+perf_sweep,100 cambios × 50 puntos 5000,6,132.008,77.915
+perf_sweep,100 cambios × 50 puntos 5000,7,132.369,74.515
+perf_sweep,100 cambios × 50 puntos 5000,8,134.343,72.122
+perf_sweep,100 cambios × 50 puntos 5000,9,148.712,74.825
+perf_sweep,100 cambios × 50 puntos 5000,10,139.127,75.339
+perf_sweep,100 cambios × 50 puntos 5000,11,132.239,76.063
+perf_sweep,100 cambios × 50 puntos 5000,12,137.084,74.096
+perf_sweep,100 cambios × 50 puntos 5000,13,167.465,73.179
+perf_sweep,100 cambios × 50 puntos 5000,14,132.543,73.526
+perf_sweep,100 cambios × 50 puntos 5000,15,131.147,71.803
+perf_sweep,Bandpass BP6 serie 2000,1,1.371,1.36
+perf_sweep,Bandpass BP6 serie 2000,2,1.184,1.626
+perf_sweep,Bandpass BP6 serie 2000,3,1.372,1.209
+perf_sweep,Bandpass BP6 serie 2000,4,1.236,1.227
+perf_sweep,Bandpass BP6 serie 2000,5,1.247,1.582
+perf_sweep,Bandpass BP6 serie 2000,6,1.456,1.303
+perf_sweep,Bandpass BP6 serie 2000,7,1.253,1.62
+perf_sweep,Bandpass BP6 serie 2000,8,1.194,1.23
+perf_sweep,Bandpass BP6 serie 2000,9,1.298,1.199
+perf_sweep,Bandpass BP6 serie 2000,10,1.308,1.178
+perf_sweep,Bandpass BP6 serie 2000,11,1.253,1.266
+perf_sweep,Bandpass BP6 serie 2000,12,1.176,1.281
+perf_sweep,Bandpass BP6 serie 2000,13,1.209,1.348
+perf_sweep,Bandpass BP6 serie 2000,14,1.443,1.179
+perf_sweep,Bandpass BP6 serie 2000,15,1.176,1.245
+perf_sweep,Bandpass BP6 serie 500,1,0.356,0.302
+perf_sweep,Bandpass BP6 serie 500,2,0.405,0.34
+perf_sweep,Bandpass BP6 serie 500,3,0.286,0.339
+perf_sweep,Bandpass BP6 serie 500,4,0.354,0.288
+perf_sweep,Bandpass BP6 serie 500,5,0.415,0.444
+perf_sweep,Bandpass BP6 serie 500,6,0.414,0.34
+perf_sweep,Bandpass BP6 serie 500,7,0.286,0.301
+perf_sweep,Bandpass BP6 serie 500,8,0.305,0.288
+perf_sweep,Bandpass BP6 serie 500,9,0.288,0.401
+perf_sweep,Bandpass BP6 serie 500,10,0.413,0.306
+perf_sweep,Bandpass BP6 serie 500,11,0.289,0.306
+perf_sweep,Bandpass BP6 serie 500,12,0.305,0.285
+perf_sweep,Bandpass BP6 serie 500,13,0.286,0.369
+perf_sweep,Bandpass BP6 serie 500,14,0.404,0.312
+perf_sweep,Bandpass BP6 serie 500,15,0.319,0.304
+perf_sweep,System bocina 4 tramos 2000,1,52.29,29.572
+perf_sweep,System bocina 4 tramos 2000,2,54.976,47.112
+perf_sweep,System bocina 4 tramos 2000,3,54.682,31.54
+perf_sweep,System bocina 4 tramos 2000,4,55.555,29.605
+perf_sweep,System bocina 4 tramos 2000,5,57.09,30.667
+perf_sweep,System bocina 4 tramos 2000,6,57.417,34.277
+perf_sweep,System bocina 4 tramos 2000,7,52.9,29.394
+perf_sweep,System bocina 4 tramos 2000,8,52.062,29.824
+perf_sweep,System bocina 4 tramos 2000,9,57.491,56.489
+perf_sweep,System bocina 4 tramos 2000,10,55.091,30.735
+perf_sweep,System bocina 4 tramos 2000,11,55.44,29.396
+perf_sweep,System bocina 4 tramos 2000,12,53.771,31.395
+perf_sweep,System bocina 4 tramos 2000,13,55.387,31.205
+perf_sweep,System bocina 4 tramos 2000,14,53.621,29.388
+perf_sweep,System bocina 4 tramos 2000,15,56.208,29.273
+perf_sweep,System bocina 4 tramos 500,1,12.799,7.498
+perf_sweep,System bocina 4 tramos 500,2,13.793,8.281
+perf_sweep,System bocina 4 tramos 500,3,14.289,7.577
+perf_sweep,System bocina 4 tramos 500,4,14.497,7.936
+perf_sweep,System bocina 4 tramos 500,5,14.183,7.829
+perf_sweep,System bocina 4 tramos 500,6,15.677,9.464
+perf_sweep,System bocina 4 tramos 500,7,13.519,8.44
+perf_sweep,System bocina 4 tramos 500,8,13.195,7.659
+perf_sweep,System bocina 4 tramos 500,9,14.674,8.506
+perf_sweep,System bocina 4 tramos 500,10,15.212,8.259
+perf_sweep,System bocina 4 tramos 500,11,14.216,7.969
+perf_sweep,System bocina 4 tramos 500,12,13.573,9.124
+perf_sweep,System bocina 4 tramos 500,13,13.654,8.477
+perf_sweep,System bocina 4 tramos 500,14,14.017,7.296
+perf_sweep,System bocina 4 tramos 500,15,13.092,7.387
+perf_sweep,TappedHorn 4 tramos 2000,1,135.232,60.001
+perf_sweep,TappedHorn 4 tramos 2000,2,111.706,75.805
+perf_sweep,TappedHorn 4 tramos 2000,3,106.704,59.358
+perf_sweep,TappedHorn 4 tramos 2000,4,116.149,57.684
+perf_sweep,TappedHorn 4 tramos 2000,5,108.303,68.785
+perf_sweep,TappedHorn 4 tramos 2000,6,127.753,61.135
+perf_sweep,TappedHorn 4 tramos 2000,7,108.543,59.212
+perf_sweep,TappedHorn 4 tramos 2000,8,103.875,59.732
+perf_sweep,TappedHorn 4 tramos 2000,9,113.763,62.284
+perf_sweep,TappedHorn 4 tramos 2000,10,110.982,63.508
+perf_sweep,TappedHorn 4 tramos 2000,11,107.821,58.076
+perf_sweep,TappedHorn 4 tramos 2000,12,106.706,60.443
+perf_sweep,TappedHorn 4 tramos 2000,13,107.882,60.033
+perf_sweep,TappedHorn 4 tramos 2000,14,112.089,58.918
+perf_sweep,TappedHorn 4 tramos 2000,15,103.982,59.876
+perf_sweep,TappedHorn 4 tramos 500,1,27.052,14.457
+perf_sweep,TappedHorn 4 tramos 500,2,27.3,41.592
+perf_sweep,TappedHorn 4 tramos 500,3,28.164,15.292
+perf_sweep,TappedHorn 4 tramos 500,4,29.191,14.885
+perf_sweep,TappedHorn 4 tramos 500,5,31.286,15.119
+perf_sweep,TappedHorn 4 tramos 500,6,28.088,14.923
+perf_sweep,TappedHorn 4 tramos 500,7,27.067,14.779
+perf_sweep,TappedHorn 4 tramos 500,8,26.846,15.574
+perf_sweep,TappedHorn 4 tramos 500,9,29.833,21.9
+perf_sweep,TappedHorn 4 tramos 500,10,27.284,15.23
+perf_sweep,TappedHorn 4 tramos 500,11,27.028,14.779
+perf_sweep,TappedHorn 4 tramos 500,12,27.263,14.366
+perf_sweep,TappedHorn 4 tramos 500,13,27.337,14.503
+perf_sweep,TappedHorn 4 tramos 500,14,28.843,14.434
+perf_sweep,TappedHorn 4 tramos 500,15,26.906,14.845

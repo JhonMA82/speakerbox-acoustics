@@ -168,12 +168,15 @@ Criterios de priorización:
 
 Diferida hasta que el producto lo pida:
 
-- Pérdidas viscotérmicas y absorbentes más detallados.
+- Extender las pérdidas termoviscosas a perfiles variables y validar con mediciones.
 - Compresión de potencia y límites térmicos.
 - Directividad, mapas polares e índice de directividad.
-- Perfiles tractrix, Bessel, Le Cléac'h y OS en forma cerrada.
+- Perfiles Bessel y construcción original de Le Cléac’h.
 - Líneas de transmisión amortiguadas.
 - Radiación no pistónica y modos del diafragma.
+
+[Integración horn-simulation](docs/horn-simulation-integration/README.md) describe
+los perfiles paramétricos y el modelo termoviscoso cilíndrico disponibles.
 
 ---
 

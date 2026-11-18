@@ -367,3 +367,9 @@ pub fn acoustic_cost(design: &crate::Design, goals: &[AcousticGoal]) -> Result<f
         Err(SolveError::InvalidResponse("objective overflow"))
     }
 }
+
+mod screen;
+pub use screen::{
+    screen_and_refine, FidelityCandidate, FidelityRejection, FidelityReport, FidelityStage,
+    ScreenBudget, ScreenCandidate,
+};

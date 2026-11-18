@@ -88,8 +88,10 @@ y las pruebas comparan RK4 contra ella.
 
 `xT` se resuelve analíticamente con el dominio y la elección de raíz
 descritos en la sección de auditoría, para que `S(L) = S2`. `T = 0` es catenoidal;
-`T = 1/√2` reproduce el perfil de Le Cléac'h. Tractrix, Bessel y guía OS se
-pueden pasar como `Flare::Custom`.
+`T = 1/√2` es el valor histórico para registros `Hyp` que omiten el parámetro.
+`HornProfileSpec` aporta tractrix, tractrix escalada, OS y exponencial-cónica
+con parámetros persistentes. La construcción de Le Cléac’h se describe en
+[la auditoría de perfiles](horn-simulation-integration/DECISIONES.md#hypex-tractrix-y-le-cléach).
 
 «Parabólico» (`Par`) es el nombre del software de referencia para un **área
 lineal** entre extremos; no es una parábola matemática en el radio ni en el
@@ -563,9 +565,9 @@ métricas para cualquier par de ficheros oráculo.
 * El modelo exacto de **pérdidas** (`Qa`, `QL`, `Fr`, `Tal`, recubrimientos) y
   de **compresión de potencia** de la aplicación de referencia no es público;
   se usan aproximaciones calibradas contra los exports.
-* Los perfiles **tractrix, Bessel, Le Cléac'h, OS y spherical wave** no tienen
-  forma cerrada en esta versión: se modelan con `Flare::Custom` o con
-  hiperbólico-exponencial equivalente.
+* Bessel, Le Cléac’h y los modelos de onda esférica carecen de una implementación
+  dedicada. `Flare::Custom` admite leyes de área definidas por el consumidor.
+  El solver Webster conserva su aproximación 1D también para contornos OS.
 * La **directividad** es la de un pistón equivalente; Hornresp la califica de
   indicativa. No se implementan mapas polares ni índice de directividad.
 * El **tapped horn** de 4 tramos, sin cámaras y con tomas S2/S4 (TH) o S2/S3

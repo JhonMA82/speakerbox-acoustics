@@ -17,7 +17,7 @@ categories = ["multimedia::audio", "simulation", "science"]
 [dependencies]
 num-complex = "0.4"
 libm = "0.2"
-serde_json = "1"
+serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [lib]
 name = "speakerbox_acoustics"

@@ -294,8 +294,9 @@ El alcance v1, las topologías diferidas y el orden sugerido están en
   tramos sin cámaras. Para un TH con otra topología (cámaras, más tramos,
   tomas distintas) debe generarse su propio export y validarse con
   `examples/compare_th`.
-* Tractrix, Bessel, Le Cléac'h y guía OS se pueden introducir con
-  `Flare::Custom`; no se incluyen sus perfiles cerrados.
+* Tractrix, tractrix escalada, OS y exponencial-cónica tienen pruebas
+  geométricas y una comparación Webster 1D independiente de la validación
+  Hornresp. Consulte su [alcance y condiciones](horn-simulation-integration/VALIDACION.md).
 * La directividad es la de un pistón equivalente y el propio Hornresp la
   describe como «indicativa, no exacta».
 * No se distribuye código de la aplicación de referencia; solo se usan

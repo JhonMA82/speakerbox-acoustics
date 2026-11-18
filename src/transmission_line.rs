@@ -81,6 +81,9 @@ impl TransmissionLine {
         let mut x = 0.;
         let mut tap = 0;
         for seg in segments {
+            if seg.thermoviscous_properties().is_some() {
+                seg.validate()?;
+            }
             let end = x + seg.length();
             if position_m > x && position_m < end {
                 let cut = position_m - x;
@@ -100,6 +103,9 @@ impl TransmissionLine {
                     }
                     .with_flow_resistivity(seg.flow_resistivity());
                     sub.loss = seg.loss;
+                    if let Some(properties) = seg.thermoviscous_properties() {
+                        sub = sub.with_thermoviscous_losses(properties);
+                    }
                     out.push(sub);
                     if offset == 0. {
                         tap = out.len();
