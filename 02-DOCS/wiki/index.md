@@ -1,6 +1,7 @@
 # Índice de conocimiento
 
 - [harness/user-profile.md](harness/user-profile.md): nivel técnico y preferencias.
+- [harness/audit-omp19-a5eaba6.md](harness/audit-omp19-a5eaba6.md): aplicación y verificación de la auditoría OMP 19.
 - [sdd/constitution.md](sdd/constitution.md): no negociables de este repositorio.
 - [sdd/specs/library-stabilization.md](sdd/specs/library-stabilization.md): spec aprobada.
 - [sdd/specs/speakerworkshop-integration.md](sdd/specs/speakerworkshop-integration.md): redes RLC y workspace (Fase A + B).
